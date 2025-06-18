@@ -13,7 +13,7 @@ A simple mod manager for **Elden Ring** and **Nightreign** using **Mod Engine 3*
 ## 📦 Download
 
 **No setup needed!**  
-Get the latest version from the [Releases](https://github.com/2pz/me3-manager/releases) tab.
+Get the latest version from the [Releases](https://github.com/2pz/ne3-manager/releases) tab.
 
 ---
 
@@ -37,7 +37,7 @@ Get the latest version from the [Releases](https://github.com/2pz/me3-manager/re
 
 ## ❓ Need Help?
 
-If something isn’t working, open an [Issue]([https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/issues](https://github.com/2Pz/ne3-manager/issues)).
+If something isn’t working, open an [Issue]((https://github.com/2Pz/ne3-manager/issues)).
 
 ---
 
