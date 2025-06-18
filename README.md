@@ -2,7 +2,7 @@
 
 
 ![Screenshot](https://i.ibb.co/GQygXRQF/Screenshot-2025-06-18-202933.png)
-
+![Screenshot](https://i.ibb.co/nqDyCq2r/Screenshot-2025-06-18-205547.png)
 
 A simple mod manager for **Mod Engine 3**.
 
