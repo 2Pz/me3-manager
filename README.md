@@ -4,7 +4,7 @@
 ![Screenshot](https://i.ibb.co/GQygXRQF/Screenshot-2025-06-18-202933.png)
 
 
-A simple mod manager for **Elden Ring** and **Nightreign** using **Mod Engine 3**.
+A simple mod manager for **Mod Engine 3**.
 
 ✅ Drag & drop mods  
 ✅ One-click enable/disable  
