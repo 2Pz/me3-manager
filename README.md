@@ -1,46 +1,50 @@
-Mod Engine 3 Manager
-A simple mod manager for Elden Ring and Nightreign using Mod Engine 3.
+## Mod Engine 3 Manager
 
-✅ Drag & drop mods
-✅ One-click enable/disable
-✅ Built-in config editor
-✅ Game launcher
+A simple mod manager for **Elden Ring** and **Nightreign** using **Mod Engine 3**.
+
+✅ Drag & drop mods  
+✅ One-click enable/disable  
+✅ Built-in config editor  
+✅ Game launcher  
 ✅ External mod support
 
-📦 Download
-No setup needed!
-Get the latest version from the Releases tab.
+---
 
-🚀 How to Use
-Download and extract the .zip from Releases
+## 📦 Download
 
-Run ModEngine3Manager.exe
+**No setup needed!**  
+Get the latest version from the [Releases]([https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/releases](https://github.com/2pz/ne3-manager/releases)) tab.
 
-Pick a game from the sidebar
+---
 
-Drag .dll mod files into the window
+## 🚀 How to Use
 
-Click Launch to start the game
+1. Download and extract the `.zip` from [Releases]([https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/releases](https://github.com/2pz/ne3-manager/releases))
+2. Run `ModEngine3Manager.exe`
+3. Pick a game from the sidebar
+4. Drag `.dll` mod files into the window
+5. Click **Launch** to start the game
 
-💡 Notes
-Mods are stored in:
+---
 
-shell
-Copy
-Edit
-%LocalAppData%\garyttierney\me3\
-Supports .ini config editing per mod
+## 💡 Notes
 
-Also works with external mods (outside the mods folder)
+- Mods are stored in: `%LocalAppData%\garyttierney\me3\`
+- Supports `.ini` config editing per mod
+- Also works with external mods (outside the mods folder)
 
-❓ Need Help?
-If something isn’t working, open an Issue.
+---
 
-🧑‍💻 For Developers
+## ❓ Need Help?
+
+If something isn’t working, open an [Issue]([https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/issues](https://github.com/2Pz/ne3-manager/issues)).
+
+---
+
+## 🧑‍💻 For Developers
+
 To run from source:
 
-bash
-Copy
-Edit
+```bash
 pip install PyQt6
-python mainbackup.py
+python main.py
