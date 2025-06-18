@@ -7,9 +7,10 @@
 hey so this is just a simple mod manager i made for Mod Engine 3. nothing fancy but it works pretty good
 
 
-what it does:/n
-drag and drop your mods (super easy)
-turn mods on/off with one click
+what it does:
+
+drag and drop your mods (super easy).
+turn mods on/off with one click.
 edit config files dirctly in the app
 launch your games
 
