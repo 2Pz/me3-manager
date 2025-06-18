@@ -16,8 +16,8 @@ A simple mod manager for **Mod Engine 3**.
 
 ## 📦 Download
 
-**No setup needed!**  
-Get the latest version from the [Releases](https://github.com/2pz/me3-manager/releases) tab.
+Downlaod and install Me3 [Mod Engine 3](https://github.com/garyttierney/me3/releases/latest) 
+Get the latest version for the manager from the [Releases](https://github.com/2pz/me3-manager/releases) tab.
 
 ---
 
