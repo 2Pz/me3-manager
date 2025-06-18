@@ -4,24 +4,25 @@
 ![Screenshot](https://i.ibb.co/GQygXRQF/Screenshot-2025-06-18-202933.png)
 ![Screenshot](https://i.ibb.co/nqDyCq2r/Screenshot-2025-06-18-205547.png)
 
-A simple mod manager for **Mod Engine 3**.
+hey so this is just a simple mod manager i made for Mod Engine 3. nothing fancy but it works pretty good
 
-✅ Drag & drop mods  
-✅ One-click enable/disable  
-✅ Built-in config editor  
-✅ Game launcher  
-✅ External mod support
+
+what it does:
+drag and drop your mods (super easy)
+turn mods on/off with one click
+edit config files dirctly in the app
+launch your games
 
 ---
 
-## 📦 Download
+## Download
 
 Downlaod and install Me3 [Mod Engine 3](https://github.com/garyttierney/me3/releases/latest) 
 Get the latest version for the manager from the [Releases](https://github.com/2pz/me3-manager/releases) tab.
 
 ---
 
-## 🚀 How to Use
+## How to Use
 
 1. Download and extract the `.zip` from [Releases](https://github.com/2pz/me3-manager/releases).
 2. Run `ModEngine3Manager.exe`
@@ -31,7 +32,7 @@ Get the latest version for the manager from the [Releases](https://github.com/2p
 
 ---
 
-## 💡 Notes
+## Notes
 
 - Mods are stored in: `%LocalAppData%\garyttierney\me3\`
 - Supports `.ini` config editing per mod
@@ -39,13 +40,13 @@ Get the latest version for the manager from the [Releases](https://github.com/2p
 
 ---
 
-## ❓ Need Help?
+## Need Help?
 
 If something isn’t working, open an [Issue](https://github.com/2Pz/me3-manager/issues).
 
 ---
 
-## 🧑‍💻 For Developers
+## For Developers
 
 To run from source:
 
