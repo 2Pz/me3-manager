@@ -33,7 +33,7 @@ if sys.platform == 'win32':
 # Define the main executable
 executables = [
     Executable(
-        'main.py',  # The main script of your project
+        'main.py',  # The main script of project
         base=base,
         target_name=f'Me3_Manager.exe',  # Output executable name
         icon='resources/icon/icon.ico'  # Path to the icon file
