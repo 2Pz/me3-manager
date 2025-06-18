@@ -13,13 +13,13 @@ A simple mod manager for **Elden Ring** and **Nightreign** using **Mod Engine 3*
 ## 📦 Download
 
 **No setup needed!**  
-Get the latest version from the [Releases]([https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/releases](https://github.com/2pz/ne3-manager/releases)) tab.
+Get the latest version from the [Releases](https://github.com/2pz/me3-manager/releases) tab.
 
 ---
 
 ## 🚀 How to Use
 
-1. Download and extract the `.zip` from [Releases]([https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/releases](https://github.com/2pz/ne3-manager/releases))
+1. Download and extract the `.zip` from [Releases](https://github.com/2pz/ne3-manager/releases).
 2. Run `ModEngine3Manager.exe`
 3. Pick a game from the sidebar
 4. Drag `.dll` mod files into the window
