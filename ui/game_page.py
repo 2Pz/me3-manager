@@ -47,7 +47,7 @@ class GamePage(QWidget):
         header_layout.addStretch()
         
         # Launch button
-        self.launch_btn = QPushButton(f"🚀 Launch {self.game_name}")
+        self.launch_btn = QPushButton(f"Launch {self.game_name}")
         self.launch_btn.setFixedHeight(40)
         self.launch_btn.setStyleSheet("""
             QPushButton {
@@ -137,7 +137,7 @@ class GamePage(QWidget):
         layout.addWidget(self.search_bar)
         
         # Drop zone
-        self.drop_zone = QLabel("📁 Drag & Drop .dll files here to install mods")
+        self.drop_zone = QLabel("📁 Drag & Drop .dll files or mod folders here to install mods")
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setStyleSheet("""
             QLabel {
@@ -191,11 +191,37 @@ class GamePage(QWidget):
         layout.addWidget(self.status_label)
         
         self.setLayout(layout)
+
+    def is_valid_mod_folder(self, path: str) -> bool:
+        """Check if a folder contains valid mod subfolders"""
+        folder_path = Path(path)
+        if not folder_path.is_dir():
+            return False
+        
+        acceptable_folders = [
+            '_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
+            'font', 'map', 'material', 'menu', 'movie', 'msg', 'other', 'param',
+            'parts', 'script', 'sd', 'sfx', 'shader', 'sound'
+        ]
+        
+        # Check if folder itself is acceptable or contains acceptable subfolders
+        if folder_path.name in acceptable_folders:
+            return True
+        
+        for item in folder_path.iterdir():
+            if item.is_dir() and item.name in acceptable_folders:
+                return True
+        
+        return False
     
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             urls = event.mimeData().urls()
-            if any(url.toLocalFile().endswith('.dll') for url in urls):
+            files = [url.toLocalFile() for url in urls]
+            has_dll = any(f.endswith('.dll') for f in files)
+            has_valid_folder = any(self.is_valid_mod_folder(f) for f in files)
+            
+            if has_dll or has_valid_folder:
                 event.acceptProposedAction()
                 self.drop_zone.setStyleSheet("""
                     QLabel {
@@ -207,7 +233,7 @@ class GamePage(QWidget):
                         color: #ffffff;
                         margin: 8px 0px;
                     }
-                """)
+            """)
     
     def dragLeaveEvent(self, event):
         self.drop_zone.setStyleSheet("""
@@ -226,9 +252,122 @@ class GamePage(QWidget):
         self.dragLeaveEvent(event)
         files = [url.toLocalFile() for url in event.mimeData().urls()]
         dll_files = [f for f in files if f.endswith('.dll')]
+        mod_folders = [f for f in files if self.is_valid_mod_folder(f)]
         
         if dll_files:
             self.install_mods(dll_files)
+        if mod_folders:
+            self.install_folder_mods(mod_folders)
+
+    def install_folder_mods(self, folder_paths: List[str]):
+        """Install dropped mod folders"""
+        from PyQt6.QtWidgets import QInputDialog
+        
+        if not folder_paths:
+            return
+        
+        # If multiple folders are dropped at once, treat them as one mod
+        if len(folder_paths) > 1:
+            # Ask for mod name once for all folders
+            mod_name, ok = QInputDialog.getText(
+                self, "Mod Name", 
+                f"Enter name for mod containing {len(folder_paths)} folders:",
+                text="new_mod"
+            )
+            if not ok or not mod_name.strip():
+                return
+            mod_name = mod_name.strip()
+            
+            # Create destination in mods folder
+            mods_dir = self.config_manager.get_mods_dir(self.game_name)
+            dest_path = mods_dir / mod_name
+            
+            if dest_path.exists():
+                reply = QMessageBox.question(self, "Mod Exists", 
+                                        f"Mod folder '{mod_name}' already exists. Replace it?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if reply == QMessageBox.StandardButton.No:
+                    return
+                shutil.rmtree(dest_path)
+            
+            # Create parent folder and copy all subfolders into it
+            dest_path.mkdir(parents=True, exist_ok=True)
+            for folder_path in folder_paths:
+                try:
+                    source_path = Path(folder_path)
+                    shutil.copytree(source_path, dest_path / source_path.name)
+                except Exception as e:
+                    QMessageBox.warning(self, "Install Error", f"Failed to copy folder {source_path.name}: {str(e)}")
+            
+            # Add to config as folder mod
+            self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_path))
+            self.status_label.setText(f"Installed folder mod: {mod_name}")
+            
+        else:
+            # Single folder - use existing logic
+            folder_path = folder_paths[0]
+            try:
+                source_path = Path(folder_path)
+                acceptable_folders = [
+                    '_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
+                    'font', 'map', 'material', 'menu', 'movie', 'msg', 'other', 'param',
+                    'parts', 'script', 'sd', 'sfx', 'shader', 'sound'
+                ]
+                
+                # Determine mod name and destination structure
+                if source_path.name in acceptable_folders:
+                    # It's a subfolder, ask user for parent folder name
+                    default_name = f"mod_{source_path.name}"
+                    mod_name, ok = QInputDialog.getText(
+                        self, "Mod Folder Name", 
+                        f"Enter name for mod containing '{source_path.name}':",
+                        text=default_name
+                    )
+                    if not ok or not mod_name.strip():
+                        return
+                    mod_name = mod_name.strip()
+                    
+                    # Create destination in mods folder
+                    mods_dir = self.config_manager.get_mods_dir(self.game_name)
+                    dest_path = mods_dir / mod_name
+                    
+                    if dest_path.exists():
+                        reply = QMessageBox.question(self, "Mod Exists", 
+                                                f"Mod folder '{mod_name}' already exists. Replace it?",
+                                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                        if reply == QMessageBox.StandardButton.No:
+                            return
+                        shutil.rmtree(dest_path)
+                    
+                    # Create parent folder and copy the subfolder into it
+                    dest_path.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(source_path, dest_path / source_path.name)
+                else:
+                    # It's already a parent folder, copy directly
+                    mod_name = source_path.name
+                    mods_dir = self.config_manager.get_mods_dir(self.game_name)
+                    dest_path = mods_dir / mod_name
+                    
+                    if dest_path.exists():
+                        reply = QMessageBox.question(self, "Mod Exists", 
+                                                f"Mod folder '{mod_name}' already exists. Replace it?",
+                                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                        if reply == QMessageBox.StandardButton.No:
+                            return
+                        shutil.rmtree(dest_path)
+                    
+                    shutil.copytree(source_path, dest_path)
+                
+                # Add to config as folder mod
+                self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_path))
+                self.status_label.setText(f"Installed folder mod: {mod_name}")
+                
+            except Exception as e:
+                QMessageBox.warning(self, "Install Error", f"Failed to install folder mod: {str(e)}")
+        
+        # Reload mods and reset status
+        self.load_mods()
+        QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
     
     def install_mods(self, dll_files: List[str]):
         """Install dropped DLL files"""
@@ -269,10 +408,11 @@ class GamePage(QWidget):
         
         for mod_path, info in mods_info.items():
             mod_widget = ModItem(
-                mod_path, 
-                info['name'], 
-                info['enabled'], 
-                info['external']
+            mod_path, 
+            info['name'], 
+            info['enabled'], 
+            info['external'],
+            info.get('is_folder_mod', False)
             )
             mod_widget.toggled.connect(self.toggle_mod)
             mod_widget.delete_requested.connect(self.delete_mod)
