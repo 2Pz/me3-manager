@@ -1,12 +1,10 @@
-# core/config_manager.py
-
 import os
 import sys
 import json
 import re
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-
+import shutil
 from PyQt6.QtCore import QFileSystemWatcher
 import tomllib
 
@@ -317,20 +315,56 @@ class ConfigManager:
         
         # Get profile config
         profile_path = self.get_profile_path(game_name)
+        config_data = self._parse_toml_config(profile_path)
         enabled_paths = self.parse_me3_config(profile_path)
         enabled_mods = set(enabled_paths)
         
-        # Scan mods directory
+        # Get enabled folder mods from packages
+        enabled_folder_mods = set()
+        if "packages" in config_data:
+            for package in config_data["packages"]:
+                pkg_id = package.get("id", "")
+                if pkg_id != self.games[game_name]['mods_dir']:  # Skip the main mods directory package
+                    enabled_folder_mods.add(pkg_id)
+        
+        # Scan mods directory for DLL files
         mods_dir = self.get_mods_dir(game_name)
         for dll_file in mods_dir.glob("*.dll"):
             relative_path = f"{self.games[game_name]['mods_dir']}\\{dll_file.name}"
             mods_info[str(dll_file)] = {
                 'name': dll_file.stem,
                 'enabled': relative_path in enabled_mods,
-                'external': False
+                'external': False,
+                'is_folder_mod': False
             }
         
-        # Add external mods from profile
+        # Scan mods directory for folder mods
+        acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
+                            'font', 'map', 'material', 'menu', 'movie', 'msg', 'other', 'param',
+                            'parts', 'script', 'sd', 'sfx', 'shader', 'sound']
+        
+        for folder in mods_dir.iterdir():
+            if folder.is_dir() and folder.name != self.games[game_name]['mods_dir']:
+                # Check if it's a valid mod folder
+                is_valid = False
+                if folder.name in acceptable_folders:
+                    is_valid = True
+                else:
+                    # Check if it contains acceptable subfolders
+                    for subfolder in folder.iterdir():
+                        if subfolder.is_dir() and subfolder.name in acceptable_folders:
+                            is_valid = True
+                            break
+                
+                if is_valid:
+                    mods_info[str(folder)] = {
+                        'name': folder.name,
+                        'enabled': folder.name in enabled_folder_mods,
+                        'external': False,
+                        'is_folder_mod': True
+                    }
+        
+        # Add external DLL mods from profile
         for enabled_path in enabled_mods:
             if not enabled_path.startswith(self.games[game_name]['mods_dir']):
                 # External mod
@@ -338,48 +372,103 @@ class ConfigManager:
                 mods_info[enabled_path] = {
                     'name': mod_name,
                     'enabled': True,
-                    'external': True
+                    'external': True,
+                    'is_folder_mod': False
                 }
         
         return mods_info
     
     def set_mod_enabled(self, game_name: str, mod_path: str, enabled: bool):
         """Enable or disable a mod"""
-        profile_path = self.get_profile_path(game_name)
+        mod_path_obj = Path(mod_path)
         
-        # Get current enabled paths
-        current_paths = self.parse_me3_config(profile_path)
-        
-        # Determine the path to use in config
-        if Path(mod_path).is_absolute() and not mod_path.startswith(str(self.config_root)):
-            # External mod - use full path with forward slashes
-            config_path = mod_path.replace('\\', '/')
+        # Check if it's a folder mod
+        if mod_path_obj.is_dir():
+            # Handle folder mod
+            if enabled:
+                self.add_folder_mod(game_name, mod_path_obj.name, mod_path)
+            else:
+                self.remove_folder_mod(game_name, mod_path_obj.name)
         else:
-            # Internal mod - use relative path with backslashes
-            config_path = f"{self.games[game_name]['mods_dir']}\\{Path(mod_path).name}"
-        
-        # Remove existing entry for this mod (handle both slash types)
-        current_paths = [p for p in current_paths if 
-                        p != config_path and 
-                        p.replace('\\', '/') != config_path.replace('\\', '/') and
-                        p.replace('/', '\\') != config_path.replace('/', '\\')]
-        
-        # Add entry if enabling
-        if enabled:
-            current_paths.append(config_path)
-        
-        # Write updated config
-        self.write_me3_config(profile_path, current_paths)
+            # Handle DLL mod (existing logic)
+            profile_path = self.get_profile_path(game_name)
+            
+            # Get current enabled paths
+            current_paths = self.parse_me3_config(profile_path)
+            
+            # Determine the path to use in config
+            if Path(mod_path).is_absolute() and not mod_path.startswith(str(self.config_root)):
+                # External mod - use full path with forward slashes
+                config_path = mod_path.replace('\\', '/')
+            else:
+                # Internal mod - use relative path with backslashes
+                config_path = f"{self.games[game_name]['mods_dir']}\\{Path(mod_path).name}"
+            
+            # Remove existing entry for this mod (handle both slash types)
+            current_paths = [p for p in current_paths if 
+                            p != config_path and 
+                            p.replace('\\', '/') != config_path.replace('\\', '/') and
+                            p.replace('/', '\\') != config_path.replace('/', '\\')]
+            
+            # Add entry if enabling
+            if enabled:
+                current_paths.append(config_path)
+            
+            # Write updated config
+            self.write_me3_config(profile_path, current_paths)
     
     def delete_mod(self, game_name: str, mod_path: str):
         """Delete a mod"""
-        # Remove from config first
-        self.set_mod_enabled(game_name, mod_path, False)
-        
-        # Delete file if it's in our mods directory
         mod_path_obj = Path(mod_path)
-        if mod_path_obj.parent == self.get_mods_dir(game_name):
-            mod_path_obj.unlink()
+        
+        if mod_path_obj.is_dir():
+            # Handle folder mod
+            self.remove_folder_mod(game_name, mod_path_obj.name)
+            # Delete folder if it's in our mods directory
+            if mod_path_obj.parent == self.get_mods_dir(game_name):
+                shutil.rmtree(mod_path_obj)
+        else:
+            # Handle DLL mod (existing logic)
+            # Remove from config first
+            self.set_mod_enabled(game_name, mod_path, False)
+            
+            # Delete file if it's in our mods directory
+            if mod_path_obj.parent == self.get_mods_dir(game_name):
+                mod_path_obj.unlink()
+
+    def add_folder_mod(self, game_name: str, mod_name: str, mod_path: str):
+        """Add a folder mod to the packages section"""
+        profile_path = self.get_profile_path(game_name)
+        config_data = self._parse_toml_config(profile_path)
+        
+        # Ensure packages section exists
+        if "packages" not in config_data:
+            config_data["packages"] = []
+        
+        # Check if mod already exists
+        existing_ids = [pkg.get("id", "") for pkg in config_data["packages"]]
+        if mod_name not in existing_ids:
+            config_data["packages"].append({
+                "id": mod_name,
+                "path": mod_path,
+                "load_after": [],
+                "load_before": []
+            })
+            
+            self._write_toml_config(profile_path, config_data)
+
+    def remove_folder_mod(self, game_name: str, mod_name: str):
+        """Remove a folder mod from the packages section"""
+        profile_path = self.get_profile_path(game_name)
+        config_data = self._parse_toml_config(profile_path)
+        
+        if "packages" in config_data:
+            config_data["packages"] = [
+                pkg for pkg in config_data["packages"] 
+                if pkg.get("id", "") != mod_name
+            ]
+            
+            self._write_toml_config(profile_path, config_data)
     
     def validate_and_fix_profile(self, profile_path: Path):
         """Validate and fix profile format to ensure it matches the correct structure"""
