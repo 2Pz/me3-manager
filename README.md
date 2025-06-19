@@ -31,7 +31,7 @@ Get the latest version for the manager from the [Releases](https://github.com/2p
 4. Drag `.dll` mod files into the window
 5. Click **Launch** to start the game
 
-New in 1.0.2 you can now drag and drop non-dll mods, you need only drop mod folders
+New in 1.0.2 you can now drag and drop non-dll mods, you need only drop mod folders into the app window
 example folders:
 [
             '_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
