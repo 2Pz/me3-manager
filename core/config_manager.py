@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 from PyQt6.QtCore import QFileSystemWatcher
-
-
+import tomllib
 
 class ConfigManager:
     """Manages ME3 configuration files and mod directories"""
@@ -102,17 +101,155 @@ class ConfigManager:
                 self.create_default_profile(profile_path)
     
     def create_default_profile(self, profile_path: Path):
-        """Create a default ME3 profile"""
-        game_id = "ER" if "eldenring" in profile_path.name else "NR"
-        game_name = "ELDEN RING" if "eldenring" in profile_path.name else "NIGHTREIGN"
+        """Create a default ME3 profile with proper structure"""
+        game_name = "nightreign" if "nightreign" in profile_path.name else "eldenring"
+        mods_dir = self.games.get("Nightreign" if "nightreign" in profile_path.name else "Elden Ring", {}).get("mods_dir", "")
         
-        default_config = f"""[[supports]]
-name = "{game_name}"
-id = "{game_id}"
-"""
+        # Create proper TOML structure
+        config_data = {
+            "profileVersion": "v1",
+            "natives": [],
+            "packages": [
+                {
+                    "id": mods_dir,
+                    "path": str(self.config_root / mods_dir),
+                    "load_after": [],
+                    "load_before": []
+                }
+            ],
+            "supports": [
+                {
+                    "game": game_name
+                }
+            ]
+        }
         
-        with open(profile_path, 'w', encoding='utf-8') as f:
-            f.write(default_config)
+        self._write_toml_config(profile_path, config_data)
+    
+    def _parse_toml_config(self, config_path: Path) -> Dict[str, Any]:
+        """Parse TOML config file, with fallback to regex parsing"""
+        if not config_path.exists():
+            return {"profileVersion": "v1", "natives": [], "packages": [], "supports": []}
+        
+        try:
+            # Try using TOML library first
+            if tomllib:
+                with open(config_path, 'rb') as f:
+                    return tomllib.load(f)
+        except Exception as e:
+            print(f"TOML parsing failed, trying fallback: {e}")
+        
+        # Fallback to regex parsing for malformed files
+        return self._parse_config_fallback(config_path)
+    
+    def _parse_config_fallback(self, config_path: Path) -> Dict[str, Any]:
+        """Fallback parser for malformed TOML files"""
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            config_data = {
+                "profileVersion": "v1",
+                "natives": [],
+                "packages": [],
+                "supports": []
+            }
+            
+            # Extract profileVersion
+            version_match = re.search(r'profileVersion\s*=\s*[\'"]([^\'"]+)[\'"]', content)
+            if version_match:
+                config_data["profileVersion"] = version_match.group(1)
+            
+            # Extract natives paths
+            native_pattern = r'\[\[natives\]\]\s*\n\s*path\s*=\s*[\'"]([^\'"]+)[\'"]'
+            native_matches = re.findall(native_pattern, content, re.MULTILINE | re.IGNORECASE)
+            config_data["natives"] = [{"path": path} for path in native_matches]
+            
+            # Extract supports
+            supports_pattern = r'\[\[supports\]\]\s*\n\s*(?:name\s*=\s*[\'"]([^\'"]+)[\'"]|game\s*=\s*[\'"]([^\'"]+)[\'"]|id\s*=\s*[\'"]([^\'"]+)[\'"])'
+            supports_matches = re.findall(supports_pattern, content, re.MULTILINE | re.IGNORECASE)
+            
+            for match in supports_matches:
+                game_name = match[0] or match[1] or match[2]
+                if game_name:
+                    # Convert old format to new format
+                    if game_name.upper() == "ELDEN RING" or game_name.upper() == "ER":
+                        game_name = "eldenring"
+                    elif game_name.upper() == "NIGHTREIGN" or game_name.upper() == "NR":
+                        game_name = "nightreign"
+                    config_data["supports"].append({"game": game_name.lower()})
+            
+            # Extract packages
+            packages_pattern = r'\[\[packages\]\]\s*\n(?:.*\n)*?(?=\[\[|$)'
+            packages_matches = re.findall(packages_pattern, content, re.MULTILINE | re.DOTALL)
+            
+            for package_block in packages_matches:
+                package_data = {"load_after": [], "load_before": []}
+                
+                id_match = re.search(r'id\s*=\s*[\'"]([^\'"]+)[\'"]', package_block)
+                if id_match:
+                    package_data["id"] = id_match.group(1)
+                
+                path_match = re.search(r'path\s*=\s*[\'"]([^\'"]+)[\'"]', package_block)
+                if path_match:
+                    package_data["path"] = path_match.group(1)
+                
+                source_match = re.search(r'source\s*=\s*[\'"]([^\'"]+)[\'"]', package_block)
+                if source_match:
+                    package_data["source"] = source_match.group(1)
+                
+                config_data["packages"].append(package_data)
+            
+            return config_data
+            
+        except Exception as e:
+            print(f"Error in fallback parsing: {e}")
+            return {"profileVersion": "v1", "natives": [], "packages": [], "supports": []}
+    
+    def _write_toml_config(self, config_path: Path, config_data: Dict[str, Any]):
+        """Write TOML config file with proper formatting"""
+        # Always use manual formatting for ME3 compatibility
+        # The standard TOML libraries write arrays inline, but ME3 expects [[section]] format
+        self._write_config_manual(config_path, config_data)
+    
+    def _write_config_manual(self, config_path: Path, config_data: Dict[str, Any]):
+        """Manual TOML formatting for ME3 compatibility using [[section]] format"""
+        lines = []
+        
+        # Profile version
+        lines.append(f'profileVersion = "{config_data.get("profileVersion", "v1")}"')
+        
+        # Natives - each as separate [[natives]] section
+        for native in config_data.get("natives", []):
+            lines.append("[[natives]]")
+            lines.append(f"path = '{native['path']}'")
+        
+        # Supports - each as separate [[supports]] section  
+        for support in config_data.get("supports", []):
+            lines.append("[[supports]]")
+            lines.append(f"game = \"{support['game']}\"")
+        
+        # Packages - each as separate [[packages]] section
+        for package in config_data.get("packages", []):
+            lines.append("[[packages]]")
+            if "id" in package:
+                lines.append(f"id = \"{package['id']}\"")
+            # Path is required for packages - ensure it exists
+            if "path" in package:
+                lines.append(f"path = '{package['path']}'")
+            elif "source" in package:
+                lines.append(f"source = \"{package['source']}\"")
+            else:
+                # If no path or source, create default path based on id
+                if "id" in package:
+                    default_path = str(self.config_root / package["id"])
+                    lines.append(f"path = '{default_path}'")
+            
+            lines.append(f"load_after = {package.get('load_after', [])}")
+            lines.append(f"load_before = {package.get('load_before', [])}")
+        
+        with open(config_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
     
     def setup_file_watcher(self):
         """Setup file system watcher for mod directories"""
@@ -130,79 +267,55 @@ id = "{game_id}"
     
     def parse_me3_config(self, config_path: Path) -> List[str]:
         """Parse ME3 configuration file and extract native DLL paths"""
+        config_data = self._parse_toml_config(config_path)
         native_paths = []
         
-        if not config_path.exists():
-            return native_paths
-            
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Use regex to find all [[natives]] sections with path entries
-            # Pattern matches: [[natives]] followed by path = 'something'
-            pattern = r'\[\[natives\]\]\s*\n\s*path\s*=\s*[\'"]([^\'"]+)[\'"]'
-            matches = re.findall(pattern, content, re.MULTILINE | re.IGNORECASE)
-            
-            native_paths = matches
-                
-        except Exception as e:
-            print(f"Error parsing ME3 config: {e}")
-            
+        for native in config_data.get("natives", []):
+            if isinstance(native, dict) and "path" in native:
+                native_paths.append(native["path"])
+            elif isinstance(native, str):
+                native_paths.append(native)
+        
         return native_paths
     
     def write_me3_config(self, config_path: Path, native_paths: List[str]):
-        """Write ME3 configuration file with native DLL paths"""
-        try:
-            # Read existing content 
-            existing_content = ""
-            if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    existing_content = f.read()
-            
-            # Remove all existing [[natives]] sections
-            # Pattern to match [[natives]] section including the path line
-            pattern = r'\[\[natives\]\]\s*\n\s*path\s*=\s*[\'"][^\'"]+[\'"]'
-            cleaned_content = re.sub(pattern, '', existing_content, flags=re.MULTILINE | re.IGNORECASE)
-            
-            # Remove extra blank lines
-            cleaned_content = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_content)
-            cleaned_content = cleaned_content.strip()
-            
-            # Add native paths before [[supports]] section
-            native_sections = []
-            for path in native_paths:
-                native_sections.append(f"[[natives]]\npath = '{path}'")
-            
-            if native_sections:
-                natives_text = '\n\n'.join(native_sections) + '\n\n'
-                
-                # Find [[supports]] section and insert before it
-                supports_match = re.search(r'\[\[supports\]\]', cleaned_content, re.IGNORECASE)
-                if supports_match:
-                    insertion_point = supports_match.start()
-                    final_content = (
-                        cleaned_content[:insertion_point] + 
-                        natives_text + 
-                        cleaned_content[insertion_point:]
-                    )
-                else:
-                    # If no [[supports]] section, add natives at the end
-                    final_content = cleaned_content + '\n\n' + natives_text.rstrip()
-            else:
-                final_content = cleaned_content
-            
-            # Write back to file
-            with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(final_content)
-                
-        except Exception as e:
-            print(f"Error writing ME3 config: {e}")
+        """Write ME3 configuration file with native DLL paths in proper format"""
+        # Read existing config or create default
+        config_data = self._parse_toml_config(config_path)
+        
+        # Ensure proper structure
+        if "profileVersion" not in config_data:
+            config_data["profileVersion"] = "v1"
+        
+        # Update natives
+        config_data["natives"] = [{"path": path} for path in native_paths]
+        
+        # Ensure supports section exists
+        if not config_data.get("supports"):
+            game_name = "nightreign" if "nightreign" in config_path.name else "eldenring"
+            config_data["supports"] = [{"game": game_name}]
+        
+        # Ensure packages section exists with default package
+        if not config_data.get("packages"):
+            mods_dir = self.games.get("Nightreign" if "nightreign" in config_path.name else "Elden Ring", {}).get("mods_dir", "")
+            if mods_dir:
+                config_data["packages"] = [
+                    {
+                        "id": mods_dir,
+                        "path": str(self.config_root / mods_dir),
+                        "load_after": [],
+                        "load_before": []
+                    }
+                ]
+        
+        # Write the corrected config
+        self._write_toml_config(config_path, config_data)
+    
     def get_mods_info(self, game_name: str) -> Dict[str, Dict]:
         """Get information about all mods for a game"""
         mods_info = {}
         
-        # Get profile config using simple text parser
+        # Get profile config
         profile_path = self.get_profile_path(game_name)
         enabled_paths = self.parse_me3_config(profile_path)
         enabled_mods = set(enabled_paths)
@@ -267,3 +380,84 @@ id = "{game_id}"
         mod_path_obj = Path(mod_path)
         if mod_path_obj.parent == self.get_mods_dir(game_name):
             mod_path_obj.unlink()
+    
+    def validate_and_fix_profile(self, profile_path: Path):
+        """Validate and fix profile format to ensure it matches the correct structure"""
+        try:
+            # Read and parse the config
+            config_data = self._parse_toml_config(profile_path)
+            
+            # Check if the file needs fixing
+            needs_fixing = False
+            
+            # Check for missing profileVersion
+            if "profileVersion" not in config_data:
+                config_data["profileVersion"] = "v1"
+                needs_fixing = True
+            
+            # Check natives format
+            if "natives" in config_data:
+                fixed_natives = []
+                for native in config_data["natives"]:
+                    if isinstance(native, str):
+                        fixed_natives.append({"path": native})
+                        needs_fixing = True
+                    elif isinstance(native, dict) and "path" in native:
+                        fixed_natives.append(native)
+                config_data["natives"] = fixed_natives
+            
+            # Ensure supports has correct format
+            if "supports" in config_data:
+                fixed_supports = []
+                for support in config_data["supports"]:
+                    if isinstance(support, dict):
+                        # Handle old format conversions
+                        if "name" in support or "id" in support:
+                            game_name = support.get("name", support.get("id", ""))
+                            if game_name.upper() == "ELDEN RING" or game_name.upper() == "ER":
+                                game_name = "eldenring"
+                            elif game_name.upper() == "NIGHTREIGN" or game_name.upper() == "NR":
+                                game_name = "nightreign"
+                            fixed_supports.append({"game": game_name.lower()})
+                            needs_fixing = True
+                        elif "game" in support:
+                            fixed_supports.append(support)
+                config_data["supports"] = fixed_supports
+            
+            # Ensure packages section exists and has required path field
+            if "packages" not in config_data or not config_data["packages"]:
+                game_name = "nightreign" if "nightreign" in profile_path.name else "eldenring"
+                game_key = "Nightreign" if "nightreign" in profile_path.name else "Elden Ring"
+                mods_dir = self.games.get(game_key, {}).get("mods_dir", "")
+                
+                if mods_dir:
+                    config_data["packages"] = [
+                        {
+                            "id": mods_dir,
+                            "path": str(self.config_root / mods_dir),
+                            "load_after": [],
+                            "load_before": []
+                        }
+                    ]
+                    needs_fixing = True
+            else:
+                # Check existing packages for missing path field
+                for package in config_data["packages"]:
+                    if "path" not in package and "source" not in package:
+                        # Add path field if missing
+                        if "id" in package:
+                            package["path"] = str(self.config_root / package["id"])
+                            needs_fixing = True
+            
+            # Write back if fixes were needed
+            if needs_fixing:
+                print(f"Fixing profile format: {profile_path}")
+                self._write_toml_config(profile_path, config_data)
+            
+            return config_data
+            
+        except Exception as e:
+            print(f"Error validating/fixing profile {profile_path}: {e}")
+            # Create a completely new profile if parsing fails
+            self.create_default_profile(profile_path)
+            return self._parse_toml_config(profile_path)
