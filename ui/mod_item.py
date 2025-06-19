@@ -17,8 +17,8 @@ class ModItem(QWidget):
         self.mod_path = mod_path
         self.mod_name = mod_name
         self.is_external = is_external
-        self.is_enabled = is_enabled # Store enabled state internally
-        self.is_folder_mod = is_folder_mod # <-- FIX: Add this line
+        self.is_enabled = is_enabled
+        self.is_folder_mod = is_folder_mod
         
         self.setStyleSheet("""
             ModItem {
@@ -72,7 +72,7 @@ class ModItem(QWidget):
         layout.addStretch()
         
         # Toggle button (replaces QCheckBox)
-        self.toggle_btn = QPushButton("⏻") # Power symbol icon
+        self.toggle_btn = QPushButton("⏻") 
         self.toggle_btn.setFixedSize(30, 30)
         self.toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.toggle_btn.clicked.connect(self.on_toggle)
@@ -134,7 +134,7 @@ class ModItem(QWidget):
         self.setLayout(layout)
         mod_type = "Folder Mod" if self.is_folder_mod else "DLL Mod"
         self.setToolTip(f"Type: {mod_type}\nPath: {mod_path}")
-        self.update_toggle_button_ui() # Set initial tooltip
+        self.update_toggle_button_ui() 
     
     def update_toggle_button_ui(self):
         """Updates the toggle button's tooltip and color based on the mod's state."""
