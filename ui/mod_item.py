@@ -12,12 +12,13 @@ class ModItem(QWidget):
     open_folder_requested = pyqtSignal(str)
     edit_config_requested = pyqtSignal(str)
     
-    def __init__(self, mod_path: str, mod_name: str, is_enabled: bool, is_external: bool = False):
+    def __init__(self, mod_path: str, mod_name: str, is_enabled: bool, is_external: bool = False, is_folder_mod: bool = False):
         super().__init__()
         self.mod_path = mod_path
         self.mod_name = mod_name
         self.is_external = is_external
         self.is_enabled = is_enabled # Store enabled state internally
+        self.is_folder_mod = is_folder_mod # <-- FIX: Add this line
         
         self.setStyleSheet("""
             ModItem {
@@ -39,11 +40,27 @@ class ModItem(QWidget):
         # --- Start of Changed Block ---
         # Status indicator (self.status_label) has been removed.
         
-        # Mod name
+        # Mod name with icon
+        name_layout = QHBoxLayout()
+        name_layout.setSpacing(8)
+
+        if self.is_folder_mod:
+            icon_label = QLabel("📁")
+            icon_label.setStyleSheet("color: #ffa500; font-size: 12px;")
+            name_layout.addWidget(icon_label)
+        else:
+            icon_label = QLabel("⚙️")
+            icon_label.setStyleSheet("color: #569cd6; font-size: 12px;")
+            name_layout.addWidget(icon_label)
+
         name_label = QLabel(mod_name)
         name_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
         name_label.setStyleSheet("color: #ffffff; font-weight: 500;")
-        layout.addWidget(name_label)
+        name_layout.addWidget(name_label)
+
+        name_widget = QWidget()
+        name_widget.setLayout(name_layout)
+        layout.addWidget(name_widget)
         # --- End of Changed Block ---
         
         # External indicator
@@ -61,23 +78,24 @@ class ModItem(QWidget):
         self.toggle_btn.clicked.connect(self.on_toggle)
         layout.addWidget(self.toggle_btn)
         
-        # Config button
-        config_btn = QPushButton("⚙️")
-        config_btn.setFixedSize(30, 30)
-        config_btn.setToolTip("Edit mod configuration (.ini)")
-        config_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4d4d4d;
-                border: none;
-                border-radius: 15px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #5d5d5d;
-            }
-        """)
-        config_btn.clicked.connect(lambda: self.edit_config_requested.emit(self.mod_path))
-        layout.addWidget(config_btn)
+        # Config button (only for DLL mods)
+        if not self.is_folder_mod:
+            config_btn = QPushButton("⚙️")
+            config_btn.setFixedSize(30, 30)
+            config_btn.setToolTip("Edit mod configuration (.ini)")
+            config_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #4d4d4d;
+                    border: none;
+                    border-radius: 15px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #5d5d5d;
+                }
+            """)
+            config_btn.clicked.connect(lambda: self.edit_config_requested.emit(self.mod_path))
+            layout.addWidget(config_btn)
 
         # Buttons
         if is_external:
@@ -114,7 +132,8 @@ class ModItem(QWidget):
         layout.addWidget(delete_btn)
         
         self.setLayout(layout)
-        self.setToolTip(f"Path: {mod_path}")
+        mod_type = "Folder Mod" if self.is_folder_mod else "DLL Mod"
+        self.setToolTip(f"Type: {mod_type}\nPath: {mod_path}")
         self.update_toggle_button_ui() # Set initial tooltip
     
     def update_toggle_button_ui(self):
