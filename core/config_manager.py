@@ -337,6 +337,27 @@ class ConfigManager:
                 'external': False,
                 'is_folder_mod': False
             }
+
+        # Check for regulation.bin (enabled or disabled)
+        regulation_file = mods_dir / "regulation.bin"
+        disabled_regulation_file = mods_dir / "regulation.bin.disabled"
+
+        # The mod exists if either the enabled or disabled version is present.
+        if regulation_file.exists() or disabled_regulation_file.exists():
+            # It's enabled if the non-.disabled file exists.
+            is_enabled = regulation_file.exists()
+            
+            # Use the enabled path as the canonical key for the mod item.
+            # This ensures that actions like toggling or deleting work correctly.
+            canonical_path = str(regulation_file)
+            
+            mods_info[canonical_path] = {
+                'name': 'regulation.bin',
+                'enabled': is_enabled,
+                'external': False,
+                'is_folder_mod': False,
+                'is_regulation': True
+            }
         
         # Scan mods directory for folder mods
         acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
@@ -382,6 +403,22 @@ class ConfigManager:
         """Enable or disable a mod"""
         mod_path_obj = Path(mod_path)
         
+        # NEW BLOCK - Handle regulation.bin
+        if mod_path_obj.name == "regulation.bin":
+            mods_dir = self.get_mods_dir(game_name)
+            regulation_file = mods_dir / "regulation.bin"
+            disabled_regulation = mods_dir / "regulation.bin.disabled"
+            
+            if enabled:
+                # Enable: rename from .disabled back to .bin (if disabled exists)
+                if disabled_regulation.exists():
+                    disabled_regulation.rename(regulation_file)
+            else:
+                # Disable: rename to .disabled
+                if regulation_file.exists():
+                    regulation_file.rename(disabled_regulation)
+            return
+        
         # Check if it's a folder mod
         if mod_path_obj.is_dir():
             # Handle folder mod
@@ -420,6 +457,19 @@ class ConfigManager:
     def delete_mod(self, game_name: str, mod_path: str):
         """Delete a mod"""
         mod_path_obj = Path(mod_path)
+        
+        # NEW BLOCK - Handle regulation.bin deletion
+        if mod_path_obj.name == "regulation.bin":
+            mods_dir = self.get_mods_dir(game_name)
+            regulation_file = mods_dir / "regulation.bin"
+            disabled_regulation = mods_dir / "regulation.bin.disabled"
+            
+            # Delete both enabled and disabled versions
+            if regulation_file.exists():
+                regulation_file.unlink()
+            if disabled_regulation.exists():
+                disabled_regulation.unlink()
+            return
         
         if mod_path_obj.is_dir():
             # Handle folder mod
