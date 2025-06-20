@@ -1,5 +1,3 @@
-# ui/terminal.py
-
 import sys
 import re
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit
@@ -80,7 +78,7 @@ class EmbeddedTerminal(QWidget):
         i = 0
         while i < len(parts):
             text_part = parts[i]
-            # Escape HTML, handle newlines
+
             text_part = text_part.replace('&', '&').replace('<', '<').replace('>', '>')
             text_part = text_part.replace('\n', '<br>')
             html_output += text_part
@@ -115,7 +113,7 @@ class EmbeddedTerminal(QWidget):
                     html_output += f'<span style="{"".join(styles)}">'
                     in_span = True
                     
-            i += 2 # Move past full match and codes group
+            i += 2 
             
         if in_span:
             html_output += "</span>"
@@ -131,8 +129,11 @@ class EmbeddedTerminal(QWidget):
             self.process.waitForFinished(1000)
         
         self.process = QProcess(self)
+        
+        self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        
         self.process.readyReadStandardOutput.connect(self.handle_stdout)
-        self.process.readyReadStandardError.connect(self.handle_stderr)
+
         self.process.finished.connect(self.process_finished)
         
         if working_dir:
@@ -149,6 +150,7 @@ class EmbeddedTerminal(QWidget):
         cursor.movePosition(cursor.MoveOperation.End)
         self.output.setTextCursor(cursor)
 
+        # Since streams are merged, this now reads both stdout and stderr
         data = self.process.readAllStandardOutput()
         stdout = bytes(data).decode("utf8", errors="ignore")
         
@@ -158,20 +160,7 @@ class EmbeddedTerminal(QWidget):
         cursor.movePosition(cursor.MoveOperation.End)
         self.output.setTextCursor(cursor)
     
-    def handle_stderr(self):
-        cursor = self.output.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        self.output.setTextCursor(cursor)
-        
-        data = self.process.readAllStandardError()
-        stderr = bytes(data).decode("utf8", errors="ignore")
-        if stderr.strip():
-            html_content = self.parse_ansi_to_html(stderr)
-            self.output.insertHtml(f'<span style="color:#CD3131; font-weight:bold;">ERROR: </span>{html_content}')
-            
-            cursor.movePosition(cursor.MoveOperation.End)
-            self.output.setTextCursor(cursor)
-    
+
     def process_finished(self, exit_code, exit_status):
         if exit_code == 0:
             self.output.append("Process completed successfully.")
