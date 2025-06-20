@@ -1,5 +1,3 @@
-# ui/mod_item.py
-
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import pyqtSignal, Qt
@@ -12,13 +10,17 @@ class ModItem(QWidget):
     open_folder_requested = pyqtSignal(str)
     edit_config_requested = pyqtSignal(str)
     
-    def __init__(self, mod_path: str, mod_name: str, is_enabled: bool, is_external: bool = False, is_folder_mod: bool = False):
+    def __init__(self, mod_path: str, mod_name: str, is_enabled: bool, is_external: bool = False, is_folder_mod: bool = False, is_regulation: bool = False, mod_type: str = "DLL", type_icon: str = "🔧", type_color: str = "#2196F3"):
         super().__init__()
         self.mod_path = mod_path
         self.mod_name = mod_name
         self.is_external = is_external
         self.is_enabled = is_enabled
         self.is_folder_mod = is_folder_mod
+        self.is_regulation = is_regulation
+        self.mod_type = mod_type
+        self.type_icon = type_icon
+        self.type_color = type_color
         
         self.setStyleSheet("""
             ModItem {
@@ -38,20 +40,16 @@ class ModItem(QWidget):
         layout.setContentsMargins(12, 8, 12, 8)
         
         # --- Start of Changed Block ---
-        # Status indicator (self.status_label) has been removed.
+        # The logic to determine the icon and color has been removed.
+        # It now uses the parameters passed during initialization.
         
         # Mod name with icon
         name_layout = QHBoxLayout()
         name_layout.setSpacing(8)
 
-        if self.is_folder_mod:
-            icon_label = QLabel("📁")
-            icon_label.setStyleSheet("color: #ffa500; font-size: 12px;")
-            name_layout.addWidget(icon_label)
-        else:
-            icon_label = QLabel("⚙️")
-            icon_label.setStyleSheet("color: #569cd6; font-size: 12px;")
-            name_layout.addWidget(icon_label)
+        icon_label = QLabel(self.type_icon)
+        icon_label.setStyleSheet(f"color: {self.type_color}; font-size: 14px;")
+        name_layout.addWidget(icon_label)
 
         name_label = QLabel(mod_name)
         name_label.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
@@ -72,14 +70,14 @@ class ModItem(QWidget):
         layout.addStretch()
         
         # Toggle button (replaces QCheckBox)
-        self.toggle_btn = QPushButton("⏻") 
+        self.toggle_btn = QPushButton("⏻") # Power symbol icon
         self.toggle_btn.setFixedSize(30, 30)
         self.toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.toggle_btn.clicked.connect(self.on_toggle)
         layout.addWidget(self.toggle_btn)
         
         # Config button (only for DLL mods)
-        if not self.is_folder_mod:
+        if not self.is_folder_mod and not self.is_regulation:
             config_btn = QPushButton("⚙️")
             config_btn.setFixedSize(30, 30)
             config_btn.setToolTip("Edit mod configuration (.ini)")
@@ -132,9 +130,10 @@ class ModItem(QWidget):
         layout.addWidget(delete_btn)
         
         self.setLayout(layout)
-        mod_type = "Folder Mod" if self.is_folder_mod else "DLL Mod"
-        self.setToolTip(f"Type: {mod_type}\nPath: {mod_path}")
-        self.update_toggle_button_ui() 
+
+        # The tooltip logic is now simpler and uses the passed `mod_type`.
+        self.setToolTip(f"Type: {self.mod_type}\nPath: {self.mod_path}")
+        self.update_toggle_button_ui()
     
     def update_toggle_button_ui(self):
         """Updates the toggle button's tooltip and color based on the mod's state."""
