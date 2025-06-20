@@ -1,5 +1,3 @@
-# ui/config_editor.py
-
 import re
 from pathlib import Path
 from typing import Optional
