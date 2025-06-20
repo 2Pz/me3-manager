@@ -137,7 +137,7 @@ class GamePage(QWidget):
         layout.addWidget(self.search_bar)
         
         # Drop zone
-        self.drop_zone = QLabel("📁 Drag & Drop .dll files or mod folders here to install mods")
+        self.drop_zone = QLabel("📁 Drag & Drop .dll files, mod folders, or regulation.bin here to install mods")
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setStyleSheet("""
             QLabel {
@@ -220,8 +220,9 @@ class GamePage(QWidget):
             files = [url.toLocalFile() for url in urls]
             has_dll = any(f.endswith('.dll') for f in files)
             has_valid_folder = any(self.is_valid_mod_folder(f) for f in files)
+            has_regulation = any(f.endswith('regulation.bin') for f in files) 
             
-            if has_dll or has_valid_folder:
+            if has_dll or has_valid_folder or has_regulation: 
                 event.acceptProposedAction()
                 self.drop_zone.setStyleSheet("""
                     QLabel {
@@ -234,7 +235,7 @@ class GamePage(QWidget):
                         margin: 8px 0px;
                     }
             """)
-    
+        
     def dragLeaveEvent(self, event):
         self.drop_zone.setStyleSheet("""
             QLabel {
@@ -253,11 +254,50 @@ class GamePage(QWidget):
         files = [url.toLocalFile() for url in event.mimeData().urls()]
         dll_files = [f for f in files if f.endswith('.dll')]
         mod_folders = [f for f in files if self.is_valid_mod_folder(f)]
+        regulation_files = [f for f in files if f.endswith('regulation.bin')] 
         
         if dll_files:
             self.install_mods(dll_files)
         if mod_folders:
             self.install_folder_mods(mod_folders)
+        if regulation_files: 
+            self.install_regulation_files(regulation_files)
+
+    def install_regulation_files(self, regulation_files: List[str]):
+        """Install dropped regulation.bin file"""
+        from datetime import datetime
+        
+        for regulation_path in regulation_files:
+            try:
+                mods_dir = self.config_manager.get_mods_dir(self.game_name)
+                dest_path = mods_dir / "regulation.bin"
+                
+                # Check if regulation.bin already exists
+                if dest_path.exists():
+                    reply = QMessageBox.question(self, "Regulation.bin Exists", 
+                                            f"regulation.bin already exists for {self.game_name}.\n\n"
+                                            "Do you want to replace it? The current file will be backed up.",
+                                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                    if reply == QMessageBox.StandardButton.No:
+                        continue
+                    
+                    # Create backup with timestamp
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_name = f"regulation.bin.backup_{timestamp}"
+                    backup_path = mods_dir / backup_name
+                    shutil.copy2(dest_path, backup_path)
+                    self.status_label.setText(f"Backed up existing regulation.bin to {backup_name}")
+                
+                # Copy new regulation.bin
+                shutil.copy2(regulation_path, dest_path)
+                self.status_label.setText(f"Installed regulation.bin for {self.game_name}")
+                
+            except Exception as e:
+                QMessageBox.warning(self, "Install Error", f"Failed to install regulation.bin: {str(e)}")
+
+
+        self.load_mods()
+        QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
 
     def install_folder_mods(self, folder_paths: List[str]):
         """Install dropped mod folders"""
@@ -407,12 +447,34 @@ class GamePage(QWidget):
         mods_info = self.config_manager.get_mods_info(self.game_name)
         
         for mod_path, info in mods_info.items():
+            # Determine mod type and icon
+            mod_type = ""
+            type_icon = ""
+            type_color = ""
+            
+            if info['name'] == 'regulation.bin':
+                mod_type = "REGULATION"
+                type_icon = "📄"
+                type_color = "#ff6b35"  # Orange
+            elif info.get('is_folder_mod', False):
+                mod_type = "FOLDER"
+                type_icon = "📁"
+                type_color = "#4CAF50"  # Green
+            else:
+                mod_type = "DLL"
+                type_icon = "🔧"
+                type_color = "#2196F3"  # Blue
+            
             mod_widget = ModItem(
-            mod_path, 
-            info['name'], 
-            info['enabled'], 
-            info['external'],
-            info.get('is_folder_mod', False)
+                mod_path, 
+                info['name'], 
+                info['enabled'], 
+                info['external'],
+                info.get('is_folder_mod', False),
+                info['name'] == 'regulation.bin',
+                mod_type=mod_type,
+                type_icon=type_icon,
+                type_color=type_color
             )
             mod_widget.toggled.connect(self.toggle_mod)
             mod_widget.delete_requested.connect(self.delete_mod)
