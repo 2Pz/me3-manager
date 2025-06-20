@@ -1,5 +1,3 @@
-# ui/game_page.py
-
 import os
 import shutil
 import subprocess
