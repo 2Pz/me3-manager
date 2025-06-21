@@ -327,6 +327,9 @@ class ConfigManager:
                 if pkg_id != self.games[game_name]['mods_dir']:  # Skip the main mods directory package
                     enabled_folder_mods.add(pkg_id)
         
+        # Find which regulation mod is currently active
+        active_regulation_mod = self._get_active_regulation_mod(game_name)
+
         # Scan mods directory for DLL files
         mods_dir = self.get_mods_dir(game_name)
         for dll_file in mods_dir.glob("*.dll"):
@@ -338,26 +341,7 @@ class ConfigManager:
                 'is_folder_mod': False
             }
 
-        # Check for regulation.bin (enabled or disabled)
-        regulation_file = mods_dir / "regulation.bin"
-        disabled_regulation_file = mods_dir / "regulation.bin.disabled"
-
-        # The mod exists if either the enabled or disabled version is present.
-        if regulation_file.exists() or disabled_regulation_file.exists():
-            # It's enabled if the non-.disabled file exists.
-            is_enabled = regulation_file.exists()
-            
-            # Use the enabled path as the canonical key for the mod item.
-            # This ensures that actions like toggling or deleting work correctly.
-            canonical_path = str(regulation_file)
-            
-            mods_info[canonical_path] = {
-                'name': 'regulation.bin',
-                'enabled': is_enabled,
-                'external': False,
-                'is_folder_mod': False,
-                'is_regulation': True
-            }
+        
         
         # Scan mods directory for folder mods
         acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
@@ -368,6 +352,9 @@ class ConfigManager:
             if folder.is_dir() and folder.name != self.games[game_name]['mods_dir']:
                 # Check if it's a valid mod folder
                 is_valid = False
+                has_regulation = (folder / "regulation.bin").exists()
+                has_disabled_regulation = (folder / "regulation.bin.disabled").exists()
+                
                 if folder.name in acceptable_folders:
                     is_valid = True
                 else:
@@ -377,13 +364,24 @@ class ConfigManager:
                             is_valid = True
                             break
                 
+                # Also consider it valid if it contains regulation files
+                if not is_valid and (has_regulation or has_disabled_regulation):
+                    is_valid = True
+                
                 if is_valid:
-                    mods_info[str(folder)] = {
+                    mod_info = {
                         'name': folder.name,
                         'enabled': folder.name in enabled_folder_mods,
                         'external': False,
                         'is_folder_mod': True
                     }
+                    
+                    # Add regulation info if present
+                    if has_regulation or has_disabled_regulation:
+                        mod_info['has_regulation'] = True
+                        mod_info['regulation_active'] = has_regulation and folder.name == active_regulation_mod
+                    
+                    mods_info[str(folder)] = mod_info
         
         # Add external DLL mods from profile
         for enabled_path in enabled_mods:
@@ -399,25 +397,40 @@ class ConfigManager:
         
         return mods_info
     
+    def _get_active_regulation_mod(self, game_name: str) -> Optional[str]:
+        """Find which mod currently has the active regulation.bin file"""
+        mods_dir = self.get_mods_dir(game_name)
+        
+        for folder in mods_dir.iterdir():
+            if folder.is_dir() and (folder / "regulation.bin").exists():
+                return folder.name
+        return None
+
+    def set_regulation_active(self, game_name: str, mod_name: str):
+        """Set which mod should have the active regulation.bin file"""
+        mods_dir = self.get_mods_dir(game_name)
+        
+        # First, disable all regulation files
+        for folder in mods_dir.iterdir():
+            if folder.is_dir():
+                regulation_file = folder / "regulation.bin"
+                disabled_file = folder / "regulation.bin.disabled"
+                
+                if regulation_file.exists():
+                    regulation_file.rename(disabled_file)
+        
+        # Then enable the selected mod's regulation file
+        target_folder = mods_dir / mod_name
+        if target_folder.exists():
+            disabled_file = target_folder / "regulation.bin.disabled"
+            regulation_file = target_folder / "regulation.bin"
+            
+            if disabled_file.exists():
+                disabled_file.rename(regulation_file)
+    
     def set_mod_enabled(self, game_name: str, mod_path: str, enabled: bool):
         """Enable or disable a mod"""
         mod_path_obj = Path(mod_path)
-        
-        # NEW BLOCK - Handle regulation.bin
-        if mod_path_obj.name == "regulation.bin":
-            mods_dir = self.get_mods_dir(game_name)
-            regulation_file = mods_dir / "regulation.bin"
-            disabled_regulation = mods_dir / "regulation.bin.disabled"
-            
-            if enabled:
-                # Enable: rename from .disabled back to .bin (if disabled exists)
-                if disabled_regulation.exists():
-                    disabled_regulation.rename(regulation_file)
-            else:
-                # Disable: rename to .disabled
-                if regulation_file.exists():
-                    regulation_file.rename(disabled_regulation)
-            return
         
         # Check if it's a folder mod
         if mod_path_obj.is_dir():
@@ -427,7 +440,7 @@ class ConfigManager:
             else:
                 self.remove_folder_mod(game_name, mod_path_obj.name)
         else:
-            # Handle DLL mod (existing logic)
+            # Handle DLL mod (existing logic unchanged)
             profile_path = self.get_profile_path(game_name)
             
             # Get current enabled paths
@@ -453,23 +466,33 @@ class ConfigManager:
             
             # Write updated config
             self.write_me3_config(profile_path, current_paths)
+
+    def _disable_other_regulation_mods(self, game_name: str, current_mod_path: str):
+        """Disable all other mods that contain regulation.bin"""
+        mods_info = self.get_mods_info(game_name)
+        
+        for mod_path, info in mods_info.items():
+            if mod_path == current_mod_path or not info['enabled']:
+                continue
+                
+            # Check if this mod has regulation.bin
+            has_regulation = False
+            
+            if info.get('is_folder_mod', False):
+                # Check if folder mod contains regulation.bin
+                folder_path = Path(mod_path)
+                if (folder_path / "regulation.bin").exists():
+                    has_regulation = True
+            
+            if has_regulation:
+                # Disable this mod
+                if info.get('is_folder_mod', False):
+                    self.remove_folder_mod(game_name, Path(mod_path).name)
+
     
     def delete_mod(self, game_name: str, mod_path: str):
         """Delete a mod"""
         mod_path_obj = Path(mod_path)
-        
-        # NEW BLOCK - Handle regulation.bin deletion
-        if mod_path_obj.name == "regulation.bin":
-            mods_dir = self.get_mods_dir(game_name)
-            regulation_file = mods_dir / "regulation.bin"
-            disabled_regulation = mods_dir / "regulation.bin.disabled"
-            
-            # Delete both enabled and disabled versions
-            if regulation_file.exists():
-                regulation_file.unlink()
-            if disabled_regulation.exists():
-                disabled_regulation.unlink()
-            return
         
         if mod_path_obj.is_dir():
             # Handle folder mod
