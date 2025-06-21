@@ -9,6 +9,7 @@ class ModItem(QWidget):
     delete_requested = pyqtSignal(str)
     open_folder_requested = pyqtSignal(str)
     edit_config_requested = pyqtSignal(str)
+    regulation_activate_requested = pyqtSignal(str)
     
     def __init__(self, mod_path: str, mod_name: str, is_enabled: bool, is_external: bool = False, is_folder_mod: bool = False, is_regulation: bool = False, mod_type: str = "DLL", type_icon: str = "🔧", type_color: str = "#2196F3"):
         super().__init__()
@@ -39,9 +40,6 @@ class ModItem(QWidget):
         layout = QHBoxLayout()
         layout.setContentsMargins(12, 8, 12, 8)
         
-        # --- Start of Changed Block ---
-        # The logic to determine the icon and color has been removed.
-        # It now uses the parameters passed during initialization.
         
         # Mod name with icon
         name_layout = QHBoxLayout()
@@ -128,10 +126,46 @@ class ModItem(QWidget):
         """)
         delete_btn.clicked.connect(lambda: self.delete_requested.emit(self.mod_path))
         layout.addWidget(delete_btn)
+
+        if self.is_regulation:
+            # Simple activate button - clicking it will make this the active regulation
+            self.activate_regulation_btn = QPushButton("Set as Active")
+            is_active = "📄" in self.type_icon
+            
+            if is_active:
+                # If this regulation is already active, show it's active and disable button
+                self.activate_regulation_btn.setText("✅ Active")
+                self.activate_regulation_btn.setEnabled(False)
+                btn_color = "#28a745"  # Green for active
+                self.activate_regulation_btn.setToolTip("This regulation file is currently active")
+            else:
+                # If not active, allow user to activate it
+                self.activate_regulation_btn.setText("Set as Active")
+                btn_color = "#6c757d"  # Gray for inactive
+                self.activate_regulation_btn.setToolTip("Click to make this the active regulation file")
+            
+            self.activate_regulation_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {btn_color};
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 4px 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                }}
+                QPushButton:hover {{
+                    background-color: {"#28a745" if is_active else "#5a6268"};
+                }}
+                QPushButton:disabled {{
+                    opacity: 1.0;
+                }}
+            """)
+            self.activate_regulation_btn.clicked.connect(lambda: self.regulation_activate_requested.emit(self.mod_path))
+            layout.addWidget(self.activate_regulation_btn)
         
         self.setLayout(layout)
 
-        # The tooltip logic is now simpler and uses the passed `mod_type`.
         self.setToolTip(f"Type: {self.mod_type}\nPath: {self.mod_path}")
         self.update_toggle_button_ui()
     
