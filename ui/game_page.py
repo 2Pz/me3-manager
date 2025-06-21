@@ -1,3 +1,5 @@
+# ui/game_page.py
+
 import os
 import shutil
 import subprocess
@@ -257,52 +259,64 @@ class GamePage(QWidget):
         if dll_files:
             self.install_mods(dll_files)
         if mod_folders:
-            self.install_folder_mods(mod_folders)
-        if regulation_files: 
+            self.install_folder_mods(mod_folders, regulation_files)
+        elif regulation_files:  # Only handle regulation files separately if no mod folders
             self.install_regulation_files(regulation_files)
 
     def install_regulation_files(self, regulation_files: List[str]):
-        """Install dropped regulation.bin file"""
+        """Install dropped regulation.bin file as a separate folder mod"""
         from datetime import datetime
+        from PyQt6.QtWidgets import QInputDialog
         
         for regulation_path in regulation_files:
             try:
-                mods_dir = self.config_manager.get_mods_dir(self.game_name)
-                dest_path = mods_dir / "regulation.bin"
+                # Ask user for mod name
+                mod_name, ok = QInputDialog.getText(
+                    self, "Regulation Mod Name", 
+                    "Enter name for this regulation mod:",
+                    text="regulation_mod"
+                )
+                if not ok or not mod_name.strip():
+                    continue
+                mod_name = mod_name.strip()
                 
-                # Check if regulation.bin already exists
-                if dest_path.exists():
-                    reply = QMessageBox.question(self, "Regulation.bin Exists", 
-                                            f"regulation.bin already exists for {self.game_name}.\n\n"
-                                            "Do you want to replace it? The current file will be backed up.",
+                mods_dir = self.config_manager.get_mods_dir(self.game_name)
+                dest_folder = mods_dir / mod_name
+                
+                # Check if mod folder already exists
+                if dest_folder.exists():
+                    reply = QMessageBox.question(self, "Mod Exists", 
+                                            f"Mod folder '{mod_name}' already exists. Replace it?",
                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                     if reply == QMessageBox.StandardButton.No:
                         continue
-                    
-                    # Create backup with timestamp
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    backup_name = f"regulation.bin.backup_{timestamp}"
-                    backup_path = mods_dir / backup_name
-                    shutil.copy2(dest_path, backup_path)
-                    self.status_label.setText(f"Backed up existing regulation.bin to {backup_name}")
+                    shutil.rmtree(dest_folder)
                 
-                # Copy new regulation.bin
+                # Create mod folder and copy regulation.bin into it
+                dest_folder.mkdir(parents=True, exist_ok=True)
+                dest_path = dest_folder / "regulation.bin"
                 shutil.copy2(regulation_path, dest_path)
-                self.status_label.setText(f"Installed regulation.bin for {self.game_name}")
+                
+                # Add to config as folder mod
+                self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_folder))
+                self.status_label.setText(f"Installed regulation mod: {mod_name}")
                 
             except Exception as e:
                 QMessageBox.warning(self, "Install Error", f"Failed to install regulation.bin: {str(e)}")
 
-
         self.load_mods()
         QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
 
-    def install_folder_mods(self, folder_paths: List[str]):
-        """Install dropped mod folders"""
+    def install_folder_mods(self, folder_paths: List[str], regulation_files: List[str] = None):
+        """Install dropped mod folders, optionally with regulation files"""
         from PyQt6.QtWidgets import QInputDialog
         
         if not folder_paths:
             return
+        
+        # Include regulation files in the mod folder if provided
+        if regulation_files is None:
+            regulation_files = []
         
         # If multiple folders are dropped at once, treat them as one mod
         if len(folder_paths) > 1:
@@ -337,12 +351,20 @@ class GamePage(QWidget):
                 except Exception as e:
                     QMessageBox.warning(self, "Install Error", f"Failed to copy folder {source_path.name}: {str(e)}")
             
+            # Copy regulation files into the mod folder if provided
+            for regulation_file in regulation_files:
+                try:
+                    shutil.copy2(regulation_file, dest_path / "regulation.bin")
+                    self.status_label.setText(f"Added regulation.bin to {mod_name}")
+                except Exception as e:
+                    QMessageBox.warning(self, "Install Error", f"Failed to copy regulation.bin: {str(e)}")
+            
             # Add to config as folder mod
             self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_path))
             self.status_label.setText(f"Installed folder mod: {mod_name}")
             
         else:
-            # Single folder - use existing logic
+            # Single folder - use existing logic but include regulation files
             folder_path = folder_paths[0]
             try:
                 source_path = Path(folder_path)
@@ -395,6 +417,14 @@ class GamePage(QWidget):
                         shutil.rmtree(dest_path)
                     
                     shutil.copytree(source_path, dest_path)
+                
+                # Copy regulation files into the mod folder if provided
+                for regulation_file in regulation_files:
+                    try:
+                        shutil.copy2(regulation_file, dest_path / "regulation.bin")
+                        self.status_label.setText(f"Added regulation.bin to {mod_name}")
+                    except Exception as e:
+                        QMessageBox.warning(self, "Install Error", f"Failed to copy regulation.bin: {str(e)}")
                 
                 # Add to config as folder mod
                 self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_path))
@@ -450,12 +480,17 @@ class GamePage(QWidget):
             type_icon = ""
             type_color = ""
             
-            if info['name'] == 'regulation.bin':
-                mod_type = "REGULATION"
-                type_icon = "📄"
-                type_color = "#ff6b35"  # Orange
+            if info.get('has_regulation', False):
+                if info.get('regulation_active', False):
+                    mod_type = "MOD FOLDER WITH REGULATION (ACTIVE REGULATION)"
+                    type_icon = "📁📄"
+                    type_color = "#ff6b35"  # Orange
+                else:
+                    mod_type = "MOD FOLDER WITH REGULATION"
+                    type_icon = "📁"
+                    type_color = "#888888"  # Gray
             elif info.get('is_folder_mod', False):
-                mod_type = "FOLDER"
+                mod_type = "MOD FOLDER"
                 type_icon = "📁"
                 type_color = "#4CAF50"  # Green
             else:
@@ -469,7 +504,7 @@ class GamePage(QWidget):
                 info['enabled'], 
                 info['external'],
                 info.get('is_folder_mod', False),
-                info['name'] == 'regulation.bin',
+                info.get('has_regulation', False),
                 mod_type=mod_type,
                 type_icon=type_icon,
                 type_color=type_color
@@ -479,6 +514,10 @@ class GamePage(QWidget):
             mod_widget.edit_config_requested.connect(self.open_config_editor)
             mod_widget.open_folder_requested.connect(self.open_mod_folder)
             
+            # Connect regulation activation signal if it's a regulation mod
+            if info.get('has_regulation', False):
+                mod_widget.regulation_activate_requested.connect(self.activate_regulation_mod)
+            
             self.mods_layout.addWidget(mod_widget)
             self.mod_widgets[mod_path] = mod_widget
         
@@ -487,6 +526,18 @@ class GamePage(QWidget):
         enabled_mods = sum(1 for info in mods_info.values() if info['enabled'])
         self.status_label.setText(f"{enabled_mods}/{total_mods} mods enabled")
     
+    def activate_regulation_mod(self, mod_path: str):
+        """Set this regulation file as the active one"""
+        mod_name = Path(mod_path).name
+        try:
+            # Simply activate this regulation (this will deactivate others automatically)
+            self.config_manager.set_regulation_active(self.game_name, mod_name)
+            self.load_mods()  # Refresh to show updated regulation status
+            self.status_label.setText(f"Set {mod_name} as active regulation")
+            QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+        except Exception as e:
+            QMessageBox.warning(self, "Regulation Error", f"Failed to set regulation active: {str(e)}")
+
     def filter_mods(self, text: str):
         """Filter mods based on search text"""
         text = text.lower()
@@ -498,6 +549,8 @@ class GamePage(QWidget):
         """Toggle mod on/off"""
         try:
             self.config_manager.set_mod_enabled(self.game_name, mod_path, enabled)
+            # Reload mods to refresh UI state, especially for regulation conflicts
+            self.load_mods()
             self.status_label.setText(f"{'Enabled' if enabled else 'Disabled'} {Path(mod_path).name}")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
         except Exception as e:
