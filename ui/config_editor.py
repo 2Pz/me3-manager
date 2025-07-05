@@ -10,32 +10,68 @@ from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtCore import QTimer
 
 class IniSyntaxHighlighter(QSyntaxHighlighter):
-    """Basic syntax highlighter for INI files."""
+    """Enhanced syntax highlighter for INI files with improved visual hierarchy."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.highlighting_rules = []
 
-        # Section format [Section]
+        # Section format [Section] - main sections in bold blue
         section_format = QTextCharFormat()
         section_format.setForeground(QColor("#569cd6"))
         section_format.setFontWeight(QFont.Weight.Bold)
         self.highlighting_rules.append((re.compile(r"\[[^\n\]]+\]"), section_format))
 
-        # Key format Key=...
+        # Key format Key=... - keys in lighter blue
         key_format = QTextCharFormat()
         key_format.setForeground(QColor("#9cdcfe"))
-        self.highlighting_rules.append((re.compile(r"^[^\s=;]+(?=\s*=)"), key_format))
+        key_format.setFontWeight(QFont.Weight.Normal)
+        self.highlighting_rules.append((re.compile(r"^[^\s=;#]+(?=\s*=)", re.MULTILINE), key_format))
 
-        # Comment format ;... or #...
+        # String values in quotes - orange for quoted strings
+        quoted_string_format = QTextCharFormat()
+        quoted_string_format.setForeground(QColor("#ce9178"))
+        self.highlighting_rules.append((re.compile(r'"[^"]*"'), quoted_string_format))
+        self.highlighting_rules.append((re.compile(r"'[^']*'"), quoted_string_format))
+
+        # Boolean values - special highlighting for true/false/yes/no/on/off
+        boolean_format = QTextCharFormat()
+        boolean_format.setForeground(QColor("#569cd6"))
+        boolean_format.setFontWeight(QFont.Weight.Bold)
+        boolean_pattern = r"=\s*(true|false|yes|no|on|off)\s*(?:[;#]|$)"
+        self.highlighting_rules.append((re.compile(boolean_pattern, re.IGNORECASE | re.MULTILINE), boolean_format))
+
+        # Numeric values - highlight numbers
+        number_format = QTextCharFormat()
+        number_format.setForeground(QColor("#b5cea8"))  # Light green for numbers
+        number_pattern = r"=\s*([-+]?(?:\d*\.?\d+)(?:[eE][-+]?\d+)?)\s*(?:[;#]|$)"
+        self.highlighting_rules.append((re.compile(number_pattern, re.MULTILINE), number_format))
+
+        # General values - catch remaining values after =
+        value_format = QTextCharFormat()
+        value_format.setForeground(QColor("#d4d4d4"))  # Light gray for other values
+        self.highlighting_rules.append((re.compile(r"=\s*([^;\r\n#]+?)(?:\s*[;#]|$)", re.MULTILINE), value_format))
+
+        # Comment format ;... or #... - comments in green italic
         comment_format = QTextCharFormat()
         comment_format.setForeground(QColor("#6a9955"))
         comment_format.setFontItalic(True)
         self.highlighting_rules.append((re.compile(r"[;#].*"), comment_format))
 
+        # Equals sign - subtle highlighting
+        equals_format = QTextCharFormat()
+        equals_format.setForeground(QColor("#d4d4d4"))
+        self.highlighting_rules.append((re.compile(r"="), equals_format))
+
     def highlightBlock(self, text):
+        # Apply highlighting rules in order
         for pattern, format in self.highlighting_rules:
-            for match in re.finditer(pattern, text):
-                self.setFormat(match.start(), match.end() - match.start(), format)
+            for match in pattern.finditer(text):
+                # For patterns that capture groups, highlight only the captured group
+                if match.groups():
+                    start, end = match.span(1)  # Highlight the first captured group
+                else:
+                    start, end = match.span()   # Highlight the entire match
+                self.setFormat(start, end - start, format)
 
 class ConfigEditorDialog(QDialog):
     """Dialog for editing mod INI configuration files."""
@@ -46,6 +82,7 @@ class ConfigEditorDialog(QDialog):
 
         self.setWindowTitle(f"Config Editor - {mod_name}")
         self.setMinimumSize(700, 500)
+        self.resize(1400, 750)
         self.setStyleSheet("background-color: #252525; color: #ffffff;")
 
         layout = QVBoxLayout(self)
@@ -64,7 +101,7 @@ class ConfigEditorDialog(QDialog):
 
         # Text editor
         self.editor = QTextEdit()
-        self.editor.setFont(QFont("Consolas", 10))
+        self.editor.setFont(QFont("Consolas", 12))
         self.editor.setStyleSheet("background-color: #1e1e1e; border: 1px solid #3d3d3d; padding: 8px;")
         self.highlighter = IniSyntaxHighlighter(self.editor.document())
         layout.addWidget(self.editor)
