@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 import shutil
 from PyQt6.QtCore import QFileSystemWatcher
+from utils.resource_path import resource_path
 import tomllib
 
 class ConfigManager:
@@ -14,17 +15,26 @@ class ConfigManager:
     def __init__(self):
         self.config_root = Path(os.path.expandvars(r"%LocalAppData%\garyttierney\me3\config\profiles"))
         self.settings_file = self.config_root.parent / "manager_settings.json"
-        self.custom_config_paths = self._load_settings()
-        self.games = {
-            "Elden Ring": {
-                "mods_dir": "eldenring-mods",
-                "profile": "eldenring-default.me3"
-            },
-            "Nightreign": {
-                "mods_dir": "nightreign-mods", 
-                "profile": "nightreign-default.me3"
-            }
-        }
+        
+        # Load games from JSON configuration
+        self.games = self._load_games_config()
+        
+        settings = self._load_settings()
+        self.custom_config_paths = settings.get('custom_config_paths', {})
+        self.game_exe_paths = settings.get('game_exe_paths', {})
+        self.ui_settings = settings.get('ui_settings', {}) # Load UI settings
+        
+        # Use default order from games config if not set in settings
+        default_order = self._get_default_game_order()
+        saved_order = settings.get('game_order', default_order)
+        
+        # Merge saved order with new games from JSON config
+        self.game_order = self._merge_game_order(saved_order, list(self.games.keys()))
+        
+        # Save the updated order if it was changed during merge
+        if self.game_order != saved_order:
+            self._save_settings()
+        
         self.ensure_directories()
         self.file_watcher = QFileSystemWatcher()
         self.setup_file_watcher()
@@ -42,10 +52,104 @@ class ConfigManager:
     def _save_settings(self):
         """Saves custom settings to the JSON file."""
         try:
+            all_settings = {
+                'custom_config_paths': self.custom_config_paths,
+                'game_exe_paths': self.game_exe_paths,
+                'game_order': getattr(self, 'game_order', list(self.games.keys())),
+                'ui_settings': self.ui_settings
+            }
             with open(self.settings_file, 'w', encoding='utf-8') as f:
-                json.dump(self.custom_config_paths, f, indent=4)
+                json.dump(all_settings, f, indent=4)
         except IOError as e:
             print(f"Error saving settings: {e}")
+
+    def _load_games_config(self) -> dict:
+        """Load games configuration from JSON file."""
+        games_config_path = Path(resource_path("resources/games_config.json"))
+        
+        # Fallback to hardcoded games if JSON file doesn't exist
+        fallback_games = {
+            "Elden Ring": {
+                "mods_dir": "eldenring-mods",
+                "profile": "eldenring-default.me3",
+                "cli_id": "elden-ring"
+            },
+            "Nightreign": {
+                "mods_dir": "nightreign-mods", 
+                "profile": "nightreign-default.me3",
+                "cli_id": "nightreign"
+            }
+        }
+        
+        try:
+            if games_config_path.exists():
+                with open(games_config_path, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                    return config_data.get('games', fallback_games)
+            else:
+                print(f"Games config file not found at {games_config_path}, using fallback")
+                return fallback_games
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error loading games config: {e}, using fallback")
+            return fallback_games
+
+    def _get_default_game_order(self) -> list:
+        """Get default game order from JSON config."""
+        games_config_path = Path(resource_path("resources/games_config.json"))
+        
+        try:
+            if games_config_path.exists():
+                with open(games_config_path, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                    return config_data.get('default_order', list(self.games.keys()))
+            else:
+                return list(self.games.keys())
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error loading default game order: {e}")
+            return list(self.games.keys())
+
+    def _merge_game_order(self, saved_order: list, available_games: list) -> list:
+        """Merge saved game order with new games from JSON config."""
+        # Start with saved order, keeping only games that still exist
+        merged_order = [game for game in saved_order if game in available_games]
+        
+        # Add any new games that aren't in the saved order
+        for game in available_games:
+            if game not in merged_order:
+                merged_order.append(game)
+        
+        # Save the updated order if it changed
+        if merged_order != saved_order:
+            self.game_order = merged_order
+            # We'll save this after initialization is complete
+            
+        return merged_order
+
+    def get_game_exe_path(self, game_name: str) -> Optional[str]:
+        """Gets the custom game executable path for a game."""
+        return self.game_exe_paths.get(game_name)
+
+    def set_game_exe_path(self, game_name: str, path: Optional[str]):
+        """Sets or clears the custom game executable path and saves settings."""
+        if path:
+            self.game_exe_paths[game_name] = path
+        else:
+            # If path is None or empty, remove the key
+            self.game_exe_paths.pop(game_name, None)
+        self._save_settings()
+
+    def get_game_cli_id(self, game_name: str) -> Optional[str]:
+        """Gets the command-line ID for the game (e.g., 'elden-ring')."""
+        return self.games.get(game_name, {}).get("cli_id")
+
+    def get_mods_per_page(self) -> int:
+        """Gets the saved number of mods to display per page."""
+        return self.ui_settings.get('mods_per_page', 5)
+
+    def set_mods_per_page(self, value: int):
+        """Sets the number of mods per page and saves the settings."""
+        self.ui_settings['mods_per_page'] = value
+        self._save_settings()
 
     def get_mod_config_path(self, game_name: str, mod_path_str: str) -> Path:
         """
@@ -87,7 +191,7 @@ class ConfigManager:
 
     
     def ensure_directories(self):
-        """Create necessary directories if they don't exist"""
+        """Create necessary directories and validate profile formats on startup."""
         self.config_root.mkdir(parents=True, exist_ok=True)
         
         for game_info in self.games.values():
@@ -97,11 +201,51 @@ class ConfigManager:
             profile_path = self.config_root / game_info["profile"]
             if not profile_path.exists():
                 self.create_default_profile(profile_path)
-    
+            else:
+                # On startup, check for old format and reformat if needed.
+                self.check_and_reformat_profile(profile_path)
+
+    def check_and_reformat_profile(self, profile_path: Path):
+        """
+        Checks if a profile uses the old [[section]] format and rewrites it
+        to the new inline array format if necessary.
+        """
+        try:
+            with open(profile_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # A simple, reliable check for the old format. If found, re-writing is triggered.
+            if '[[natives]]' in content or '[[packages]]' in content or '[[supports]]' in content:
+                print(f"Old profile format detected in {profile_path.name}. Reformatting.")
+                # This function already reads data (from old or new format)
+                # and writes it back using the new standard format.
+                self.validate_and_fix_profile(profile_path)
+
+        except IOError as e:
+            print(f"Error checking profile format for {profile_path.name}: {e}")
+
     def create_default_profile(self, profile_path: Path):
         """Create a default ME3 profile with proper structure"""
-        game_name = "nightreign" if "nightreign" in profile_path.name else "eldenring"
-        mods_dir = self.games.get("Nightreign" if "nightreign" in profile_path.name else "Elden Ring", {}).get("mods_dir", "")
+        # Determine game name and mods directory from profile filename
+        profile_name = profile_path.name.lower()
+        game_name = "eldenring"  # default
+        game_key = "Elden Ring"  # default
+        
+        # Map profile names to game info
+        if "nightreign" in profile_name:
+            game_name = "nightreign"
+            game_key = "Nightreign"
+        elif "sekiro" in profile_name:
+            game_name = "sekiro"
+            game_key = "Sekiro"
+        elif "eldenring" in profile_name:
+            game_name = "eldenring"
+            game_key = "Elden Ring"
+        elif "armoredcore6" in profile_name:
+            game_name = "armoredcore6"
+            game_key = "Armoredcore6"
+        
+        mods_dir = self.games.get(game_key, {}).get("mods_dir", "")
         
         # Create proper TOML structure
         config_data = {
@@ -110,7 +254,7 @@ class ConfigManager:
             "packages": [
                 {
                     "id": mods_dir,
-                    "path": str(self.config_root / mods_dir),
+                    "source": str(self.config_root / mods_dir), 
                     "load_after": [],
                     "load_before": []
                 }
@@ -170,7 +314,6 @@ class ConfigManager:
             for match in supports_matches:
                 game_name = match[0] or match[1] or match[2]
                 if game_name:
-                    # Convert old format to new format
                     if game_name.upper() == "ELDEN RING" or game_name.upper() == "ER":
                         game_name = "eldenring"
                     elif game_name.upper() == "NIGHTREIGN" or game_name.upper() == "NR":
@@ -207,47 +350,77 @@ class ConfigManager:
     def _write_toml_config(self, config_path: Path, config_data: Dict[str, Any]):
         """Write TOML config file with proper formatting"""
         # Always use manual formatting for ME3 compatibility
-        # The standard TOML libraries write arrays inline, but ME3 expects [[section]] format
         self._write_config_manual(config_path, config_data)
-    
+
     def _write_config_manual(self, config_path: Path, config_data: Dict[str, Any]):
-        """Manual TOML formatting for ME3 compatibility using [[section]] format"""
+        """Manual TOML formatting for ME3 compatibility using inline array format."""
         lines = []
-        
+
         # Profile version
         lines.append(f'profileVersion = "{config_data.get("profileVersion", "v1")}"')
-        
-        # Natives - each as separate [[natives]] section
-        for native in config_data.get("natives", []):
-            lines.append("[[natives]]")
-            lines.append(f"path = '{native['path']}'")
-        
-        # Supports - each as separate [[supports]] section  
-        for support in config_data.get("supports", []):
-            lines.append("[[supports]]")
-            lines.append(f"game = \"{support['game']}\"")
-        
-        # Packages - each as separate [[packages]] section
-        for package in config_data.get("packages", []):
-            lines.append("[[packages]]")
-            if "id" in package:
-                lines.append(f"id = \"{package['id']}\"")
-            # Path is required for packages - ensure it exists
-            if "path" in package:
-                lines.append(f"path = '{package['path']}'")
-            elif "source" in package:
-                lines.append(f"source = \"{package['source']}\"")
-            else:
-                # If no path or source, create default path based on id
+        lines.append('')
+
+        # Natives
+        natives = config_data.get("natives", [])
+        if natives:
+            lines.append("natives = [")
+            native_items = []
+            for native in natives:
+                path = native['path'] if isinstance(native, dict) else native
+                native_items.append(f"    {{path = '{path}'}}")
+            lines.append(",\n".join(native_items))
+            lines.append("]")
+        else:
+            lines.append("natives = []")
+        lines.append('')
+
+        # Supports
+        supports = config_data.get("supports", [])
+        if supports:
+            lines.append("supports = [")
+            support_items = []
+            for support in supports:
+                game = support['game'] if isinstance(support, dict) else support
+                support_items.append(f'    {{game = "{game}"}}')
+            lines.append(",\n".join(support_items))
+            lines.append("]")
+        else:
+            lines.append("supports = []")
+        lines.append('')
+
+        # Packages
+        all_packages = config_data.get("packages", [])
+        # Filter out the main mods directory package from the output list
+        main_mods_dirs = {game_info["mods_dir"] for game_info in self.games.values()}
+        packages_to_write = [p for p in all_packages if p.get("id") not in main_mods_dirs]
+
+        if packages_to_write:
+            lines.append("packages = [")
+            package_items = []
+            for package in packages_to_write:
+                package_parts = []
                 if "id" in package:
-                    default_path = str(self.config_root / package["id"])
-                    lines.append(f"path = '{default_path}'")
+                    package_parts.append(f'id = "{package["id"]}"')
+
+                source_path = ""
+                if "source" in package:
+                    source_path = package["source"]
+                elif "path" in package:
+                    source_path = package["path"]
+                
+                if source_path:
+                    package_parts.append(f"source = '{source_path}'")
+                
+                package_str = "{ " + ", ".join(package_parts) + " }"
+                package_items.append(f"    {package_str}")
             
-            lines.append(f"load_after = {package.get('load_after', [])}")
-            lines.append(f"load_before = {package.get('load_before', [])}")
-        
+            lines.append(",\n".join(package_items))
+            lines.append("]")
+        else:
+            lines.append("packages = []")
+
         with open(config_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(lines))
+            f.write('\n'.join(lines) + '\n')
     
     def setup_file_watcher(self):
         """Setup file system watcher for mod directories"""
@@ -523,7 +696,7 @@ class ConfigManager:
         if mod_name not in existing_ids:
             config_data["packages"].append({
                 "id": mod_name,
-                "path": mod_path,
+                "source": mod_path,
                 "load_after": [],
                 "load_before": []
             })
@@ -612,9 +785,10 @@ class ConfigManager:
                             needs_fixing = True
             
             # Write back if fixes were needed
-            if needs_fixing:
-                print(f"Fixing profile format: {profile_path}")
-                self._write_toml_config(profile_path, config_data)
+            # We always write back now when called from the startup check
+            # to ensure the format is corrected.
+            print(f"Validating and writing profile: {profile_path}")
+            self._write_toml_config(profile_path, config_data)
             
             return config_data
             
@@ -623,3 +797,45 @@ class ConfigManager:
             # Create a completely new profile if parsing fails
             self.create_default_profile(profile_path)
             return self._parse_toml_config(profile_path)
+
+    def get_game_order(self) -> List[str]:
+        """Get the current game order"""
+        return self.game_order.copy()
+
+    def set_game_order(self, new_order: List[str]):
+        """Set a new game order and save it"""
+        # Validate that all games in the new order exist
+        valid_games = set(self.games.keys())
+        if set(new_order) == valid_games:
+            self.game_order = new_order.copy()
+            self._save_settings()
+
+    def get_profile_content(self, game_name: str) -> str:
+        """Reads the raw content of a game's .me3 profile file."""
+        profile_path = self.get_profile_path(game_name)
+        if not profile_path.exists():
+            # If it doesn't exist, create a default one first
+            self.create_default_profile(profile_path)
+        
+        try:
+            with open(profile_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except IOError as e:
+            print(f"Error reading profile file {profile_path}: {e}")
+            raise
+
+    def save_profile_content(self, game_name: str, content: str):
+        """
+        Saves raw content to a game's .me3 profile file and validates it.
+        """
+        profile_path = self.get_profile_path(game_name)
+        try:
+            with open(profile_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            # After saving, immediately try to validate and reformat it.
+            # This ensures that any user errors are caught/fixed, and the file
+            # is always in the standard format we expect.
+            self.check_and_reformat_profile(profile_path)
+        except IOError as e:
+            print(f"Error writing to profile file {profile_path}: {e}")
+            raise
