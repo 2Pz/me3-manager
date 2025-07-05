@@ -93,7 +93,7 @@ class EmbeddedTerminal(QWidget):
                 in_span = False
                 
             codes = codes_str.split(';')
-            if not codes or codes[0] in ('', '0'): # Reset code
+            if not codes or codes[0] in ('', '0'):
                 pass # Span is already closed
             else:
                 styles = []
