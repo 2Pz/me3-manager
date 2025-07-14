@@ -1,0 +1,29 @@
+{
+    "games": {
+        "Elden Ring": {
+            "mods_dir": "eldenring-mods",
+            "profile": "eldenring-default.me3",
+            "cli_id": "elden-ring",
+            "executable": "eldenring.exe"
+        },
+        "Nightreign": {
+            "mods_dir": "nightreign-mods",
+            "profile": "nightreign-default.me3",
+            "cli_id": "nightreign",
+            "executable": "nightreign.exe"
+        },
+        "Sekiro": {
+            "mods_dir": "sekiro-mods",
+            "profile": "sekiro-default.me3",
+            "cli_id": "sekiro",
+            "executable": "sekiro.exe"
+        },
+        "Armoredcore6": {
+            "mods_dir": "armoredcore6-mods",
+            "profile": "armoredcore6-default.me3",
+            "cli_id": "armoredcore6",
+            "executable": "armoredcore6.exe"
+        }
+    },
+    "default_order": ["Elden Ring", "Nightreign", "Sekiro", "Armoredcore6"]
+}

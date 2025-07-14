@@ -1,0 +1,12 @@
+# Ignore dependencies
+node_modules/
+build/
+Backup/
+
+# Ignore OS / editor junk
+.DS_Store
+*.log
+*.tmp
+*.bak
+.env
+change.txt
