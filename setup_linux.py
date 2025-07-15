@@ -13,7 +13,7 @@ include_files = [
 
 # Define cx_Freeze build options for Linux
 build_exe_options = {
-    'packages': [],
+    'packages': ['encodings'],
     'excludes': [],
     'include_files': include_files,
     'zip_include_packages': ['*'],
