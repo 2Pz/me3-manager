@@ -10,8 +10,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtCore import Qt, QObject, pyqtSignal, QThread, QStandardPaths
-
-# Assume these imports are correct for your project structure
 from core.config_manager import ConfigManager
 from ui.game_page import GamePage
 from ui.terminal import EmbeddedTerminal
@@ -19,8 +17,6 @@ from ui.draggable_game_button import DraggableGameButton, DraggableGameContainer
 from ui.settings_dialog import SettingsDialog
 from utils.resource_path import resource_path
 from version import VERSION
-
-# Worker Classes for Threading ---
 
 class ME3Downloader(QObject):
     """Handles downloading a file in a separate thread (for Windows installer)."""
