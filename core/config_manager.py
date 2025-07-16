@@ -24,7 +24,10 @@ class ConfigManager:
             self.config_root = dynamic_profile_dir
         else:
             # Fallback to hardcoded path if ME3 is not installed or info command fails
-            self.config_root = Path(os.path.expandvars(r"%LocalAppData%\garyttierney\me3\config\profiles"))
+            if sys.platform == "win32":
+                self.config_root = Path(os.path.expandvars(r"%LocalAppData%\garyttierney\me3\config\profiles"))
+            else:
+                self.config_root = Path.home() / ".config" / "garyttierney" / "me3" / "profiles"
         
         self.settings_file = self.config_root.parent / "manager_settings.json"
         
