@@ -1,4 +1,3 @@
-# resource_.py
 import os
 import sys
 

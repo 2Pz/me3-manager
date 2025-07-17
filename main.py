@@ -1,20 +1,16 @@
 import sys
 import os 
-
 from PyQt6.QtWidgets import QApplication
-
 from ui.main_window import ModEngine3Manager
 
 def main():
     if sys.platform == "linux":
-        # Let Qt automatically detect and choose the best platform
         if 'QT_QPA_PLATFORM' in os.environ:
             del os.environ['QT_QPA_PLATFORM']
         
-        # Enable Qt's automatic platform plugin selection with fallbacks
-        # Qt will try platforms in order until one works
-        os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = ''  # Use default paths
-    
+
+        os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = '' 
+
     app = QApplication(sys.argv)
     
     # Check what platform Qt actually chose at runtime
