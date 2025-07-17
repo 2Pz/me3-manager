@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 from typing import List
 import math
+from collections import deque
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
@@ -285,34 +286,52 @@ class GamePage(QWidget):
             self.status_label.setText(f"Profile saved for {self.game_name}. Reloading mod list...")
             self.load_mods()
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
-    
-    def has_mod_content(self, folder_path: Path) -> bool:
-        if not folder_path.is_dir():
-            return False
-        for item in folder_path.iterdir():
-            if item.is_dir() and item.name in self.acceptable_folders:
-                return True
-            if item.name.lower().endswith(('.dll', 'regulation.bin')):
-                return True
-        return False
+
+    def is_valid_drop(self, paths: List[Path]) -> bool:
+        """
+        Recursively checks if the dropped paths contain at least one valid mod file.
+        A valid mod file is a .dll, regulation.bin, or an acceptable folder name.
+        """
+        paths_to_check = deque(paths)
         
+        while paths_to_check:
+            path = paths_to_check.popleft()
+            if not path.exists():
+                continue
+
+            # Check for valid file types
+            if path.is_file():
+                if path.suffix.lower() == '.dll' or path.name.lower() == 'regulation.bin':
+                    return True
+            
+            # Check for valid folder names and queue contents for checking
+            elif path.is_dir():
+                if path.name in self.acceptable_folders:
+                    return True
+                try:
+                    # If it's a folder, check its contents
+                    for item in path.iterdir():
+                        paths_to_check.append(item)
+                except OSError:
+                    # Ignore directories we can't read
+                    continue
+        
+        return False
+
     def dragEnterEvent(self, event: QDragEnterEvent):
         if not event.mimeData().hasUrls():
             return
-
-        urls = event.mimeData().urls()
-        files = [Path(url.toLocalFile()) for url in urls]
-
-        for path in files:
-            if path.name.lower().endswith(('.dll', 'regulation.bin')) or self.has_mod_content(path):
-                event.acceptProposedAction()
-                self.drop_zone.setStyleSheet("""
-                    QLabel {
-                        background-color: #0078d4; border: 2px dashed #ffffff; border-radius: 12px;
-                        padding: 20px; font-size: 14px; color: #ffffff; margin: 8px 0px;
-                    }
-                """)
-                return
+        
+        paths = [Path(url.toLocalFile()) for url in event.mimeData().urls()]
+        
+        if self.is_valid_drop(paths):
+            event.acceptProposedAction()
+            self.drop_zone.setStyleSheet("""
+                QLabel {
+                    background-color: #0078d4; border: 2px dashed #ffffff; border-radius: 12px;
+                    padding: 20px; font-size: 14px; color: #ffffff; margin: 8px 0px;
+                }
+            """)
 
     def dragLeaveEvent(self, event):
         self.drop_zone.setStyleSheet("""
@@ -325,43 +344,31 @@ class GamePage(QWidget):
     def dropEvent(self, event: QDropEvent):
         self.dragLeaveEvent(event)
         
-        dropped_paths = [Path(url.toLocalFile()) for url in event.mimeData().urls()]
-        
+        dropped_paths = [Path(url.toLocalFile()) for url in event.mimeData().urls() if Path(url.toLocalFile()).exists()]
+        if not dropped_paths:
+            return
+
+        # The drop has already been validated by dragEnterEvent, so we can proceed.
         root_packages = []
-        loose_components = []
-        loose_dlls = []
-        loose_regulations = []
+        loose_items = []
 
-        for path in dropped_paths:
-            if not path.exists(): continue
+        if len(dropped_paths) == 1 and dropped_paths[0].is_dir():
+            root_packages.append(dropped_paths[0])
+        else:
+            loose_items.extend(dropped_paths)
 
-            if path.is_dir():
-                if path.name in self.acceptable_folders:
-                    loose_components.append(str(path))
-                elif self.has_mod_content(path):
-                    root_packages.append(path)
-            elif path.suffix == '.dll':
-                loose_dlls.append(str(path))
-            elif path.name == 'regulation.bin':
-                loose_regulations.append(str(path))
-        
         installed_something = False
         if root_packages:
             for pkg_path in root_packages:
                 self.install_root_mod_package(pkg_path)
             installed_something = True
 
-        if loose_components or loose_regulations:
-            self.install_loose_components(loose_components, loose_regulations)
-            installed_something = True
-
-        if loose_dlls:
-            config_folders = [str(p) for p in dropped_paths if p.is_dir() and (p.name + '.dll') in [Path(d).name for d in loose_dlls]]
-            self.install_dll_mods(loose_dlls, config_folders)
+        if loose_items:
+            self.install_loose_items(loose_items)
             installed_something = True
         
         if installed_something:
-            self.load_mods()
+            self.load_mods(reset_page=False)
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
 
     def install_root_mod_package(self, root_path: Path):
@@ -369,7 +376,7 @@ class GamePage(QWidget):
         mod_name, ok = QInputDialog.getText(self, "Name Mod Package",
                                             "Enter a name for this mod package.\n"
                                             "DLLs will be installed as separate mods.\n"
-                                            "Other content (folders, regulation.bin) will be grouped under this name.",
+                                            "All other content will be grouped under this name.",
                                             text=default_name)
         if not ok or not mod_name.strip():
             return
@@ -378,13 +385,12 @@ class GamePage(QWidget):
         mods_dir = self.config_manager.get_mods_dir(self.game_name)
         dest_folder_path = mods_dir / mod_name
         
-        content = list(root_path.iterdir())
-        dlls_to_install = [p for p in content if p.suffix == '.dll']
-        folder_components = [p for p in content if p.is_dir() and p.name in self.acceptable_folders]
-        regulation_file = next((p for p in content if p.name == 'regulation.bin'), None)
+        all_content = list(root_path.iterdir())
+        dlls_to_install = [p for p in all_content if p.suffix.lower() == '.dll']
+        other_content_to_install = [p for p in all_content if p.suffix.lower() != '.dll']
         
         existing_dll_paths = [mods_dir / dll.name for dll in dlls_to_install if (mods_dir / dll.name).exists()]
-        folder_mod_exists = dest_folder_path.exists() and (folder_components or regulation_file)
+        folder_mod_exists = dest_folder_path.exists() and other_content_to_install
 
         if existing_dll_paths or folder_mod_exists:
             conflict_msg = f"The mod package '{mod_name}' conflicts with existing mods. Overwrite?\n\n"
@@ -414,13 +420,15 @@ class GamePage(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Install Error", f"Failed to copy DLL {dll_path.name}: {e}")
 
-        if folder_components or regulation_file:
+        if other_content_to_install:
             try:
                 dest_folder_path.mkdir(parents=True, exist_ok=True)
-                for component in folder_components:
-                    shutil.copytree(component, dest_folder_path / component.name)
-                if regulation_file:
-                    shutil.copy2(regulation_file, dest_folder_path / 'regulation.bin')
+                for item in other_content_to_install:
+                    dest_item_path = dest_folder_path / item.name
+                    if item.is_dir():
+                        shutil.copytree(item, dest_item_path, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(item, dest_item_path)
                 
                 self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_folder_path))
                 self.config_manager.set_mod_enabled(self.game_name, str(dest_folder_path), True)
@@ -433,15 +441,18 @@ class GamePage(QWidget):
         if installed_dlls or installed_folder_mod:
             self.status_label.setText(f"Successfully installed components from '{root_path.name}'.")
         else:
-            QMessageBox.information(self, "Installation Info", f"No compatible mod content found in '{root_path.name}'.")
+            QMessageBox.information(self, "Installation Info", f"No content found to install in '{root_path.name}'.")
 
-    def install_loose_components(self, folder_paths: List[str], regulation_files: List[str]):
-        item_count = len(folder_paths) + len(regulation_files)
-        if item_count == 0: return
+    def install_loose_items(self, items_to_install: List[Path]):
+        if not items_to_install:
+            return
 
-        item_desc = f"{item_count} component{'s' if item_count > 1 else ''}"
-        mod_name, ok = QInputDialog.getText(self, "New Mod Name", f"Enter a name for the new mod containing {item_desc}:", text="new_mod_folder")
-        if not ok or not mod_name.strip(): return
+        item_count = len(items_to_install)
+        item_desc = f"{item_count} item{'s' if item_count > 1 else ''}"
+        
+        mod_name, ok = QInputDialog.getText(self, "New Mod Name", f"Enter a name for the new mod containing these {item_desc}:", text="new_bundled_mod")
+        if not ok or not mod_name.strip():
+            return
         
         mod_name = mod_name.strip()
         mods_dir = self.config_manager.get_mods_dir(self.game_name)
@@ -449,48 +460,27 @@ class GamePage(QWidget):
 
         if dest_path.exists():
             reply = QMessageBox.question(self, "Mod Exists", f"Mod folder '{mod_name}' already exists. Replace it?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            if reply == QMessageBox.StandardButton.No: return
+            if reply == QMessageBox.StandardButton.No:
+                return
             shutil.rmtree(dest_path)
         
         dest_path.mkdir(parents=True, exist_ok=True)
 
-        for folder_path in folder_paths:
-            source = Path(folder_path)
-            shutil.copytree(source, dest_path / source.name)
-        
-        if regulation_files:
-            shutil.copy2(regulation_files[0], dest_path / "regulation.bin")
+        try:
+            for item in items_to_install:
+                dest_item_path = dest_path / item.name
+                if item.is_dir():
+                    shutil.copytree(item, dest_item_path, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(item, dest_item_path)
             
-        self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_path))
-        self.config_manager.set_mod_enabled(self.game_name, str(dest_path), True)
-        self.status_label.setText(f"Installed component mod: {mod_name}")
-
-    def install_dll_mods(self, dll_files: List[str], config_folders: List[str]):
-        installed_count = 0
-        for dll_path_str in dll_files:
-            try:
-                dll_path = Path(dll_path_str)
-                mod_name = dll_path.name
-                dest_path = self.config_manager.get_mods_dir(self.game_name) / mod_name
-                
-                if dest_path.exists():
-                    reply = QMessageBox.question(self, "Mod Exists", f"Mod '{mod_name}' already exists. Replace it?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                    if reply == QMessageBox.StandardButton.No: continue
-                
-                shutil.copy2(dll_path, dest_path)
-                
-                matching_config = next((cf for cf in config_folders if Path(cf).name == dll_path.stem), None)
-                if matching_config:
-                    config_dest = self.config_manager.get_mods_dir(self.game_name) / dll_path.stem
-                    if config_dest.exists(): shutil.rmtree(config_dest)
-                    shutil.copytree(matching_config, config_dest)
-                
-                installed_count += 1
-            except Exception as e:
-                QMessageBox.warning(self, "Install Error", f"Failed to install {Path(dll_path_str).name}: {str(e)}")
-        
-        if installed_count > 0:
-            self.status_label.setText(f"Installed {installed_count} DLL mod(s)")
+            self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_path))
+            self.config_manager.set_mod_enabled(self.game_name, str(dest_path), True)
+            self.status_label.setText(f"Installed bundled mod: {mod_name}")
+        except Exception as e:
+            QMessageBox.warning(self, "Install Error", f"Failed to bundle items into mod '{mod_name}': {e}")
+            if dest_path.exists():
+                shutil.rmtree(dest_path)
     
     def change_items_per_page(self, value):
         self.mods_per_page = value
@@ -580,21 +570,21 @@ class GamePage(QWidget):
         
         self.status_label.setText(f"Showing {showing_start}-{showing_end} of {total_mods_filtered} mods ({enabled_mods_filtered} enabled)")
 
-    def load_mods(self):
+    def load_mods(self, reset_page: bool = True):
         self.config_manager.sync_profile_with_filesystem(self.game_name)
-        self.apply_filters()
+        self.apply_filters(reset_page=reset_page)
     
     def activate_regulation_mod(self, mod_path: str):
         mod_name = Path(mod_path).name
         try:
             self.config_manager.set_regulation_active(self.game_name, mod_name)
-            self.load_mods()
+            self.load_mods(reset_page=False)
             self.status_label.setText(f"Set {mod_name} as active regulation")
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
         except Exception as e:
             QMessageBox.warning(self, "Regulation Error", f"Failed to set regulation active: {str(e)}")
 
-    def apply_filters(self):
+    def apply_filters(self, reset_page: bool = True):
         search_text = self.search_bar.text().lower()
         all_mods = self.config_manager.get_mods_info(self.game_name)
         self.filtered_mods = {}
@@ -621,13 +611,14 @@ class GamePage(QWidget):
             if name_match and category_match:
                 self.filtered_mods[mod_path] = info
         
-        self.current_page = 1
+        if reset_page:
+            self.current_page = 1
         self.update_pagination()
     
     def toggle_mod(self, mod_path: str, enabled: bool):
         try:
             self.config_manager.set_mod_enabled(self.game_name, mod_path, enabled)
-            self.load_mods()
+            self.load_mods(reset_page=False)
             self.status_label.setText(f"{'Enabled' if enabled else 'Disabled'} {Path(mod_path).name}")
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
         except Exception as e:
@@ -640,7 +631,7 @@ class GamePage(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 self.config_manager.delete_mod(self.game_name, mod_path)
-                self.load_mods()
+                self.load_mods(reset_page=False)
                 self.status_label.setText(f"Deleted {mod_name}")
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
             except Exception as e:
@@ -659,10 +650,13 @@ class GamePage(QWidget):
                     QMessageBox.information(self, "Mod Info", f"The mod '{mod_name}' is inside this game's mods folder and should already be listed.")
                     return
 
+                # First, track it so we remember it even when disabled.
+                self.config_manager.track_external_mod(self.game_name, mod_path)
+                
                 self.config_manager.set_mod_enabled(self.game_name, mod_path, True)
                 
                 self.status_label.setText(f"Added external mod: {mod_name}")
-                self.load_mods()
+                self.load_mods(reset_page=False)
                 QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
                 
             except Exception as e:

@@ -37,6 +37,7 @@ class ConfigManager:
         settings = self._load_settings()
         self.custom_config_paths = settings.get('custom_config_paths', {})
         self.game_exe_paths = settings.get('game_exe_paths', {})
+        self.tracked_external_mods = settings.get('tracked_external_mods', {})
         self.ui_settings = settings.get('ui_settings', {}) # Load UI settings
         
         # Use default order from games config if not set in settings
@@ -71,7 +72,8 @@ class ConfigManager:
                 'custom_config_paths': self.custom_config_paths,
                 'game_exe_paths': self.game_exe_paths,
                 'game_order': getattr(self, 'game_order', list(self.games.keys())),
-                'ui_settings': self.ui_settings
+                'ui_settings': self.ui_settings,
+                'tracked_external_mods': self.tracked_external_mods
             }
             with open(self.settings_file, 'w', encoding='utf-8') as f:
                 json.dump(all_settings, f, indent=4)
@@ -210,6 +212,24 @@ class ConfigManager:
         
         self.custom_config_paths[game_name][mod_filename] = config_path
         self._save_settings()
+
+    def track_external_mod(self, game_name: str, mod_path: str):
+        """Adds an external mod to the tracking list so it's remembered when disabled."""
+        # NORMALIZE the path to use forward slashes before storing
+        normalized_path = mod_path.replace('\\', '/')
+        game_mods = self.tracked_external_mods.setdefault(game_name, [])
+        if normalized_path not in game_mods:
+            game_mods.append(normalized_path)
+            self._save_settings()
+
+    def untrack_external_mod(self, game_name: str, mod_path: str):
+        """Removes an external mod from the tracking list."""
+        # NORMALIZE the path to ensure we can find it in the list
+        normalized_path = mod_path.replace('\\', '/')
+        if game_name in self.tracked_external_mods:
+            if normalized_path in self.tracked_external_mods[game_name]:
+                self.tracked_external_mods[game_name].remove(normalized_path)
+                self._save_settings()
 
     def find_me3_executable(self) -> Optional[Path]:
         possible_locations = [
@@ -525,17 +545,13 @@ class ConfigManager:
         Get information about all mods for a game, discovering new mods from the
         filesystem and syncing the status of tracked mods from the config file.
         """
-        # Step 1: Clean the profile by removing any entries for mods that no longer exist.
-        # This handles cases where the user manually deleted a mod file/folder.
         self.sync_profile_with_filesystem(game_name)
 
-        # Step 2: Now that the profile is clean, parse it to get a definitive list
-        # of currently enabled mods.
         mods_info = {}
         profile_path = self.get_profile_path(game_name)
-        config_data = self._parse_toml_config(profile_path)
         
         enabled_dll_paths = set(self.parse_me3_config(profile_path))
+        config_data = self._parse_toml_config(profile_path)
         enabled_folder_mods = {
             pkg.get("id", "") for pkg in config_data.get("packages", [])
             if pkg.get("id") != self.games[game_name]['mods_dir']
@@ -544,10 +560,7 @@ class ConfigManager:
         active_regulation_mod = self._get_active_regulation_mod(game_name)
         mods_dir = self.get_mods_dir(game_name)
 
-        # Step 3: Scan the filesystem to find ALL potential mods. Any mod found here
-        # that is not in our 'enabled' sets will be treated as a new, disabled mod.
-
-        # Scan for DLL files
+        # Step 1: Scan the filesystem for all INTERNAL mods (in the game's mods folder).
         for dll_file in mods_dir.glob("*.dll"):
             relative_path = f"{self.games[game_name]['mods_dir']}\\{dll_file.name}"
             mods_info[str(dll_file)] = {
@@ -557,7 +570,6 @@ class ConfigManager:
                 'is_folder_mod': False
             }
 
-        # Scan for folder mods
         acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
                             'font', 'map', 'material', 'menu', 'movie', 'msg', 'other', 'param',
                             'parts', 'script', 'sd', 'sfx', 'shader', 'sound']
@@ -591,19 +603,41 @@ class ConfigManager:
                     
                     mods_info[str(folder)] = mod_info
         
-        # Step 4: Add any external mods that are listed in the profile.
-        # These are mods enabled from outside the game's standard mods folder.
-        # Our sync function has already verified these paths exist.
-        for enabled_path in enabled_dll_paths:
-            if not enabled_path.startswith(self.games[game_name]['mods_dir']):
-                mod_name = Path(enabled_path).stem
-                if enabled_path not in mods_info: # Avoid re-adding if somehow already present
-                    mods_info[enabled_path] = {
-                        'name': mod_name,
-                        'enabled': True,
-                        'external': True,
-                        'is_folder_mod': False
-                    }
+        # Step 2: Discover, migrate, and sync all EXTERNAL mods.
+        
+        # Get a set of enabled external paths from the profile, NORMALIZED with forward slashes.
+        enabled_external_paths = {
+            p.replace('\\', '/') for p in enabled_dll_paths 
+            if not p.startswith(self.games[game_name]['mods_dir'])
+        }
+        
+        # Get a set of tracked external paths from settings, also NORMALIZED.
+        # This also self-heals any old paths with backslashes.
+        tracked_paths = {p.replace('\\', '/') for p in self.tracked_external_mods.get(game_name, [])}
+
+        # Combine them to get a master list. The union of normalized sets prevents duplication.
+        all_known_external_paths = enabled_external_paths.union(tracked_paths)
+
+        # Process every known external mod.
+        for path_str in all_known_external_paths:
+            # We use the normalized path_str as the dictionary key to prevent duplicates.
+            if path_str in mods_info:
+                continue # Should not happen, but a safeguard.
+
+            if not Path(path_str).exists():
+                continue
+
+            # Self-healing: If this mod was discovered but not tracked, track it now.
+            if path_str not in tracked_paths:
+                self.track_external_mod(game_name, path_str)
+
+            # Add to the main mod list for display.
+            mods_info[path_str] = {
+                'name': Path(path_str).stem,
+                'enabled': path_str in enabled_external_paths,
+                'external': True,
+                'is_folder_mod': False
+            }
         
         return mods_info
     
@@ -642,15 +676,12 @@ class ConfigManager:
         """Enable or disable a mod"""
         mod_path_obj = Path(mod_path)
         
-        # Check if it's a folder mod
         if mod_path_obj.is_dir():
-            # Handle folder mod - determine relative path
+            # Handle folder mod
             if Path(mod_path).is_absolute() and mod_path.startswith(str(self.config_root)):
-                # Use relative path for internal mods
                 relative_path = Path(mod_path).relative_to(self.config_root)
                 config_mod_path = str(relative_path).replace('\\', '/')
             else:
-                # External mod - use full path
                 config_mod_path = mod_path.replace('\\', '/')
             
             if enabled:
@@ -658,31 +689,23 @@ class ConfigManager:
             else:
                 self.remove_folder_mod(game_name, mod_path_obj.name)
         else:
-            # Handle DLL mod (existing logic unchanged)
+            # Handle DLL mod
             profile_path = self.get_profile_path(game_name)
-            
-            # Get current enabled paths
             current_paths = self.parse_me3_config(profile_path)
             
-            # Determine the path to use in config
-            if Path(mod_path).is_absolute() and not mod_path.startswith(str(self.config_root)):
-                # External mod - use full path with forward slashes
+            # Determine the path to use in config, ALWAYS with forward slashes for external.
+            if mod_path_obj.is_absolute() and not mod_path.startswith(str(self.config_root)):
                 config_path = mod_path.replace('\\', '/')
-            else:
-                # Internal mod - use relative path with backslashes
-                config_path = f"{self.games[game_name]['mods_dir']}\\{Path(mod_path).name}"
+            else: # Internal mods use backslashes as per ME3 convention.
+                config_path = f"{self.games[game_name]['mods_dir']}\\{mod_path_obj.name}"
             
-            # Remove existing entry for this mod (handle both slash types)
-            current_paths = [p for p in current_paths if 
-                            p != config_path and 
-                            p.replace('\\', '/') != config_path.replace('\\', '/') and
-                            p.replace('/', '\\') != config_path.replace('/', '\\')]
+            # Normalize all paths before comparison to avoid slash issues.
+            normalized_config_path = config_path.replace('\\', '/')
+            current_paths = [p for p in current_paths if p.replace('\\', '/') != normalized_config_path]
             
-            # Add entry if enabling
             if enabled:
                 current_paths.append(config_path)
             
-            # Write updated config
             self.write_me3_config(profile_path, current_paths)
 
     def _disable_other_regulation_mods(self, game_name: str, current_mod_path: str):
@@ -693,17 +716,14 @@ class ConfigManager:
             if mod_path == current_mod_path or not info['enabled']:
                 continue
                 
-            # Check if this mod has regulation.bin
             has_regulation = False
             
             if info.get('is_folder_mod', False):
-                # Check if folder mod contains regulation.bin
                 folder_path = Path(mod_path)
                 if (folder_path / "regulation.bin").exists():
                     has_regulation = True
             
             if has_regulation:
-                # Disable this mod
                 if info.get('is_folder_mod', False):
                     self.remove_folder_mod(game_name, Path(mod_path).name)
 
@@ -718,39 +738,37 @@ class ConfigManager:
             if mod_path_obj.is_dir():
                 # Handle folder mod
                 self.remove_folder_mod(game_name, mod_path_obj.name)
-                # Delete folder if it's in our mods directory
                 if mod_path_obj.parent == self.get_mods_dir(game_name):
                     shutil.rmtree(mod_path_obj)
             else:
-                # Handle DLL mod
-                # Remove from config first to disable it
+                # Disable the mod first.
                 self.set_mod_enabled(game_name, mod_path, False)
                 
-                # Only delete files if they are inside the managed mods directory
+                # Check if it's an internal or external mod.
                 if mod_path_obj.parent == self.get_mods_dir(game_name):
-                    # Delete the DLL file itself
+                    # Internal: Delete the files
                     if mod_path_obj.exists():
                         mod_path_obj.unlink()
 
-                    # Find and delete the associated config folder (e.g., MyMod.dll -> MyMod/)
                     config_folder_path = mod_path_obj.parent / mod_path_obj.stem
                     if config_folder_path.is_dir():
                         try:
                             shutil.rmtree(config_folder_path)
                         except OSError as e:
                             print(f"Error removing config folder {config_folder_path}: {e}")
+                else:
+                    # External: Just untrack it from our settings
+                    self.untrack_external_mod(game_name, mod_path)
 
     def add_folder_mod(self, game_name: str, mod_name: str, mod_path: str):
         """Add a folder mod to the packages section"""
         profile_path = self.get_profile_path(game_name)
         config_data = self._parse_toml_config(profile_path)
         
-        # Ensure packages section exists
         if "packages" not in config_data:
             config_data["packages"] = []
         
-        # Check if mod already exists
-        existing_ids = [pkg.get("id", "") for pkg in config_data["packages"]]
+        existing_ids = [pkg.get("id", "") for pkg in config_data.get("packages")]
         if mod_name not in existing_ids:
             config_data["packages"].append({
                 "id": mod_name,
@@ -777,18 +795,14 @@ class ConfigManager:
     def validate_and_fix_profile(self, profile_path: Path):
         """Validate and fix profile format to ensure it matches the correct structure"""
         try:
-            # Read and parse the config
             config_data = self._parse_toml_config(profile_path)
             
-            # Check if the file needs fixing
             needs_fixing = False
             
-            # Check for missing profileVersion
             if "profileVersion" not in config_data:
                 config_data["profileVersion"] = "v1"
                 needs_fixing = True
             
-            # Check natives format
             if "natives" in config_data:
                 fixed_natives = []
                 for native in config_data["natives"]:
@@ -799,12 +813,10 @@ class ConfigManager:
                         fixed_natives.append(native)
                 config_data["natives"] = fixed_natives
             
-            # Ensure supports has correct format
             if "supports" in config_data:
                 fixed_supports = []
                 for support in config_data["supports"]:
                     if isinstance(support, dict):
-                        # Handle old format conversions
                         if "name" in support or "id" in support:
                             game_name = support.get("name", support.get("id", ""))
                             if game_name.upper() == "ELDEN RING" or game_name.upper() == "ER":
@@ -817,7 +829,6 @@ class ConfigManager:
                             fixed_supports.append(support)
                 config_data["supports"] = fixed_supports
             
-            # Ensure packages section exists and has required path field
             if "packages" not in config_data or not config_data["packages"]:
                 game_name = "nightreign" if "nightreign" in profile_path.name else "eldenring"
                 game_key = "Nightreign" if "nightreign" in profile_path.name else "Elden Ring"
@@ -834,17 +845,12 @@ class ConfigManager:
                     ]
                     needs_fixing = True
             else:
-                # Check existing packages for missing path field
                 for package in config_data["packages"]:
                     if "path" not in package and "source" not in package:
-                        # Add path field if missing
                         if "id" in package:
                             package["path"] = str(self.config_root / package["id"])
                             needs_fixing = True
             
-            # Write back if fixes were needed
-            # We always write back now when called from the startup check
-            # to ensure the format is corrected.
             print(f"Validating and writing profile: {profile_path}")
             self._write_toml_config(profile_path, config_data)
             
@@ -852,7 +858,6 @@ class ConfigManager:
             
         except Exception as e:
             print(f"Error validating/fixing profile {profile_path}: {e}")
-            # Create a completely new profile if parsing fails
             self.create_default_profile(profile_path)
             return self._parse_toml_config(profile_path)
         
@@ -877,7 +882,6 @@ class ConfigManager:
                 if not path_str:
                     continue
 
-                # Path can be absolute or relative to the profile's location (config_root)
                 full_path = self.config_root / path_str.replace('\\', '/') if not Path(path_str).is_absolute() else Path(path_str)
                 
                 if full_path.exists():
@@ -887,6 +891,15 @@ class ConfigManager:
                 config_data["natives"] = valid_natives
                 modified = True
 
+        # Sync Tracked External Mods
+        if game_name in self.tracked_external_mods:
+            original_tracked = self.tracked_external_mods[game_name]
+            # Normalize all paths before checking for existence
+            valid_tracked = [p for p in original_tracked if Path(p.replace('\\', '/')).exists()]
+            if len(valid_tracked) != len(original_tracked):
+                self.tracked_external_mods[game_name] = valid_tracked
+                self._save_settings()
+
         # Sync Packages (Folder Mods) ---
         if "packages" in config_data:
             original_packages = config_data.get("packages", [])
@@ -894,15 +907,12 @@ class ConfigManager:
             main_mods_dir_id = self.games[game_name]["mods_dir"]
             
             for package_entry in original_packages:
-                # Always keep the main mods directory definition, as ME3 needs it internally.
                 if package_entry.get("id") == main_mods_dir_id:
                     valid_packages.append(package_entry)
                     continue
 
-                # For other mod packages, check if their source directory exists.
                 source_str = package_entry.get("source") or package_entry.get("path")
                 if not source_str:
-                    # Prune entries without a source path
                     modified = True
                     continue
                 
@@ -911,13 +921,11 @@ class ConfigManager:
                 if full_path.exists() and full_path.is_dir():
                     valid_packages.append(package_entry)
                 else:
-                    # Prune entries pointing to non-existent folders
                     modified = True
             
             if len(valid_packages) != len(original_packages):
                  config_data["packages"] = valid_packages
 
-        # Write back if modified ---
         if modified:
             print(f"Saving updated profile for '{game_name}' after syncing with filesystem.")
             self._write_toml_config(profile_path, config_data)
@@ -928,7 +936,6 @@ class ConfigManager:
 
     def set_game_order(self, new_order: List[str]):
         """Set a new game order and save it"""
-        # Validate that all games in the new order exist
         valid_games = set(self.games.keys())
         if set(new_order) == valid_games:
             self.game_order = new_order.copy()
@@ -938,7 +945,6 @@ class ConfigManager:
         """Reads the raw content of a game's .me3 profile file."""
         profile_path = self.get_profile_path(game_name)
         if not profile_path.exists():
-            # If it doesn't exist, create a default one first
             self.create_default_profile(profile_path)
         
         try:
@@ -956,9 +962,6 @@ class ConfigManager:
         try:
             with open(profile_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            # After saving, immediately try to validate and reformat it.
-            # This ensures that any user errors are caught/fixed, and the file
-            # is always in the standard format we expect.
             self.check_and_reformat_profile(profile_path)
         except IOError as e:
             print(f"Error writing to profile file {profile_path}: {e}")
@@ -987,7 +990,6 @@ class ConfigManager:
     def refresh_me3_info(self):
         """Refresh ME3 info cache (useful after installation)"""
         self.me3_info.refresh_info()
-        # Update config root if ME3 was just installed
         dynamic_profile_dir = self.me3_info.get_profile_directory()
         if dynamic_profile_dir:
             self.config_root = dynamic_profile_dir
@@ -1007,17 +1009,12 @@ class ConfigManager:
         
         steam_path = self.get_steam_path()
 
-    
-
-        # Check if Steam is already running
         if self._is_steam_running():
             print("Steam is already running, skipping launch")
             return True
 
         try:
-            # Use platform check for Windows/Linux
             if sys.platform == "win32":
-                # Windows handling
                 steam_exe = steam_path / "steam.exe"
                 if not steam_exe.exists():
                     print(f"Steam executable not found at {steam_exe}")
@@ -1038,12 +1035,10 @@ class ConfigManager:
 
             else:
                 steam_sh = steam_path / "steam.sh"
-                # Only check for steam.sh existence if Steam is not already running
                 if not steam_sh.exists():
                     print(f"Steam script not found at {steam_sh}")
                     return False
 
-                # Detect if running inside Flatpak
                 if "FLATPAK_ID" in os.environ:
                     if shutil.which("flatpak-spawn"):
                         subprocess.Popen([
@@ -1076,7 +1071,6 @@ class ConfigManager:
             import sys
             
             if sys.platform == "win32":
-                # Use tasklist to check for steam.exe process on Windows
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
@@ -1089,12 +1083,9 @@ class ConfigManager:
                     timeout=5
                 )
                 
-                # If steam.exe is found in the process list
                 return "steam.exe" in result.stdout.lower()
             else:
-                # For Linux platforms, use multiple approaches to detect Steam
                 try:
-                    # First try pgrep with more specific pattern
                     result = subprocess.run(
                         ["pgrep", "-f", "steam.sh|steam$"],
                         capture_output=True,
@@ -1104,7 +1095,6 @@ class ConfigManager:
                     if result.returncode == 0:
                         return True
                         
-                    # Also check for steam binary directly
                     result = subprocess.run(
                         ["pgrep", "steam"],
                         capture_output=True,
@@ -1115,14 +1105,12 @@ class ConfigManager:
                         return True
                         
                 except FileNotFoundError:
-                    # Fallback to ps if pgrep not available
                     result = subprocess.run(
                         ["ps", "aux"],
                         capture_output=True,
                         text=True,
                         timeout=5
                     )
-                    # Look for steam processes more specifically
                     lines = result.stdout.lower().split('\n')
                     for line in lines:
                         if ('steam' in line and 
@@ -1135,7 +1123,6 @@ class ConfigManager:
                     
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError, Exception) as e:
             print(f"Error checking if Steam is running: {e}")
-            # If we can't determine, assume it's not running to be safe
             return False
         
         return False
