@@ -89,35 +89,57 @@ class ME3LinuxInstaller(QObject):
     """Runs ME3 installer script in a separate thread for Linux/macOS."""
     install_finished = pyqtSignal(int, str)  # return_code, output_message
 
-    def __init__(self, installer_url, prepare_command_func):
+    def __init__(self, installer_url, prepare_command_func, env_vars=None):
         super().__init__()
         self.installer_url = installer_url
-        self._prepare_command = prepare_command_func
+        self.env_vars = env_vars if env_vars else {}
 
     def run(self):
+        """
+        Executes the installer script by piping curl's output to a shell.
+        """
         try:
-            curl_cmd = self._prepare_command([
-                "curl", "--proto", "=https", "--tlsv1.2", "-sSfL", self.installer_url
-            ])
-            curl_result = subprocess.run(
-                curl_cmd, capture_output=True, text=True, check=True, timeout=30
-            )
-            
-            sh_cmd = self._prepare_command(["sh"])
+            # Start with the current environment
+            env = os.environ.copy()
+            # Set required vars and merge any custom ones (like VERSION)
+            env['ME3_QUIET'] = 'no'
+            env.update(self.env_vars)
+
+            command_string = f"curl --proto '=https' --tlsv1.2 -sSfL {self.installer_url} | sh"
+            is_flatpak = sys.platform == "linux" and os.environ.get('FLATPAK_ID')
+
+            if is_flatpak:
+                cmd = ["flatpak-spawn", "--host", "sh", "-c", command_string]
+                use_shell = False
+            else:
+                cmd = command_string
+                use_shell = True
+
             result = subprocess.run(
-                sh_cmd, input=curl_result.stdout, capture_output=True,
-                text=True, check=False, timeout=120
+                cmd,
+                shell=use_shell,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=150,
+                env=env
             )
-            
+
             output = (result.stdout.strip() + "\n" + result.stderr.strip()).strip()
             self.install_finished.emit(result.returncode, output)
-            
+
         except subprocess.TimeoutExpired:
-            self.install_finished.emit(-2, "The installation process timed out.")
-        except subprocess.CalledProcessError as e:
-            self.install_finished.emit(e.returncode, f"Failed to download installer script: {e.stderr}")
+            self.install_finished.emit(-2, "The installation process timed out after 2.5 minutes.")
         except Exception as e:
             self.install_finished.emit(-3, f"An unexpected error occurred: {e}")
+
+
+    def _prepare_command(self, cmd: list) -> list:
+        """Enhanced command preparation with better environment handling."""
+        if sys.platform == "linux" and os.environ.get('FLATPAK_ID'):
+            # For Flatpak, we need to spawn the command on the host system
+            return ["flatpak-spawn", "--host"] + cmd
+        return cmd
 
 
 class HelpAboutDialog(QDialog):
@@ -283,7 +305,7 @@ class HelpAboutDialog(QDialog):
         
         # Custom installer button (Alternative)
         custom_button = QPushButton("Install/Update with Custom Script")
-        custom_button.setToolTip("An alternative community-maintained script for better error handling.")
+        custom_button.setToolTip("An alternative custom script for better error handling.")
         custom_button.clicked.connect(self.handle_custom_install)
         layout.addWidget(custom_button)
 
@@ -325,6 +347,22 @@ class ModEngine3Manager(QMainWindow):
         self.setup_file_watcher()
         self.check_me3_installation()
         self.auto_launch_steam_if_enabled()
+
+    def _fetch_github_version_python(self) -> str | None:
+        """Uses Python's requests to fetch the latest ME3 release version from GitHub."""
+        api_url = "https://api.github.com/repos/garyttierney/me3/releases/latest"
+        try:
+            response = requests.get(api_url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            version = data.get('tag_name')
+            if version and version.startswith('v'):
+                print(f"Successfully fetched version from GitHub API: {version}")
+                return version
+        except requests.RequestException as e:
+            print(f"Python-based GitHub API request failed: {e}")
+            return None
+        return None
 
     def _prepare_command(self, cmd: list) -> list:
         if sys.platform == "linux" and os.environ.get('FLATPAK_ID'):
@@ -521,25 +559,31 @@ class ModEngine3Manager(QMainWindow):
         self.refresh_me3_status()
 
     def _start_linux_install_process(self, installer_url: str):
-        if not installer_url: 
+        if not installer_url:
             QMessageBox.warning(self, "Error", "Installer URL is not available.")
             return
-        version_match = re.search(r'/(v?[^/]+)/installer\.sh', installer_url)
-        version = version_match.group(1) if version_match else "unknown"
 
         reply = QMessageBox.question(self, "Install ME3",
-            f"This will run the official ME3 installer script for version {version}.\n"
-            f"This may require administrative privileges (sudo).\n\nDo you want to continue?",
+            "This will run the official ME3 installer script.\n"
+            "This may require administrative privileges (sudo).\n\nDo you want to continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+
         if reply == QMessageBox.StandardButton.Yes:
+            # Silently fetch the version and prepare environment variables
+            env_vars = {}
+            latest_version = self._fetch_github_version_python()
+            if latest_version:
+                # If found, set the VERSION for the script to use
+                env_vars['VERSION'] = latest_version
+            # If not found, do nothing; the script will use its own logic.
+
             self.progress_dialog = QProgressDialog("Running ME3 installer script...", None, 0, 0, self)
             self.progress_dialog.setWindowTitle("Installing ME3")
             self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             self.progress_dialog.setCancelButton(None)
 
             self.thread = QThread()
-            self.installer = ME3LinuxInstaller(installer_url, self._prepare_command)
+            self.installer = ME3LinuxInstaller(installer_url, self._prepare_command, env_vars)
             self.installer.moveToThread(self.thread)
             self.installer.install_finished.connect(self.on_linux_install_finished)
             self.thread.started.connect(self.installer.run)
@@ -549,18 +593,26 @@ class ModEngine3Manager(QMainWindow):
     def _start_custom_install_process(self, installer_url: str):
         """Start the custom ME3 installation process for Linux/macOS."""
         reply = QMessageBox.question(self, "Install ME3 (Custom Script)",
-            f"This will run an alternative, community-maintained ME3 installer script.\n"
-            f"This may require administrative privileges (sudo).\n\nDo you want to continue?",
+            "This will run an alternative, community-maintained ME3 installer script.\n"
+            "This may require administrative privileges (sudo).\n\nDo you want to continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
+
         if reply == QMessageBox.StandardButton.Yes:
+            # Silently fetch the version and prepare environment variables
+            env_vars = {}
+            latest_version = self._fetch_github_version_python()
+            if latest_version:
+                # If found, set the VERSION for the script to use
+                env_vars['VERSION'] = latest_version
+            # If not found, do nothing; the script will use its own logic.
+
             self.progress_dialog = QProgressDialog("Running ME3 installer script...", None, 0, 0, self)
             self.progress_dialog.setWindowTitle("Installing ME3")
             self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
             self.progress_dialog.setCancelButton(None)
 
             self.thread = QThread()
-            self.installer = ME3LinuxInstaller(installer_url, self._prepare_command)
+            self.installer = ME3LinuxInstaller(installer_url, self._prepare_command, env_vars)
             self.installer.moveToThread(self.thread)
             self.installer.install_finished.connect(self.on_linux_install_finished)
             self.thread.started.connect(self.installer.run)
@@ -574,9 +626,19 @@ class ModEngine3Manager(QMainWindow):
 
         clean_output = self.strip_ansi_codes(output)
         self.refresh_me3_status()
-        
+
         if return_code == 0:
-            QMessageBox.information(self, "Installation Complete", clean_output)
+            # Try to find the version from the script's output for a more informative message
+            version_match = re.search(r"using latest version: (v[0-9]+\.[0-9]+\.[0-9]+)", clean_output)
+            final_message = "Installation Complete"
+            
+            if version_match:
+                installed_version = version_match.group(1)
+                final_message += f"\n\nVersion Installed: {installed_version}"
+            
+            final_message += f"\n\n{clean_output}"
+            
+            QMessageBox.information(self, "Installation Complete", final_message)
         else:
             QMessageBox.warning(self, "Installation Failed", f"The script failed:\n\n{clean_output}")
 
@@ -614,7 +676,7 @@ class ModEngine3Manager(QMainWindow):
         if old_version != self.me3_version:
             self.footer_label.setText(f"Manager v{VERSION}\nME3 CLI: {self.me3_version}\nby 2Pz")
             if self.me3_version != "Not Installed":
-                QMessageBox.information(self, "ME3 Status Updated", f"ME3 version changed from {old_version} to {self.me3_version}.")
+                QMessageBox.information(self, "ME3 Status Updated", f"ME3 version changed from {old_version} to {self.me3_version}.\nPlease restart the application to apply changes.")
 
     def switch_game(self, game_name: str):
         for name, button in self.game_buttons.items(): button.setChecked(name == game_name)
