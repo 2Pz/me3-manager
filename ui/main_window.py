@@ -565,7 +565,7 @@ class ModEngine3Manager(QMainWindow):
 
         reply = QMessageBox.question(self, "Install ME3",
             "This will run the official ME3 installer script.\n"
-            "This may require administrative privileges (sudo).\n\nDo you want to continue?",
+            "Do you want to continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
@@ -594,7 +594,7 @@ class ModEngine3Manager(QMainWindow):
         """Start the custom ME3 installation process for Linux/macOS."""
         reply = QMessageBox.question(self, "Install ME3 (Custom Script)",
             "This will run an alternative, community-maintained ME3 installer script.\n"
-            "This may require administrative privileges (sudo).\n\nDo you want to continue?",
+            "Do you want to continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
