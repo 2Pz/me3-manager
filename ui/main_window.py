@@ -122,10 +122,9 @@ class ME3LinuxInstaller(QObject):
 
 class HelpAboutDialog(QDialog):
     """A custom dialog for Help, About, and maintenance actions."""
-    def __init__(self, main_window):
+    def __init__(self, main_window, initial_setup=False):
         super().__init__(main_window)
         self.main_window = main_window
-        self.setWindowTitle("Help / About")
         self.setMinimumWidth(550)
         self.setStyleSheet("""
             QDialog { background-color: #252525; color: #ffffff; }
@@ -145,6 +144,8 @@ class HelpAboutDialog(QDialog):
             #KoFiButton:hover { background-color: #106ebe; }
             #VideoLinkLabel { color: #0078d4; text-decoration: underline; }
             #VideoLinkLabel:hover { color: #005a9e; }
+            #WarningLabel { color: #ff4d4d; font-size: 16px; font-weight: bold; }
+            #WarningInfoLabel { color: #f0c674; margin-bottom: 5px; }
         """)
 
         layout = QVBoxLayout(self)
@@ -164,13 +165,37 @@ class HelpAboutDialog(QDialog):
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line)
-        
-        description = QLabel(
-            "This application helps you manage all mods supported by Mod Engine 3.\n"
-            "Use the options below to update or install ME3."
-        )
-        description.setWordWrap(True)
-        layout.addWidget(description)
+
+        self.close_button = QPushButton() # Defined here for use in if/else
+
+        if initial_setup:
+            self.setWindowTitle("ME3 Installation Required")
+            
+            warning_layout = QVBoxLayout()
+            warning_layout.setSpacing(5)
+            
+            warning_label = QLabel("ME3 Not Installed")
+            warning_label.setObjectName("WarningLabel")
+            warning_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            warning_layout.addWidget(warning_label)
+
+            warning_info_label = QLabel("The manager needs Mod Engine 3 installed to work properly.")
+            warning_info_label.setObjectName("WarningInfoLabel")
+            warning_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            warning_info_label.setWordWrap(True)
+            warning_layout.addWidget(warning_info_label)
+            
+            layout.addLayout(warning_layout)
+            self.close_button.setText("Install Later")
+        else:
+            self.setWindowTitle("Help / About")
+            description = QLabel(
+                "This application helps you manage all mods supported by Mod Engine 3.\n"
+                "Use the options below to update or install ME3."
+            )
+            description.setWordWrap(True)
+            layout.addWidget(description)
+            self.close_button.setText("Close")
         
         video_header = QLabel("Tutorial")
         video_header.setObjectName("HeaderLabel")
@@ -207,19 +232,16 @@ class HelpAboutDialog(QDialog):
 
         button_box_layout.addStretch()
         
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(self.accept)
-        button_box_layout.addWidget(close_button)
+        self.close_button.clicked.connect(self.accept)
+        button_box_layout.addWidget(self.close_button)
         
         layout.addLayout(button_box_layout)
 
     def open_kofi_link(self):
-        """Opens the Ko-fi support page in the default web browser"""
         url = QUrl("https://ko-fi.com/2pz123")
         QDesktopServices.openUrl(url)
 
     def setup_windows_buttons(self, layout):
-        """Creates the three buttons specific to the Windows workflow."""
         self.update_cli_button = QPushButton("Update ME3")
         self.update_cli_button.clicked.connect(self.handle_update_cli)
         if self.main_window.me3_version == "Not Installed":
@@ -230,7 +252,7 @@ class HelpAboutDialog(QDialog):
         stable_v, stable_url = self.main_window._fetch_github_release_info('latest')
         prerelease_v, prerelease_url = self.main_window._fetch_github_release_info('prerelease')
         
-        btn_text = f"Download Latest Installer (Stable)"
+        btn_text = f"Download Latest Installer (Stable) (Recommended)"
         if stable_v: btn_text += f" ({stable_v})"
         self.stable_button = QPushButton(btn_text)
         self.stable_button.setObjectName("DownloadStableButton")
@@ -246,24 +268,38 @@ class HelpAboutDialog(QDialog):
         layout.addWidget(self.prerelease_button)
     
     def setup_linux_buttons(self, layout):
-        """Creates the two buttons specific to the Linux/macOS workflow."""
+        """Creates buttons for Linux/macOS, highlighting the stable official script."""
         stable_v, stable_url = self.main_window._fetch_github_release_info('latest')
         prerelease_v, prerelease_url = self.main_window._fetch_github_release_info('prerelease')
-
-        btn_text = "Install/Update Latest (Stable)"
+        
+        # Stable installer button (Official & Recommended)
+        btn_text = "Install/Update with Official Stable Script (Recommended)"
         if stable_v: btn_text += f" ({stable_v})"
         self.stable_button = QPushButton(btn_text)
         self.stable_button.setObjectName("DownloadStableButton")
         self.stable_button.clicked.connect(lambda: self.handle_linux_install('latest', stable_url))
         if not stable_url: self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
+        
+        # Custom installer button (Alternative)
+        custom_button = QPushButton("Install/Update with Custom Script")
+        custom_button.setToolTip("An alternative community-maintained script for better error handling.")
+        custom_button.clicked.connect(self.handle_custom_install)
+        layout.addWidget(custom_button)
 
-        btn_text = "Install/Update Pre-release"
+        # Pre-release installer button
+        btn_text = "Install/Update with Official Pre-release Script"
         if prerelease_v: btn_text += f" ({prerelease_v})"
         self.prerelease_button = QPushButton(btn_text)
         self.prerelease_button.clicked.connect(lambda: self.handle_linux_install('prerelease', prerelease_url))
         if not prerelease_url: self.prerelease_button.setDisabled(True)
         layout.addWidget(self.prerelease_button)
+
+    def handle_custom_install(self):
+        """Handle installation using the custom installer script."""
+        custom_installer_url = "https://github.com/2Pz/me3-manager/releases/download/Linux-0.0.1/installer.sh"
+        self.main_window._start_custom_install_process(custom_installer_url)
+        self.accept()
 
     def handle_update_cli(self):
         self.main_window.trigger_cli_update()
@@ -381,7 +417,7 @@ class ModEngine3Manager(QMainWindow):
         parent.addWidget(sidebar)
 
     def show_help_dialog(self):
-        dialog = HelpAboutDialog(self)
+        dialog = HelpAboutDialog(self, initial_setup=False)
         dialog.exec()
     
     def trigger_cli_update(self):
@@ -425,11 +461,12 @@ class ModEngine3Manager(QMainWindow):
                 api_url = repo_api_base
                 response = requests.get(api_url, timeout=10)
                 response.raise_for_status()
+                release_data = None
                 for release in response.json():
                     if release.get('prerelease', False):
                         release_data = release
                         break
-                else: return None, None
+                if release_data is None: return None, None
             else: return None, None
 
             version_tag = release_data.get('tag_name')
@@ -441,7 +478,9 @@ class ModEngine3Manager(QMainWindow):
         return None, None
 
     def _start_download_process(self, download_url: str):
-        if not download_url: return QMessageBox.warning(self, "Error", "Download URL is not available.")
+        if not download_url: 
+            QMessageBox.warning(self, "Error", "Download URL is not available.")
+            return
         downloads_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
         save_path, _ = QFileDialog.getSaveFileName(self, "Save ME3 Installer", os.path.join(downloads_path, "me3_installer.exe"), "Executable Files (*.exe)")
         if not save_path: return
@@ -482,10 +521,35 @@ class ModEngine3Manager(QMainWindow):
         self.refresh_me3_status()
 
     def _start_linux_install_process(self, installer_url: str):
-        if not installer_url: return QMessageBox.warning(self, "Error", "Installer URL is not available.")
-        version = installer_url.split('/')[-2]
+        if not installer_url: 
+            QMessageBox.warning(self, "Error", "Installer URL is not available.")
+            return
+        version_match = re.search(r'/(v?[^/]+)/installer\.sh', installer_url)
+        version = version_match.group(1) if version_match else "unknown"
+
         reply = QMessageBox.question(self, "Install ME3",
-            f"This will run the ME3 installer script for version {version}.\n"
+            f"This will run the official ME3 installer script for version {version}.\n"
+            f"This may require administrative privileges (sudo).\n\nDo you want to continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.progress_dialog = QProgressDialog("Running ME3 installer script...", None, 0, 0, self)
+            self.progress_dialog.setWindowTitle("Installing ME3")
+            self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+            self.progress_dialog.setCancelButton(None)
+
+            self.thread = QThread()
+            self.installer = ME3LinuxInstaller(installer_url, self._prepare_command)
+            self.installer.moveToThread(self.thread)
+            self.installer.install_finished.connect(self.on_linux_install_finished)
+            self.thread.started.connect(self.installer.run)
+            self.thread.start()
+            self.progress_dialog.show()
+
+    def _start_custom_install_process(self, installer_url: str):
+        """Start the custom ME3 installation process for Linux/macOS."""
+        reply = QMessageBox.question(self, "Install ME3 (Custom Script)",
+            f"This will run an alternative, community-maintained ME3 installer script.\n"
             f"This may require administrative privileges (sudo).\n\nDo you want to continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
@@ -535,46 +599,12 @@ class ModEngine3Manager(QMainWindow):
 
     def check_me3_installation(self):
         if self.me3_version == "Not Installed":
-            self.show_me3_not_installed_dialog()
+            self.prompt_for_me3_installation()
 
-    def show_me3_not_installed_dialog(self):
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("ME3 Not Installed")
-        msg_box.setIcon(QMessageBox.Icon.Warning)
-        msg_box.setText("Mod Engine 3 (ME3) is not installed or not found in your system PATH.")
-        msg_box.setStyleSheet("""
-            QMessageBox { background-color: #252525; color: #ffffff; }
-            QMessageBox QLabel { color: #ffffff; background-color: transparent; }
-            QMessageBox QPushButton {
-                background-color: #2d2d2d; border: 1px solid #3d3d3d;
-                padding: 8px 16px; border-radius: 4px; color: #ffffff; min-width: 80px;
-            }
-            QMessageBox QPushButton:hover { background-color: #3d3d3d; }
-        """)
-        
-        if sys.platform == "win32":
-            msg_box.setInformativeText("Would you like to download and run the latest stable installer now?")
-            btn = msg_box.addButton("Download Installer", QMessageBox.ButtonRole.AcceptRole)
-        else:
-            msg_box.setInformativeText("Would you like to run the latest stable installation script now?")
-            btn = msg_box.addButton("Run Install Script", QMessageBox.ButtonRole.AcceptRole)
-        
-        msg_box.addButton("Maybe Later", QMessageBox.ButtonRole.RejectRole)
-        msg_box.exec()
-        
-        if msg_box.clickedButton() == btn:
-            self.install_me3_stable()
-
-    def install_me3_stable(self):
-        _, stable_url = self._fetch_github_release_info('latest')
-        if not stable_url:
-            QMessageBox.critical(self, "Error", "Could not fetch the latest ME3 release from GitHub.")
-            return
-
-        if sys.platform == "win32":
-            self._start_download_process(stable_url)
-        else:
-            self._start_linux_install_process(stable_url)
+    def prompt_for_me3_installation(self):
+        """Shows the installer dialog when ME3 is not found on startup."""
+        dialog = HelpAboutDialog(self, initial_setup=True)
+        dialog.exec()
 
     def refresh_me3_status(self):
         old_version = self.me3_version
