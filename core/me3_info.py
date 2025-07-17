@@ -2,26 +2,39 @@ import subprocess
 import sys
 import re
 import os
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from pathlib import Path
 
 class ME3InfoManager:
     """
     Manages ME3 installation information and paths using 'me3 info' command.
-    UPDATED to be fully cross-platform, including support for Linux Flatpak.
+    UPDATED to be fully cross-platform, including support for Linux Flatpak and standard Linux environments.
     """
     
     def __init__(self):
-        self._info_cache = None
-        self._is_installed = None
+        # Added type hinting for clarity
+        self._info_cache: Optional[Dict[str, str]] = None
+        self._is_installed: Optional[bool] = None
 
-    def _prepare_command(self, cmd: list) -> list:
+    def _prepare_command(self, cmd: List[str]) -> List[str]:
         """
-        Prepares a command for execution, handling Flatpak on Linux if necessary.
-        This makes the class cross-platform.
+        Prepares a command for execution, handling platform specifics to ensure reliability.
+        This is the core of the cross-platform logic.
         """
-        if sys.platform == "linux" and os.environ.get('FLATPAK_ID'):
-            return ["flatpak-spawn", "--host"] + cmd
+        # On Linux, we need special handling to find executables in the user's PATH.
+        if sys.platform == "linux":
+            # If running in a Flatpak, we must use flatpak-spawn to break out of the sandbox.
+            if os.environ.get('FLATPAK_ID'):
+                return ["flatpak-spawn", "--host"] + cmd
+            
+            # --- KEY CHANGE FOR BASH/KONSOLE SUPPORT ---
+            # For standard Linux (non-Flatpak), run the command within a login shell ('bash -l').
+            # This ensures that the user's .profile/.bash_profile is sourced, setting up the PATH
+            # correctly to find commands like 'me3' installed in ~/.local/bin.
+            command_str = " ".join(cmd)
+            return ["bash", "-l", "-c", command_str]
+        
+        # For other platforms (Windows), the command can be run directly.
         return cmd
 
     def is_me3_installed(self) -> bool:
@@ -35,8 +48,9 @@ class ME3InfoManager:
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             
-            # Use the command preparation helper
+            # Use the robust command preparation helper
             command = self._prepare_command(["me3", "--version"])
+            
             result = subprocess.run(
                 command,
                 capture_output=True,
@@ -48,10 +62,11 @@ class ME3InfoManager:
                 errors='replace'
             )
             
-            # Logic remains the same, as it's robust
+            # Check output content for success indicators
             if result.stdout and ("me3" in result.stdout.lower() or "version" in result.stdout.lower()):
                 self._is_installed = True
                 return True
+            # Also check return code as a fallback
             elif result.returncode == 0:
                 self._is_installed = True
                 return True
@@ -60,6 +75,7 @@ class ME3InfoManager:
                 return False
                 
         except FileNotFoundError:
+            # This might happen if 'bash' itself isn't found (unlikely on Linux) or 'me3' on Windows.
             self._is_installed = False
             return False
         except (subprocess.TimeoutExpired, UnicodeDecodeError) as e:
@@ -81,8 +97,9 @@ class ME3InfoManager:
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             
-            # Use the command preparation helper
+            # Use the robust command preparation helper
             command = self._prepare_command(["me3", "info"])
+            
             result = subprocess.run(
                 command,
                 capture_output=True,
@@ -94,10 +111,10 @@ class ME3InfoManager:
                 errors='replace'
             )
             
-            if result.returncode != 0:
-                return None
-                
-            if not result.stdout:
+            # Check for failure conditions
+            if result.returncode != 0 or not result.stdout:
+                # Added print for debugging if 'me3 info' fails
+                print(f"Failed to get 'me3 info'. Exit code: {result.returncode}, Stderr: {result.stderr}")
                 return None
             
             info = self._parse_me3_info(result.stdout)
@@ -114,7 +131,6 @@ class ME3InfoManager:
         if not output:
             return info
         
-        # This parsing logic is excellent and does not need to be changed.
         version_match = re.search(r'version="([^"]+)"', output)
         if version_match:
             info['version'] = version_match.group(1)
@@ -179,7 +195,7 @@ class ME3InfoManager:
         if info and 'version' in info:
             return info['version']
         
-        # Fallback logic is still useful
+        # Fallback logic (also uses the robust _prepare_command)
         try:
             startupinfo = None
             if sys.platform == "win32":
