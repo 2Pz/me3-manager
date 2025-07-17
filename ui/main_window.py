@@ -593,7 +593,7 @@ class ModEngine3Manager(QMainWindow):
     def _start_custom_install_process(self, installer_url: str):
         """Start the custom ME3 installation process for Linux/macOS."""
         reply = QMessageBox.question(self, "Install ME3 (Custom Script)",
-            "This will run an alternative, community-maintained ME3 installer script.\n"
+            "This will run an alternative, custom ME3 installer script.\n"
             "Do you want to continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
