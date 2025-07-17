@@ -317,7 +317,7 @@ class GamePage(QWidget):
                     continue
         
         return False
-
+. 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if not event.mimeData().hasUrls():
             return
