@@ -19,23 +19,23 @@ class ME3InfoManager:
     def _prepare_command(self, cmd: List[str]) -> List[str]:
         """
         Prepares a command for execution, handling platform specifics to ensure reliability.
-        This is the core of the cross-platform logic.
+        Uses the user's default shell (from $SHELL) on Linux to ensure correct PATH sourcing.
         """
-        # On Linux, we need special handling to find executables in the user's PATH.
         if sys.platform == "linux":
-            # If running in a Flatpak, we must use flatpak-spawn to break out of the sandbox.
             if os.environ.get('FLATPAK_ID'):
                 return ["flatpak-spawn", "--host"] + cmd
-            
-            # --- KEY CHANGE FOR BASH/KONSOLE SUPPORT ---
-            # For standard Linux (non-Flatpak), run the command within a login shell ('bash -l').
-            # This ensures that the user's .profile/.bash_profile is sourced, setting up the PATH
-            # correctly to find commands like 'me3' installed in ~/.local/bin.
+
+            # Detect user's default shell, fallback to bash if not set
+            user_shell = os.environ.get("SHELL", "/bin/bash")
+            if not Path(user_shell).exists():
+                user_shell = "/bin/bash"
+
             command_str = " ".join(cmd)
-            return ["bash", "-l", "-c", command_str]
-        
-        # For other platforms (Windows), the command can be run directly.
+            return [user_shell, "-l", "-c", command_str]
+
+        # Windows or other platforms
         return cmd
+
 
     def is_me3_installed(self) -> bool:
         """Check if ME3 is installed and accessible."""
