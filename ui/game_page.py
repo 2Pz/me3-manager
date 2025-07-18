@@ -342,35 +342,84 @@ class GamePage(QWidget):
         """)
     
     def dropEvent(self, event: QDropEvent):
-        self.dragLeaveEvent(event)
+        self.dragLeaveEvent(event) # Reset drop zone style
         
         dropped_paths = [Path(url.toLocalFile()) for url in event.mimeData().urls() if Path(url.toLocalFile()).exists()]
         if not dropped_paths:
             return
 
-        # The drop has already been validated by dragEnterEvent, so we can proceed.
-        root_packages = []
-        loose_items = []
+        dlls_to_install = []
+        other_items = []
 
-        if len(dropped_paths) == 1 and dropped_paths[0].is_dir():
-            root_packages.append(dropped_paths[0])
-        else:
-            loose_items.extend(dropped_paths)
+        # Separate DLL files from everything else
+        for path in dropped_paths:
+            if path.is_file() and path.suffix.lower() == '.dll':
+                dlls_to_install.append(path)
+            else:
+                other_items.append(path)
 
         installed_something = False
-        if root_packages:
-            for pkg_path in root_packages:
-                self.install_root_mod_package(pkg_path)
-            installed_something = True
 
-        if loose_items:
-            self.install_loose_items(loose_items)
-            installed_something = True
+        # 1. Install all dropped DLLs as individual mods
+        if dlls_to_install:
+            if self.install_dll_mods(dlls_to_install):
+                installed_something = True
+
+        # 2. Handle the remaining items
+        if other_items:
+            # If there's only one item and it's a directory, treat it as a root package
+            if len(other_items) == 1 and other_items[0].is_dir():
+                self.install_root_mod_package(other_items[0])
+                installed_something = True
+            # Otherwise, bundle all remaining loose files/folders into a new mod
+            else:
+                self.install_loose_items(other_items)
+                installed_something = True
         
+        # If any installation happened, refresh the mod list
         if installed_something:
             self.load_mods(reset_page=False)
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+    
+    def install_dll_mods(self, dll_paths: List[Path]) -> bool:
+        """
+        Installs a list of DLL files as individual mods, handling potential conflicts.
+        """
+        mods_dir = self.config_manager.get_mods_dir(self.game_name)
+        
+        # First, find any DLLs that would overwrite existing ones
+        conflicts = [p for p in dll_paths if (mods_dir / p.name).exists()]
+        if conflicts:
+            conflict_msg = "The following DLLs already exist in the mods folder. Overwrite?\n\n"
+            for path in conflicts:
+                conflict_msg += f"- {path.name}\n"
+            
+            reply = QMessageBox.question(self, "Confirm Overwrite", conflict_msg,
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.No:
+                # If the user says no, filter out the conflicting files from the list to be installed
+                conflict_names = {p.name for p in conflicts}
+                dll_paths = [p for p in dll_paths if p.name not in conflict_names]
 
+        if not dll_paths:
+            self.status_label.setText("DLL installation cancelled or no new DLLs to install.")
+            return False
+
+        installed_count = 0
+        for dll_path in dll_paths:
+            try:
+                dest_path = mods_dir / dll_path.name
+                shutil.copy2(dll_path, dest_path)
+                installed_count += 1
+            except Exception as e:
+                QMessageBox.warning(self, "Install Error", f"Failed to copy DLL {dll_path.name}: {e}")
+                
+        if installed_count > 0:
+            plural = "s" if installed_count > 1 else ""
+            self.status_label.setText(f"Successfully installed {installed_count} DLL mod{plural}.")
+            return True
+        
+        return False
     def install_root_mod_package(self, root_path: Path):
         default_name = root_path.name
         mod_name, ok = QInputDialog.getText(self, "Name Mod Package",
