@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import List
 import math
 from collections import deque
-
+import sys
+import os
+import shlex
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QMessageBox, QFileDialog, QDialog, QSpinBox, QInputDialog
@@ -810,7 +812,12 @@ class GamePage(QWidget):
         terminal.process.start("me3", args)
      
     def launch_game(self):
+        """
+        Prepares and launches the game with the selected mods, handling platform-specific
+        execution requirements, especially for Linux environments.
+        """
         try:
+
             profile_path = self.config_manager.get_profile_path(self.game_name)
             if not profile_path.exists():
                 QMessageBox.warning(self, "Launch Error", f"Profile file not found:\n{profile_path}")
@@ -833,15 +840,31 @@ class GamePage(QWidget):
                 else:
                     QMessageBox.information(self, "Launch Info", "Custom executable launch requires the terminal. This setting will be ignored.")
             
-            command_args_list = ["me3", "launch", "--game", cli_id, "-p", profile_path.stem]
+            command_args = ["me3", "launch", "--game", cli_id, "-p", profile_path.stem]
             
+            final_popen_command = command_args
+
+            if sys.platform == "linux":
+                # Detect the user's default shell, falling back to a standard option.
+                user_shell = os.environ.get("SHELL", "/bin/bash")
+                if not Path(user_shell).exists():
+                    user_shell = "/bin/bash"
+
+                safe_command_string = shlex.join(command_args)
+                
+                final_popen_command = [user_shell, "-l", "-c", safe_command_string]
+
+
             if hasattr(main_window, "terminal"):
-                main_window.terminal.run_command(" ".join(command_args_list))
+
+                command_to_run_in_terminal = shlex.join(final_popen_command)
+                main_window.terminal.run_command(command_to_run_in_terminal)
             else:
-                subprocess.Popen(command_args_list)
+
+                subprocess.Popen(final_popen_command)
             
             self.status_label.setText(f"Launching {self.game_name}...")
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
                                 
         except Exception as e:
-            QMessageBox.warning(self, "Launch Error", f"Failed to launch game: {e}")
+            QMessageBox.warning(self, "Launch Error", f"Failed to launch game: {str(e)}")
