@@ -106,12 +106,13 @@ class ME3InfoManager:
     def _parse_me3_info(self, output: str) -> Dict[str, str]:
         """
         Parse the output of 'me3 info', compatible with both old and new formats.
+        Updated to handle the bullet-point format with indented values.
         """
         info = {}
         if not output:
             return info
 
-        # For older me3 versions
+        # For older me3 versions (XML-like format)
         version_match = re.search(r'version="([^"]+)"', output)
         if version_match:
             info['version'] = version_match.group(1)
@@ -120,28 +121,65 @@ class ME3InfoManager:
         if commit_match:
             info['commit_id'] = commit_match.group(1)
 
-        # For new (v0.7.0+) and old versions. Handles optional indentation.
-        profile_dir_match = re.search(r'^\s*Profile directory:\s*(.+)', output, re.MULTILINE)
-        if profile_dir_match:
-            info['profile_directory'] = profile_dir_match.group(1).strip()
+        # For newer format with bullet points and indentation
+        # Profile directory: handles both direct format and indented format
+        profile_dir_patterns = [
+            r'^\s*Profile directory:\s*(.+)',  # Original pattern
+            r'Profile directory:\s*(.+)',      # Direct after bullet
+        ]
+        for pattern in profile_dir_patterns:
+            profile_dir_match = re.search(pattern, output, re.MULTILINE)
+            if profile_dir_match:
+                info['profile_directory'] = profile_dir_match.group(1).strip()
+                break
 
-        logs_dir_match = re.search(r'^\s*Logs directory:\s*(.+)', output, re.MULTILINE)
-        if logs_dir_match:
-            info['logs_directory'] = logs_dir_match.group(1).strip()
+        # Logs directory: handles both formats
+        logs_dir_patterns = [
+            r'^\s*Logs directory:\s*(.+)',     # Original pattern
+            r'Logs directory:\s*(.+)',         # Direct after spaces/indentation
+        ]
+        for pattern in logs_dir_patterns:
+            logs_dir_match = re.search(pattern, output, re.MULTILINE)
+            if logs_dir_match:
+                info['logs_directory'] = logs_dir_match.group(1).strip()
+                break
 
-        install_prefix_match = re.search(r'^\s*Installation prefix:\s*(.+)', output, re.MULTILINE)
-        if install_prefix_match:
-            info['installation_prefix'] = install_prefix_match.group(1).strip()
+        # Installation prefix: handles both formats
+        install_prefix_patterns = [
+            r'^\s*Installation prefix:\s*(.+)',  # Original pattern
+            r'Installation prefix:\s*(.+)',       # Direct format
+        ]
+        for pattern in install_prefix_patterns:
+            install_prefix_match = re.search(pattern, output, re.MULTILINE)
+            if install_prefix_match:
+                info['installation_prefix'] = install_prefix_match.group(1).strip()
+                break
 
-        # Works for both versions due to re.DOTALL
-        steam_status_match = re.search(r'Steam.*?Status:\s*(.+)', output, re.DOTALL)
-        if steam_status_match:
-            info['steam_status'] = steam_status_match.group(1).strip()
+        # Steam status: Updated to handle the new format
+        # Look for "● Steam" section followed by "Status: ..."
+        steam_section_match = re.search(r'● Steam\s*\n\s*Status:\s*(.+)', output, re.MULTILINE)
+        if steam_section_match:
+            info['steam_status'] = steam_section_match.group(1).strip()
+        else:
+            # Fallback to old format
+            steam_status_match = re.search(r'Steam.*?Status:\s*(.+)', output, re.DOTALL)
+            if steam_status_match:
+                info['steam_status'] = steam_status_match.group(1).strip()
 
-        # Works for older versions, fails gracefully on new ones
+        # Steam path: Try to find it in the old format (may not exist in new format)
         steam_path_match = re.search(r'Steam.*?Path:\s*(.+)', output, re.DOTALL)
         if steam_path_match:
             info['steam_path'] = steam_path_match.group(1).strip()
+
+        # Installation status: New field in the bullet format
+        install_status_match = re.search(r'Status:\s*(.+)', output)
+        if install_status_match:
+            # Only capture if it's in the Installation section, not Steam section
+            lines = output.split('\n')
+            for i, line in enumerate(lines):
+                if 'Status:' in line and any('Installation' in prev_line for prev_line in lines[max(0, i-3):i]):
+                    info['installation_status'] = install_status_match.group(1).strip()
+                    break
 
         return info
 
@@ -211,7 +249,25 @@ class ME3InfoManager:
     def is_steam_found(self) -> bool:
         """Check if Steam is found by ME3."""
         info = self.get_me3_info()
-        return info is not None and info.get('steam_status', '').lower() == 'found'
+        if not info:
+            return False
+        
+        steam_status = info.get('steam_status', '').lower()
+        return steam_status in ['found', 'detected', 'available']
+
+    def is_steam_not_found(self) -> bool:
+        """Check if Steam is explicitly not found by ME3."""
+        info = self.get_me3_info()
+        if not info:
+            return True
+            
+        steam_status = info.get('steam_status', '').lower()
+        return steam_status in ['not found', 'missing', 'unavailable']
+
+    def get_installation_status(self) -> Optional[str]:
+        """Get the installation status."""
+        info = self.get_me3_info()
+        return info.get('installation_status') if info else None
 
     def refresh_info(self):
         """Clear cached info to force refresh on next access."""
