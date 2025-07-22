@@ -241,13 +241,32 @@ class GamePage(QWidget):
         
         self.setLayout(layout)
 
+    def is_frozen(self):
+        """Check if running as a PyInstaller frozen executable"""
+        return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
     def _open_path(self, path: Path):
         try:
-            url = QUrl.fromLocalFile(str(path))
-            if not QDesktopServices.openUrl(url):
-                raise Exception("QDesktopServices failed to open URL.")
+            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                # God i hate PyInstaller bundle - i had to use subprocess with clean environment
+                env = os.environ.copy()
+                env.pop('LD_LIBRARY_PATH', None)
+                env.pop('PYTHONPATH', None)
+                env.pop('PYTHONHOME', None)
+                
+                if sys.platform == "win32":
+                    subprocess.Popen(["explorer", str(path)], shell=True, env=env)
+                else:  # Linux
+                    subprocess.run(["xdg-open", str(path)], env=env)
+            else:
+                # Development mode - use Qt
+                url = QUrl.fromLocalFile(str(path))
+                if not QDesktopServices.openUrl(url):
+                    raise Exception("QDesktopServices failed to open URL.")
+                    
         except Exception as e:
-            QMessageBox.warning(self, "Open Folder Error", f"Failed to open folder:\n{path}\n\nError: {str(e)}")
+            QMessageBox.warning(self, "Open Folder Error", 
+                            f"Failed to open folder:\n{path}\n\nError: {str(e)}")
 
     def set_filter(self, filter_name: str):
         self.current_filter = filter_name
