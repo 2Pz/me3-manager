@@ -1066,11 +1066,14 @@ class GamePage(QWidget):
         terminal.process.start("me3", args)
 
     def launch_game(self):
+        """Launch the game with the configured profile and settings."""
         try:
+            # Validate profile and CLI ID
             profile_path = self.config_manager.get_profile_path(self.game_name)
             if not profile_path.exists():
                 QMessageBox.warning(self, "Launch Error", f"Profile file not found:\n{profile_path}")
                 return
+                
             cli_id = self.config_manager.get_game_cli_id(self.game_name)
             if not cli_id:
                 QMessageBox.warning(self, "Launch Error", f"Could not determine CLI ID for {self.game_name}")
@@ -1079,50 +1082,77 @@ class GamePage(QWidget):
             main_window = self.window()
             custom_exe_path = self.config_manager.get_game_exe_path(self.game_name)
 
-            if custom_exe_path and hasattr(main_window, "terminal"):
-                self.run_me3_with_custom_exe(custom_exe_path, cli_id, str(profile_path), main_window.terminal)
-                self.status_label.setText(f"Launching {self.game_name} with custom executable...")
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
-                return
-            elif custom_exe_path:
-                QMessageBox.information(self, "Launch Info", "Custom executable launch requires the terminal. This setting will be ignored.")
-            
+            # Handle custom executable launch
+            if custom_exe_path:
+                if hasattr(main_window, "terminal"):
+                    self.run_me3_with_custom_exe(custom_exe_path, cli_id, str(profile_path), main_window.terminal)
+                    self._update_status(f"Launching {self.game_name} with custom executable...")
+                    return
+                else:
+                    QMessageBox.information(self, "Launch Info", 
+                        "Custom executable launch requires the terminal. This setting will be ignored.")
+
+            # Prepare base command
             command_args = ["me3", "launch", "--game", cli_id, "-p", str(profile_path)]
-
-            # The logic for preparing the final command now correctly distinguishes
-            # between list-based execution (safer) and string-based execution (for the terminal).
-            if sys.platform == "linux":
-                user_shell = os.environ.get("SHELL", "/bin/bash")
-                if not Path(user_shell).exists():
-                    user_shell = "/bin/bash"
-                
-                # Create a single, shell-safe string for the me3 command itself.
-                # shlex.join is preferred (Python 3.8+).
-                try:
-                    me3_command_str = shlex.join(command_args)
-                except AttributeError:
-                    me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
-
-                # This is the list of arguments for direct execution (e.g., via Popen).
-                # The me3 command string becomes a single argument for the shell's -c flag.
-                final_command_list = [user_shell, "-l", "-c", me3_command_str]
-            else:
-                final_command_list = command_args
-
-            if hasattr(main_window, "terminal"):
-                # For the terminal, we must construct a single, fully-quoted string
-                # that the terminal's shell can parse correctly.
-                # shlex.join is the ideal tool for this.
-                command_to_run = shlex.join(final_command_list)
-                main_window.terminal.run_command(command_to_run, None)
-            else:
-                # When not using a terminal, passing the list directly to Popen is the most robust method.
-                subprocess.Popen(final_command_list)
             
-            self.status_label.setText(f"Launching {self.game_name}...")
-            QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+            # Execute command based on platform and terminal availability
+            if hasattr(main_window, "terminal"):
+                self._launch_in_terminal(command_args, main_window.terminal)
+            else:
+                self._launch_direct(command_args)
+                
+            self._update_status(f"Launching {self.game_name}...")
+            
         except Exception as e:
             QMessageBox.warning(self, "Launch Error", f"Failed to launch game: {str(e)}")
+
+    def _launch_in_terminal(self, command_args, terminal):
+        """Launch the game command in the terminal."""
+        if sys.platform == "linux":
+            # Use shell wrapper for Linux
+            user_shell = os.environ.get("SHELL", "/bin/bash")
+            if not Path(user_shell).exists():
+                user_shell = "/bin/bash"
+                
+            # Create shell-safe command string
+            try:
+                me3_command_str = shlex.join(command_args)
+            except AttributeError:
+                me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
+                
+            final_command_list = [user_shell, "-l", "-c", me3_command_str]
+            command_to_run = shlex.join(final_command_list)
+        else:
+            # Windows: simple space-separated command
+            command_to_run = " ".join(command_args)
+            
+        terminal.run_command(command_to_run, None)
+
+    def _launch_direct(self, command_args):
+        """Launch the game command directly via subprocess."""
+        if sys.platform == "linux":
+            # Use shell wrapper for Linux
+            user_shell = os.environ.get("SHELL", "/bin/bash")
+            if not Path(user_shell).exists():
+                user_shell = "/bin/bash"
+                
+            # Create shell-safe command string
+            try:
+                me3_command_str = shlex.join(command_args)
+            except AttributeError:
+                me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
+                
+            final_command_list = [user_shell, "-l", "-c", me3_command_str]
+        else:
+            # Windows: use command args directly
+            final_command_list = command_args
+            
+        subprocess.Popen(final_command_list)
+
+    def _update_status(self, message):
+        """Update status label with automatic reset."""
+        self.status_label.setText(message)
+        QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
             
     def open_profile_manager(self):
         dialog = QDialog(self)
