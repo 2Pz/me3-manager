@@ -40,6 +40,7 @@ class ConfigManager:
         self.game_exe_paths = settings.get('game_exe_paths', {})
         self.tracked_external_mods = settings.get('tracked_external_mods', {})
         self.ui_settings = settings.get('ui_settings', {})
+        self.custom_config_paths = settings.get('custom_config_paths', {})
 
         # PROFILE MANAGEMENT SYSTEM
         self.profiles = settings.get('profiles', {})
@@ -185,6 +186,7 @@ class ConfigManager:
                 'tracked_external_mods': self.tracked_external_mods,
                 'profiles': self.profiles,
                 'active_profiles': self.active_profiles,
+                'custom_config_paths': self.custom_config_paths, # Add this line
             }
             with open(self.settings_file, 'w', encoding='utf-8') as f:
                 json.dump(all_settings, f, indent=4)

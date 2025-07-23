@@ -6,6 +6,7 @@ import math
 from collections import deque
 import sys
 import os
+import shlex
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QMessageBox, QFileDialog, QDialog, QSpinBox, QInputDialog,
@@ -1090,19 +1091,36 @@ class GamePage(QWidget):
                 QMessageBox.information(self, "Launch Info", "Custom executable launch requires the terminal. This setting will be ignored.")
             
             command_args = ["me3", "launch", "--game", cli_id, "-p", str(profile_path)]
+
+            # The logic for preparing the final command now correctly distinguishes
+            # between list-based execution (safer) and string-based execution (for the terminal).
             if sys.platform == "linux":
                 user_shell = os.environ.get("SHELL", "/bin/bash")
-                if not Path(user_shell).exists(): user_shell = "/bin/bash"
-                safe_command_string = " ".join(command_args)
-                final_command = [user_shell, "-l", "-c", safe_command_string]
+                if not Path(user_shell).exists():
+                    user_shell = "/bin/bash"
+                
+                # Create a single, shell-safe string for the me3 command itself.
+                # shlex.join is preferred (Python 3.8+).
+                try:
+                    me3_command_str = shlex.join(command_args)
+                except AttributeError:
+                    me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
+
+                # This is the list of arguments for direct execution (e.g., via Popen).
+                # The me3 command string becomes a single argument for the shell's -c flag.
+                final_command_list = [user_shell, "-l", "-c", me3_command_str]
             else:
-                final_command = command_args
+                final_command_list = command_args
 
             if hasattr(main_window, "terminal"):
-                command_to_run = " ".join(final_command) if sys.platform == "linux" else " ".join(command_args)
+                # For the terminal, we must construct a single, fully-quoted string
+                # that the terminal's shell can parse correctly.
+                # shlex.join is the ideal tool for this.
+                command_to_run = shlex.join(final_command_list)
                 main_window.terminal.run_command(command_to_run, None)
             else:
-                subprocess.Popen(final_command)
+                # When not using a terminal, passing the list directly to Popen is the most robust method.
+                subprocess.Popen(final_command_list)
             
             self.status_label.setText(f"Launching {self.game_name}...")
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
