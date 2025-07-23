@@ -556,17 +556,25 @@ class ModEngine3Manager(QMainWindow):
         self.thread.wait()
         if hasattr(self, 'progress_dialog'): self.progress_dialog.close()
         
+        # Store old version before refreshing
+        old_version = self.me3_version
+        self.refresh_me3_status()
+        
         if "complete" in message.lower() and file_path:
             reply = QMessageBox.information(self, "Download Complete", 
                 f"ME3 installer downloaded to:\n{file_path}\n\nWould you like to run it now?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
             if reply == QMessageBox.StandardButton.Yes:
                 self.open_file_or_directory(file_path, run_file=True)
-                QMessageBox.information(self, "Installation", "The installer has been launched.\nThe manager will automatically refresh once installation is complete.")
+                QMessageBox.information(self, "Installation", "The installer has been launched.\nAfter installation completes, please restart this manager to see the changes.")
         elif "cancelled" not in message.lower():
             QMessageBox.critical(self, "Download Failed", message)
         
-        self.refresh_me3_status_and_ui()
+        # Check if ME3 version changed after potential installation and show restart message
+        if old_version != self.me3_version and self.me3_version != "Not Installed":
+            QMessageBox.information(self, "ME3 Status Updated", f"ME3 version changed from {old_version} to {self.me3_version}.\nPlease restart the application to apply changes.")
+        
+        self.refresh_me3_status()
 
     def _start_linux_install_process(self, installer_url: str):
         if not installer_url:
@@ -635,7 +643,8 @@ class ModEngine3Manager(QMainWindow):
         if hasattr(self, 'progress_dialog'): self.progress_dialog.close()
 
         clean_output = self.strip_ansi_codes(output)
-        
+        self.refresh_me3_status()
+
         if return_code == 0:
             # Try to find the version from the script's output for a more informative message
             version_match = re.search(r"using latest version: (v[0-9]+\.[0-9]+\.[0-9]+)", clean_output)
@@ -648,13 +657,8 @@ class ModEngine3Manager(QMainWindow):
             final_message += f"\n\n{clean_output}"
             
             QMessageBox.information(self, "Installation Complete", final_message)
-            
-            # Auto-refresh the UI after successful installation
-            self.refresh_me3_status_and_ui()
         else:
             QMessageBox.warning(self, "Installation Failed", f"The script failed:\n\n{clean_output}")
-            # Still refresh in case of partial installation
-            self.refresh_me3_status_and_ui()
 
     def create_content_area(self, parent):
         self.content_stack = QWidget()
@@ -682,26 +686,15 @@ class ModEngine3Manager(QMainWindow):
         dialog = HelpAboutDialog(self, initial_setup=True)
         dialog.exec()
 
-    def refresh_me3_status_and_ui(self):
-        """Refresh ME3 status and update UI without requiring app restart."""
+    def refresh_me3_status(self):
         old_version = self.me3_version
         self.config_manager.refresh_me3_info()
         self.me3_version = self.get_me3_version()
 
-        # Update footer label
-        self.footer_label.setText(f"Manager v{VERSION}\nME3 CLI: {self.me3_version}\nby 2Pz")
-        
-        # If ME3 was just installed, refresh all game pages to enable functionality
-        if old_version == "Not Installed" and self.me3_version != "Not Installed":
-            QMessageBox.information(self, "ME3 Ready", f"ME3 {self.me3_version} is now installed and ready to use!")
-            # Refresh all game pages to enable ME3-dependent features
-            self.perform_global_refresh()
-        elif old_version != self.me3_version and self.me3_version != "Not Installed":
-            QMessageBox.information(self, "ME3 Updated", f"ME3 updated from {old_version} to {self.me3_version}.")
-
-    def refresh_me3_status(self):
-        """Legacy method - now calls the enhanced version."""
-        self.refresh_me3_status_and_ui()
+        if old_version != self.me3_version:
+            self.footer_label.setText(f"Manager v{VERSION}\nME3 CLI: {self.me3_version}\nby 2Pz")
+            if self.me3_version != "Not Installed":
+                QMessageBox.information(self, "ME3 Status Updated", f"ME3 version changed from {old_version} to {self.me3_version}.\nPlease restart the application to apply changes.")
 
     def switch_game(self, game_name: str):
         for name, button in self.game_buttons.items(): button.setChecked(name == game_name)
