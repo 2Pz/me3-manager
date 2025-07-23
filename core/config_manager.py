@@ -31,14 +31,33 @@ class ConfigManager:
         
         self.settings_file = self.config_root.parent / "manager_settings.json"
         
+        self.file_watcher = QFileSystemWatcher()
+        
         # Load games from JSON configuration
         self.games = self._load_games_config()
         
         settings = self._load_settings()
-        self.custom_config_paths = settings.get('custom_config_paths', {})
         self.game_exe_paths = settings.get('game_exe_paths', {})
         self.tracked_external_mods = settings.get('tracked_external_mods', {})
-        self.ui_settings = settings.get('ui_settings', {}) # Load UI settings
+        self.ui_settings = settings.get('ui_settings', {})
+
+        # PROFILE MANAGEMENT SYSTEM
+        self.profiles = settings.get('profiles', {})
+        self.active_profiles = settings.get('active_profiles', {})
+
+        self.validate_and_prune_profiles()
+        self._migrate_old_custom_paths()
+        self._ensure_default_profiles()
+
+        self._migrate_external_mods_to_profile_system()
+        
+        # Custom profile and mods folder paths
+        self.custom_profile_paths = settings.get('custom_profile_paths', {})
+        self.custom_mods_paths = settings.get('custom_mods_paths', {})
+        
+        # Stored custom paths (preserved when switching to default)
+        self.stored_custom_profile_paths = settings.get('stored_custom_profile_paths', {})
+        self.stored_custom_mods_paths = settings.get('stored_custom_mods_paths', {})
         
         # Use default order from games config if not set in settings
         default_order = self._get_default_game_order()
@@ -55,6 +74,97 @@ class ConfigManager:
         self.file_watcher = QFileSystemWatcher()
         self.setup_file_watcher()
 
+    def _migrate_external_mods_to_profile_system(self):
+        """
+        One-time migration to associate existing global external mods with the 'default' profile.
+        """
+        settings = self._load_settings()
+        current_tracked_mods = settings.get('tracked_external_mods', {})
+        
+        if not current_tracked_mods:
+            return # Nothing to migrate
+
+        # Check if the first value is a list (old format) instead of a dict (new format)
+        first_value = next(iter(current_tracked_mods.values()), None)
+        if isinstance(first_value, dict):
+            return # Already in the new format
+
+        print("Migrating tracked external mods to the new profile-based system...")
+        new_tracked_mods = {}
+        for game_name, mods_list in current_tracked_mods.items():
+            if isinstance(mods_list, list):
+                new_tracked_mods[game_name] = {
+                    'default': mods_list
+                }
+        
+        self.tracked_external_mods = new_tracked_mods
+        self._save_settings()
+        print("External mod migration successful.")
+
+    def _migrate_old_custom_paths(self):
+        """Migrates old custom_profile_paths and custom_mods_paths to the new profiles system."""
+        settings = self._load_settings()
+        # We only need to check for the old mods path, as it's the key piece of info.
+        old_custom_mods = settings.get('custom_mods_paths', {})
+
+        if not old_custom_mods:
+            return # No old settings to migrate
+
+        print("Migrating old custom path settings to new profile system...")
+        migrated = False
+        
+        for game_name, mods_path in old_custom_mods.items():
+            if not mods_path:
+                continue
+                
+            if game_name not in self.profiles:
+                self.profiles[game_name] = []
+            
+            # This call now perfectly matches the function definition from Step 1.
+            self.add_profile(
+                game_name=game_name,
+                name="Custom (Legacy)",
+                mods_path=mods_path,
+                make_active=True
+            )
+            migrated = True
+
+        if migrated:
+            # Clean up old keys after migration
+            all_settings = self._load_settings()
+            all_settings.pop('custom_profile_paths', None)
+            all_settings.pop('custom_mods_paths', None)
+            all_settings.pop('stored_custom_profile_paths', None)
+            all_settings.pop('stored_custom_mods_paths', None)
+            all_settings['profiles'] = self.profiles
+            all_settings['active_profiles'] = self.active_profiles
+            
+            try:
+                with open(self.settings_file, 'w', encoding='utf-8') as f:
+                    json.dump(all_settings, f, indent=4)
+                print("Migration successful.")
+            except IOError as e:
+                print(f"Error saving migrated settings: {e}")
+
+    def _ensure_default_profiles(self):
+        """Ensures every game has a default profile entry and an active profile set."""
+        for game_name in self.games.keys():
+            if game_name not in self.profiles:
+                self.profiles[game_name] = []
+            
+            # Check if default profile exists
+            if not any(p['id'] == 'default' for p in self.profiles[game_name]):
+                self.profiles[game_name].insert(0, {
+                    "id": "default",
+                    "name": "Default",
+                    "profile_path": None,
+                    "mods_path": None
+                })
+            
+            # Ensure an active profile is set
+            if game_name not in self.active_profiles:
+                self.active_profiles[game_name] = 'default'
+
     def _load_settings(self) -> dict:
         """Loads custom settings from the JSON file."""
         if not self.settings_file.exists():
@@ -66,19 +176,58 @@ class ConfigManager:
             return {} # Return empty dict on error
 
     def _save_settings(self):
-        """Saves custom settings to the JSON file."""
+        """Saves all settings to the JSON file."""
         try:
             all_settings = {
-                'custom_config_paths': self.custom_config_paths,
                 'game_exe_paths': self.game_exe_paths,
                 'game_order': getattr(self, 'game_order', list(self.games.keys())),
                 'ui_settings': self.ui_settings,
-                'tracked_external_mods': self.tracked_external_mods
+                'tracked_external_mods': self.tracked_external_mods,
+                'profiles': self.profiles,
+                'active_profiles': self.active_profiles,
             }
             with open(self.settings_file, 'w', encoding='utf-8') as f:
                 json.dump(all_settings, f, indent=4)
         except IOError as e:
             print(f"Error saving settings: {e}")
+
+    def validate_and_prune_profiles(self):
+        """
+        Removes profiles from settings if their associated 'mods_path' directory OR
+        'profile_path' file no longer exists.
+        """
+        settings_changed = False
+        # Iterate over a copy of the items to allow safe modification
+        for game_name, profile_list in list(self.profiles.items()):
+            original_count = len(profile_list)
+            
+            valid_profiles = []
+            for p in profile_list:
+                if p.get('id') == 'default':
+                    valid_profiles.append(p)
+                    continue
+
+                # For custom profiles, both the mods directory and the profile file must exist.
+                mods_path_ok = p.get('mods_path') and Path(p.get('mods_path')).is_dir()
+                profile_file_ok = p.get('profile_path') and Path(p.get('profile_path')).is_file()
+                
+                if mods_path_ok and profile_file_ok:
+                    valid_profiles.append(p)
+            
+            if len(valid_profiles) < original_count:
+                removed_ids = set(p['id'] for p in profile_list) - set(p['id'] for p in valid_profiles)
+                print(f"Pruning invalid profiles for {game_name}: {removed_ids}")
+                
+                self.profiles[game_name] = valid_profiles
+                settings_changed = True
+                
+                active_profile_id = self.active_profiles.get(game_name)
+                if active_profile_id in removed_ids:
+                    self.active_profiles[game_name] = 'default'
+                    print(f"Active profile for {game_name} was pruned. Resetting to 'default'.")
+
+        if settings_changed:
+            self._save_settings()
 
     def _load_games_config(self) -> dict:
         """Load games configuration from JSON file."""
@@ -214,21 +363,36 @@ class ConfigManager:
         self._save_settings()
 
     def track_external_mod(self, game_name: str, mod_path: str):
-        """Adds an external mod to the tracking list so it's remembered when disabled."""
-        # NORMALIZE the path to use forward slashes before storing
+        """Adds an external mod to the tracking list for the ACTIVE profile."""
         normalized_path = mod_path.replace('\\', '/')
-        game_mods = self.tracked_external_mods.setdefault(game_name, [])
-        if normalized_path not in game_mods:
-            game_mods.append(normalized_path)
+        active_profile_id = self.active_profiles.get(game_name, 'default')
+        
+        # Defensively ensure the structure is correct before trying to modify it.
+        if game_name not in self.tracked_external_mods or not isinstance(self.tracked_external_mods[game_name], dict):
+            # If the entry for this game is missing or is not a dictionary (i.e., it's the old list format),
+            # we must overwrite it with the correct dictionary structure.
+            self.tracked_external_mods[game_name] = {}
+
+        game_profiles_mods = self.tracked_external_mods[game_name]
+        profile_specific_mods = game_profiles_mods.setdefault(active_profile_id, [])
+        
+        if normalized_path not in profile_specific_mods:
+            profile_specific_mods.append(normalized_path)
             self._save_settings()
 
     def untrack_external_mod(self, game_name: str, mod_path: str):
-        """Removes an external mod from the tracking list."""
-        # NORMALIZE the path to ensure we can find it in the list
+        """Removes an external mod from the tracking list for the ACTIVE profile."""
         normalized_path = mod_path.replace('\\', '/')
-        if game_name in self.tracked_external_mods:
-            if normalized_path in self.tracked_external_mods[game_name]:
-                self.tracked_external_mods[game_name].remove(normalized_path)
+        active_profile_id = self.active_profiles.get(game_name, 'default')
+
+        # Defensively check the structure before trying to modify it.
+        if game_name in self.tracked_external_mods and isinstance(self.tracked_external_mods[game_name], dict):
+            profile_specific_mods = self.tracked_external_mods[game_name].get(active_profile_id)
+            if profile_specific_mods and normalized_path in profile_specific_mods:
+                profile_specific_mods.remove(normalized_path)
+                if not profile_specific_mods:
+                    # Clean up empty list for this profile
+                    del self.tracked_external_mods[game_name][active_profile_id]
                 self._save_settings()
 
     def find_me3_executable(self) -> Optional[Path]:
@@ -355,10 +519,15 @@ class ConfigManager:
             if version_match:
                 config_data["profileVersion"] = version_match.group(1)
             
-            # Extract natives paths
-            native_pattern = r'\[\[natives\]\]\s*\n\s*path\s*=\s*[\'"]([^\'"]+)[\'"]'
+            # Extract natives paths - handle both single and multiple [[natives]] blocks
+            # More flexible pattern to handle various whitespace and formatting
+            native_pattern = r'\[\[natives\]\]\s*\r?\n\s*path\s*=\s*[\'"]([^\'"]+)[\'"]'
             native_matches = re.findall(native_pattern, content, re.MULTILINE | re.IGNORECASE)
             config_data["natives"] = [{"path": path} for path in native_matches]
+            
+            # Debug: Print what we found and the content being parsed
+            print(f"Parsing profile content (first 500 chars): {content[:500]}")
+            print(f"Found {len(native_matches)} native paths in profile: {native_matches}")
             
             # Extract supports
             supports_pattern = r'\[\[supports\]\]\s*\n\s*(?:name\s*=\s*[\'"]([^\'"]+)[\'"]|game\s*=\s*[\'"]([^\'"]+)[\'"]|id\s*=\s*[\'"]([^\'"]+)[\'"])'
@@ -409,6 +578,9 @@ class ConfigManager:
         """Manual TOML formatting for ME3 compatibility using inline array format."""
         lines = []
 
+        # Check if this is a custom profile (outside config_root)
+        is_custom_profile = not str(config_path).startswith(str(self.config_root))
+
         # Profile version
         lines.append(f'profileVersion = "{config_data.get("profileVersion", "v1")}"')
         lines.append('')
@@ -420,6 +592,15 @@ class ConfigManager:
             native_items = []
             for native in natives:
                 path = native['path'] if isinstance(native, dict) else native
+                
+                # For custom profiles, ensure paths are absolute if they're relative
+                if is_custom_profile and not Path(path).is_absolute():
+                    # Try to resolve relative path from the profile's directory
+                    profile_dir = config_path.parent
+                    potential_absolute = profile_dir / path
+                    if potential_absolute.exists():
+                        path = str(potential_absolute.resolve())
+                
                 native_items.append(f"    {{path = '{path}'}}")
             lines.append(",\n".join(native_items))
             lines.append("]")
@@ -462,12 +643,26 @@ class ConfigManager:
                     source_path = package["path"]
                 
                 if source_path:
-                    # Convert to relative path if it's within the config root
-                    if Path(source_path).is_absolute() and source_path.startswith(str(self.config_root)):
-                        # Make it relative to config_root and use forward slashes
-                        relative_path = Path(source_path).relative_to(self.config_root)
-                        source_path = str(relative_path).replace('\\', '/')
-                    package_parts.append(f"source = '{source_path}'")
+                    # For custom profiles, always use absolute paths with forward slashes
+                    if is_custom_profile:
+                        if not Path(source_path).is_absolute():
+                            # Try to resolve relative path from the profile's directory
+                            profile_dir = config_path.parent
+                            potential_absolute = profile_dir / source_path
+                            if potential_absolute.exists():
+                                source_path = str(potential_absolute.resolve()).replace('\\', '/')
+                        else:
+                            # Convert backslashes to forward slashes for Windows compatibility
+                            source_path = source_path.replace('\\', '/')
+                        # Use single quotes to avoid TOML escaping issues
+                        package_parts.append(f"source = '{source_path}'")
+                    else:
+                        # For default profiles, convert to relative path if it's within the config root
+                        if Path(source_path).is_absolute() and source_path.startswith(str(self.config_root)):
+                            # Make it relative to config_root and use forward slashes
+                            relative_path = Path(source_path).relative_to(self.config_root)
+                            source_path = str(relative_path).replace('\\', '/')
+                        package_parts.append(f"source = '{source_path}'")
                 
                 package_str = "{ " + ", ".join(package_parts) + " }"
                 package_items.append(f"    {package_str}")
@@ -481,18 +676,186 @@ class ConfigManager:
             f.write('\n'.join(lines) + '\n')
     
     def setup_file_watcher(self):
-        """Setup file system watcher for mod directories"""
-        for game_info in self.games.values():
-            mods_dir = self.config_root / game_info["mods_dir"]
-            self.file_watcher.addPath(str(mods_dir))
-    
+        """
+        Sets up the file watcher to monitor ALL profile directories for changes AND
+        all specific .me3 profile files for deletion/modification.
+        """
+        target_dirs = set()
+        target_files = set()
+
+        for game_name, profile_list in self.profiles.items():
+            # Add the default mods directory for this game
+            default_mods_dir = self.config_root / self.games[game_name]["mods_dir"]
+            if default_mods_dir.is_dir():
+                target_dirs.add(str(default_mods_dir))
+
+            # Add all custom profile directories and their corresponding .me3 files
+            for profile in profile_list:
+                if profile['id'] != 'default':
+                    mods_path_str = profile.get('mods_path')
+                    if mods_path_str and Path(mods_path_str).is_dir():
+                        target_dirs.add(mods_path_str)
+
+                    profile_path_str = profile.get('profile_path')
+                    if profile_path_str and Path(profile_path_str).is_file():
+                        target_files.add(profile_path_str)
+        
+        # Get the paths currently being watched
+        current_dirs = self.file_watcher.directories()
+        current_files = self.file_watcher.files()
+        
+        # Convert sets to lists for the API calls
+        target_dirs_list = list(target_dirs)
+        target_files_list = list(target_files)
+
+        # Update directory watcher
+        if set(current_dirs) != target_dirs:
+            if current_dirs: self.file_watcher.removePaths(current_dirs)
+            if target_dirs_list: self.file_watcher.addPaths(target_dirs_list)
+            print(f"Updated watched directories to: {target_dirs_list}")
+
+        # Update file watcher
+        if set(current_files) != target_files:
+            # Note: removePaths and addPaths work for both files and dirs
+            if current_files: self.file_watcher.removePaths(current_files)
+            if target_files_list: self.file_watcher.addPaths(target_files_list)
+            print(f"Updated watched files to: {target_files_list}")
+        
     def get_mods_dir(self, game_name: str) -> Path:
-        """Get mods directory for a game"""
+        """Get the mods directory for the active profile of a game."""
+        active_profile = self.get_active_profile(game_name)
+        if active_profile and active_profile.get('mods_path'):
+            return Path(active_profile['mods_path'])
         return self.config_root / self.games[game_name]["mods_dir"]
     
     def get_profile_path(self, game_name: str) -> Path:
-        """Get profile path for a game"""
+        """Get the profile file path for the active profile of a game."""
+        active_profile = self.get_active_profile(game_name)
+        if active_profile and active_profile.get('profile_path'):
+            return Path(active_profile['profile_path'])
         return self.config_root / self.games[game_name]["profile"]
+    
+    def get_profiles_for_game(self, game_name: str) -> List[Dict]:
+        """Get all saved profiles for a specific game."""
+        return self.profiles.get(game_name, [])
+    
+    def set_active_profile(self, game_name: str, profile_id: str):
+        """Sets the active profile for a game."""
+        self.active_profiles[game_name] = profile_id
+        self._save_settings()
+        self.setup_file_watcher()
+
+    def add_profile(self, game_name: str, name: str, mods_path: str, make_active: bool = False) -> Optional[str]:
+        """Adds a new profile for a game. The .me3 file is created inside the mods folder."""
+        import uuid
+        profile_id = str(uuid.uuid4())
+        mods_dir = Path(mods_path)
+        mods_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Profile file is now always stored inside the mods directory for simplicity
+        # Sanitize the profile name for the filename
+        safe_filename = "".join(c for c in name if c.isalnum() or c in (' ', '_')).rstrip()
+        profile_file_path = mods_dir / f"{safe_filename.replace(' ', '_')}.me3"
+        
+        # Create the profile content
+        game_cli_id = self.get_game_cli_id(game_name)
+        config_data = {
+            "profileVersion": "v1", "natives": [], "packages": [],
+            "supports": [{"game": game_cli_id or "eldenring"}]
+        }
+        self._write_toml_config(profile_file_path, config_data)
+
+        new_profile = {
+            "id": profile_id,
+            "name": name,
+            "profile_path": str(profile_file_path),
+            "mods_path": str(mods_dir)
+        }
+        self.profiles.setdefault(game_name, []).append(new_profile)
+        
+        if make_active:
+            self.set_active_profile(game_name, profile_id)
+        else:
+            self._save_settings()
+            
+        return profile_id
+
+    def update_profile(self, game_name: str, profile_id: str, new_name: str):
+        """Renames a profile."""
+        for profile in self.get_profiles_for_game(game_name):
+            if profile['id'] == profile_id:
+                profile['name'] = new_name
+                self._save_settings()
+                return
+            
+    def delete_profile(self, game_name: str, profile_id: str):
+        """Deletes a custom profile and its associated tracked external mods."""
+        if profile_id == 'default':
+            return 
+
+        # Delete from profiles list
+        game_profiles = self.get_profiles_for_game(game_name)
+        self.profiles[game_name] = [p for p in game_profiles if p['id'] != profile_id]
+        
+        if game_name in self.tracked_external_mods:
+            # Safely remove the entry for the deleted profile
+            self.tracked_external_mods[game_name].pop(profile_id, None)
+
+        if self.active_profiles.get(game_name) == profile_id:
+            self.set_active_profile(game_name, 'default')
+        else:
+            self._save_settings()
+    
+    def get_active_profile(self, game_name: str) -> Optional[Dict]:
+        """Get the active profile object for a game."""
+        active_id = self.active_profiles.get(game_name, 'default')
+        for profile in self.get_profiles_for_game(game_name):
+            if profile['id'] == active_id:
+                return profile
+        return None
+    
+    def set_custom_profile_path(self, game_name: str, path: Optional[str]):
+        """Set or clear custom profile path for a game"""
+        if path:
+            self.custom_profile_paths[game_name] = path
+        else:
+            self.custom_profile_paths.pop(game_name, None)
+        self._save_settings()
+    
+    def set_custom_mods_path(self, game_name: str, path: Optional[str]):
+        """Set or clear custom mods directory path for a game."""
+        if path:
+            self.custom_mods_paths[game_name] = path
+        else:
+            # Store the current custom path before clearing it
+            current_path = self.custom_mods_paths.get(game_name)
+            if current_path:
+                self.stored_custom_mods_paths[game_name] = current_path
+            self.custom_mods_paths.pop(game_name, None)
+            
+        self._save_settings()
+        self.setup_file_watcher()
+    
+    def get_custom_profile_path(self, game_name: str) -> Optional[str]:
+        """Get custom profile path for a game"""
+        return self.custom_profile_paths.get(game_name)
+    
+    def get_custom_mods_path(self, game_name: str) -> Optional[str]:
+        """Get custom mods directory path for a game"""
+        return self.custom_mods_paths.get(game_name)
+    
+    def get_stored_custom_mods_path(self, game_name: str) -> Optional[str]:
+        """Get stored custom mods directory path for a game"""
+        return self.stored_custom_mods_paths.get(game_name)
+    
+    def restore_custom_mods_path(self, game_name: str):
+        """Restore previously stored custom mods path"""
+        stored_path = self.stored_custom_mods_paths.get(game_name)
+        if stored_path:
+            self.custom_mods_paths[game_name] = stored_path
+            self._save_settings()
+            return True
+        return False
     
     def parse_me3_config(self, config_path: Path) -> List[str]:
         """Parse ME3 configuration file and extract native DLL paths"""
@@ -545,7 +908,7 @@ class ConfigManager:
         Get information about all mods for a game, discovering new mods from the
         filesystem and syncing the status of tracked mods from the config file.
         """
-        self.sync_profile_with_filesystem(game_name)
+        #self.sync_profile_with_filesystem(game_name)
 
         mods_info = {}
         profile_path = self.get_profile_path(game_name)
@@ -560,78 +923,86 @@ class ConfigManager:
         active_regulation_mod = self._get_active_regulation_mod(game_name)
         mods_dir = self.get_mods_dir(game_name)
 
-        # Step 1: Scan the filesystem for all INTERNAL mods (in the game's mods folder).
-        for dll_file in mods_dir.glob("*.dll"):
-            relative_path = f"{self.games[game_name]['mods_dir']}\\{dll_file.name}"
-            mods_info[str(dll_file)] = {
-                'name': dll_file.stem,
-                'enabled': relative_path in enabled_dll_paths,
-                'external': False,
-                'is_folder_mod': False
-            }
-
-        acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
-                            'font', 'map', 'material', 'menu', 'movie', 'msg', 'other', 'param',
-                            'parts', 'script', 'sd', 'sfx', 'shader', 'sound']
-        
-        for folder in mods_dir.iterdir():
-            if folder.is_dir() and folder.name != self.games[game_name]['mods_dir']:
-                is_valid = False
-                has_regulation = (folder / "regulation.bin").exists() or (folder / "regulation.bin.disabled").exists()
+        # Step 1: Scan the filesystem for all mods in the active mods folder.
+        if mods_dir.exists(): # Add a check to prevent errors if the dir was deleted
+            for dll_file in mods_dir.glob("*.dll"):
+                # Determine the correct path format for the config file
+                active_mods_dir = self.get_mods_dir(game_name)
+                default_mods_dir_path = self.config_root / self.games[game_name]["mods_dir"]
                 
-                if folder.name in acceptable_folders:
-                    is_valid = True
+                config_path = ""
+                if active_mods_dir == default_mods_dir_path:
+                    # Standard internal mod: use the relative path format
+                    config_path = f"{self.games[game_name]['mods_dir']}\\{dll_file.name}"
                 else:
-                    for subfolder in folder.iterdir():
-                        if subfolder.is_dir() and subfolder.name in acceptable_folders:
-                            is_valid = True
-                            break
-                
-                if not is_valid and has_regulation:
-                    is_valid = True
-                
-                if is_valid:
-                    mod_info = {
-                        'name': folder.name,
-                        'enabled': folder.name in enabled_folder_mods,
-                        'external': False,
-                        'is_folder_mod': True
-                    }
-                    if has_regulation:
-                        mod_info['has_regulation'] = True
-                        mod_info['regulation_active'] = has_regulation and folder.name == active_regulation_mod
+                    # Mod in a custom folder: use its absolute path
+                    config_path = str(dll_file).replace('\\', '/')
                     
-                    mods_info[str(folder)] = mod_info
+                mods_info[str(dll_file)] = {
+                    'name': dll_file.stem,
+                    'enabled': config_path in enabled_dll_paths,
+                    'external': False,
+                    'is_folder_mod': False
+                }
+
+            acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
+                                'font', 'map', 'material', 'menu', 'movie', 'msg', 'other', 'param',
+                                'parts', 'script', 'sd', 'sfx', 'shader', 'sound']
+            
+            for folder in mods_dir.iterdir():
+                if folder.is_dir() and folder.name != self.games[game_name]['mods_dir']:
+                    is_valid = False
+                    has_regulation = (folder / "regulation.bin").exists() or (folder / "regulation.bin.disabled").exists()
+                    
+                    if folder.name in acceptable_folders:
+                        is_valid = True
+                    else:
+                        # Check for subfolders that are valid mod content folders
+                        if any(sub.is_dir() and sub.name in acceptable_folders for sub in folder.iterdir()):
+                            is_valid = True
+                    
+                    if not is_valid and has_regulation:
+                        is_valid = True
+                    
+                    if is_valid:
+                        mod_info = {
+                            'name': folder.name,
+                            'enabled': folder.name in enabled_folder_mods,
+                            'external': False,
+                            'is_folder_mod': True
+                        }
+                        if has_regulation:
+                            mod_info['has_regulation'] = True
+                            mod_info['regulation_active'] = has_regulation and folder.name == active_regulation_mod
+                        
+                        mods_info[str(folder)] = mod_info
         
-        # Step 2: Discover, migrate, and sync all EXTERNAL mods.
+        # Step 2: Discover and sync all EXTERNAL mods for the ACTIVE profile.
+        active_profile_id = self.active_profiles.get(game_name, 'default')
         
-        # Get a set of enabled external paths from the profile, NORMALIZED with forward slashes.
         enabled_external_paths = {
             p.replace('\\', '/') for p in enabled_dll_paths 
-            if not p.startswith(self.games[game_name]['mods_dir'])
+            if not Path(p).is_relative_to(self.config_root) and not p.startswith(self.games[game_name]['mods_dir'])
         }
         
-        # Get a set of tracked external paths from settings, also NORMALIZED.
-        # This also self-heals any old paths with backslashes.
-        tracked_paths = {p.replace('\\', '/') for p in self.tracked_external_mods.get(game_name, [])}
-
-        # Combine them to get a master list. The union of normalized sets prevents duplication.
+        tracked_paths_list = []
+        game_specific_mods = self.tracked_external_mods.get(game_name, {})
+        if isinstance(game_specific_mods, dict):
+            tracked_paths_list = game_specific_mods.get(active_profile_id, [])
+        
+        tracked_paths = {p.replace('\\', '/') for p in tracked_paths_list}
         all_known_external_paths = enabled_external_paths.union(tracked_paths)
 
-        # Process every known external mod.
         for path_str in all_known_external_paths:
-            # We use the normalized path_str as the dictionary key to prevent duplicates.
             if path_str in mods_info:
-                continue # Should not happen, but a safeguard.
+                continue
 
             if not Path(path_str).exists():
                 continue
 
-            # Self-healing: If this mod was discovered but not tracked, track it now.
             if path_str not in tracked_paths:
                 self.track_external_mod(game_name, path_str)
 
-            # Add to the main mod list for display.
             mods_info[path_str] = {
                 'name': Path(path_str).stem,
                 'enabled': path_str in enabled_external_paths,
@@ -677,7 +1048,7 @@ class ConfigManager:
         mod_path_obj = Path(mod_path)
         
         if mod_path_obj.is_dir():
-            # Handle folder mod
+            # Handle folder mod (This logic is mostly fine)
             if Path(mod_path).is_absolute() and mod_path.startswith(str(self.config_root)):
                 relative_path = Path(mod_path).relative_to(self.config_root)
                 config_mod_path = str(relative_path).replace('\\', '/')
@@ -693,11 +1064,21 @@ class ConfigManager:
             profile_path = self.get_profile_path(game_name)
             current_paths = self.parse_me3_config(profile_path)
             
-            # Determine the path to use in config, ALWAYS with forward slashes for external.
-            if mod_path_obj.is_absolute() and not mod_path.startswith(str(self.config_root)):
-                config_path = mod_path.replace('\\', '/')
-            else: # Internal mods use backslashes as per ME3 convention.
+
+            # Determine default and active mods directories
+            active_mods_dir = self.get_mods_dir(game_name)
+            default_mods_dir_path = self.config_root / self.games[game_name]["mods_dir"]
+
+            config_path = ""
+            # A mod is only "internal" (with a relative path) if it's in the DEFAULT mods folder.
+            if mod_path_obj.parent == default_mods_dir_path:
+                # Standard internal mod: use the relative path format
                 config_path = f"{self.games[game_name]['mods_dir']}\\{mod_path_obj.name}"
+            else:
+                # Any other mod (in a custom mods folder or truly external) gets an absolute path.
+                # Use forward slashes for cross-platform compatibility in the config.
+                config_path = mod_path.replace('\\', '/')
+            
             
             # Normalize all paths before comparison to avoid slash issues.
             normalized_config_path = config_path.replace('\\', '/')
@@ -882,7 +1263,15 @@ class ConfigManager:
                 if not path_str:
                     continue
 
-                full_path = self.config_root / path_str.replace('\\', '/') if not Path(path_str).is_absolute() else Path(path_str)
+              
+                path_obj = Path(path_str)
+                full_path = path_obj
+                
+                # If path is not absolute, it's assumed to be relative to the default config root.
+                # This is the format for mods in the default mods folder.
+                if not path_obj.is_absolute():
+                    full_path = self.config_root / path_str.replace('\\', '/')
+        
                 
                 if full_path.exists():
                     valid_natives.append(native_entry)
@@ -916,7 +1305,14 @@ class ConfigManager:
                     modified = True
                     continue
                 
-                full_path = self.config_root / source_str if not Path(source_str).is_absolute() else Path(source_str)
+        
+                path_obj = Path(source_str)
+                full_path = path_obj
+                
+                # If path is not absolute, it's assumed to be relative to the default config root.
+                if not path_obj.is_absolute():
+                    full_path = self.config_root / source_str
+         
 
                 if full_path.exists() and full_path.is_dir():
                     valid_packages.append(package_entry)
@@ -1062,6 +1458,180 @@ class ConfigManager:
 
         except Exception as e:
             print(f"Error launching Steam: {e}")
+            return False
+    
+    def simple_import_from_folder(self, game_name: str, import_folder: str, profile_file: str, merge: bool = True, custom_mod_name: str = None) -> Dict[str, Any]:
+        """
+        Simplified import from a folder containing both profile and mods.
+        """
+        results = {
+            'success': False,
+            'profile_imported': False,
+            'package_mods_imported': 0,
+            'dll_mods_imported': 0,
+            'mods_skipped': 0,
+            'skipped_details': [], # NEW: To store details about skipped mods
+            'errors': []
+        }
+        
+        try:
+            import_path = Path(import_folder)
+            profile_path = Path(profile_file)
+            
+            if not import_path.exists():
+                results['errors'].append(f"Import folder not found: {import_folder}")
+                return results
+            if not profile_path.exists():
+                results['errors'].append(f"Profile file not found: {profile_file}")
+                return results
+            
+            source_config = self._parse_toml_config(profile_path)
+            current_profile_path = self.get_profile_path(game_name)
+            
+            if merge:
+                current_config = self._parse_toml_config(current_profile_path)
+            else:
+                current_config = {"profileVersion": "v1", "natives": [], "packages": [], "supports": []}
+
+            # --- 1. Process Natives (DLLs) ---
+            processed_dll_paths = {p.get('path', '').replace('\\', '/') for p in current_config.get('natives', [])}
+            
+            for native in source_config.get('natives', []):
+                original_path_str = native.get('path', '') if isinstance(native, dict) else native
+                if not original_path_str:
+                    continue
+
+                full_path = import_path / original_path_str if not Path(original_path_str).is_absolute() else Path(original_path_str)
+                normalized_full_path = str(full_path).replace('\\', '/')
+                normalized_original_path = original_path_str.replace('\\', '/')
+
+                if normalized_full_path in processed_dll_paths or normalized_original_path in processed_dll_paths:
+                    # NEW: Add detailed reason for skipping
+                    if merge:
+                        results['mods_skipped'] += 1
+                        results['skipped_details'].append(f"DLL '{Path(original_path_str).name}' already exists in the active profile.")
+                    continue
+
+                if full_path.exists() and full_path.suffix.lower() == '.dll':
+                    processed_dll_paths.add(normalized_original_path)
+                    processed_dll_paths.add(normalized_full_path)
+                    self.track_external_mod(game_name, str(full_path))
+                    results['dll_mods_imported'] += 1
+                else:
+                    if merge:
+                        results['mods_skipped'] += 1
+                        # NEW: Add detailed reason for skipping
+                        results['skipped_details'].append(f"DLL '{Path(original_path_str).name}' not found at expected path.")
+                    else:
+                        results['errors'].append(f"DLL mod from profile not found at expected path: {full_path}")
+
+            # --- 2. Process Packages (Folder Mods) ---
+            if custom_mod_name:
+                final_mod_name = custom_mod_name.strip()
+                target_mods_dir = self.get_mods_dir(game_name)
+                new_mod_folder = target_mods_dir / final_mod_name
+                
+                if new_mod_folder.exists() and merge:
+                    # NEW: Add detailed reason for skipping
+                    results['mods_skipped'] += 1
+                    results['skipped_details'].append(f"Package '{final_mod_name}' already exists in the mods folder.")
+                else:
+                    if new_mod_folder.exists():
+                        shutil.rmtree(new_mod_folder)
+
+                    folders_to_copy = []
+                    source_dirs_map = {p.name.lower(): p for p in import_path.iterdir() if p.is_dir()}
+                    
+                    for package in source_config.get('packages', []):
+                        package_key = package.get('source') or package.get('id')
+                        if not package_key: continue
+                        lookup_key = Path(package_key).name.lower()
+                        if lookup_key in source_dirs_map:
+                            folders_to_copy.append(source_dirs_map[lookup_key])
+                    
+                    if folders_to_copy:
+                        try:
+                            new_mod_folder.mkdir(parents=True, exist_ok=True)
+                            for src_folder in folders_to_copy:
+                                shutil.copytree(src_folder, new_mod_folder, dirs_exist_ok=True)
+                            
+                            mod_source_path = str(new_mod_folder).replace('\\', '/')
+                            if final_mod_name not in {p.get('id') for p in current_config.get('packages', [])}:
+                                current_config.setdefault('packages', []).append({
+                                    "id": final_mod_name, "source": mod_source_path,
+                                    "load_after": [], "load_before": []
+                                })
+                            results['package_mods_imported'] = 1
+                        except Exception as e:
+                            results['errors'].append(f"Failed to create bundled mod '{final_mod_name}': {str(e)}")
+                            if new_mod_folder.exists(): shutil.rmtree(new_mod_folder)
+
+            # --- 3. Finalize Profile ---
+            current_config['natives'] = [{'path': p} for p in processed_dll_paths]
+            current_config['supports'] = source_config.get('supports', [])
+            current_config['profileVersion'] = source_config.get('profileVersion', 'v1')
+            
+            self._write_toml_config(current_profile_path, current_config)
+            results['profile_imported'] = True
+            results['success'] = True
+            
+        except Exception as e:
+            results['errors'].append(f"An unexpected error occurred during import: {str(e)}")
+        
+        return results
+        
+    def create_custom_profile(self, game_name: str, profile_name: str, profile_dir: Optional[str] = None, mods_dir: Optional[str] = None) -> bool:
+        """
+        Create a new custom profile for a game with optional custom directories.
+        
+        Args:
+            game_name: The game to create profile for
+            profile_name: Name for the new profile (without .me3 extension)
+            profile_dir: Optional custom directory for the profile file
+            mods_dir: Optional custom directory for mods
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Determine profile path
+            if profile_dir:
+                profile_path = Path(profile_dir) / f"{profile_name}.me3"
+                profile_path.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                profile_path = self.config_root / f"{profile_name}.me3"
+            
+            # Determine mods directory path
+            if mods_dir:
+                mods_path = Path(mods_dir)
+                mods_path.mkdir(parents=True, exist_ok=True)
+            else:
+                mods_path = self.config_root / f"{profile_name}-mods"
+                mods_path.mkdir(parents=True, exist_ok=True)
+            
+            # Create the profile
+            game_cli_id = self.get_game_cli_id(game_name)
+            config_data = {
+                "profileVersion": "v1",
+                "natives": [],
+                "packages": [],  # A new profile should start with an empty package list
+                "supports": [
+                    {
+                        "game": game_cli_id or "eldenring"
+                    }
+                ]
+            }
+            
+            self._write_toml_config(profile_path, config_data)
+            
+            # Set as custom paths for this game
+            self.set_custom_profile_path(game_name, str(profile_path))
+            self.set_custom_mods_path(game_name, str(mods_path))
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error creating custom profile: {e}")
             return False
 
     def _is_steam_running(self) -> bool:

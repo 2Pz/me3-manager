@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QMessageBox, QProgressDialog, QFileDialog, QDialog, QFrame
 )
 from PyQt6.QtGui import QFont, QIcon, QDesktopServices
-from PyQt6.QtCore import Qt, QObject, pyqtSignal, QThread, QStandardPaths, QUrl
+from PyQt6.QtCore import Qt, QObject, pyqtSignal, QThread, QStandardPaths, QUrl, QTimer, pyqtSlot
 
 from core.config_manager import ConfigManager
 from ui.game_page import GamePage
@@ -341,12 +341,22 @@ class ModEngine3Manager(QMainWindow):
     
     def __init__(self):
         super().__init__()
+        super().__init__()
         self.config_manager = ConfigManager()
         self.me3_version = self.get_me3_version()
         self.init_ui()
-        self.setup_file_watcher()
+   
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setSingleShot(True)
+        self.refresh_timer.timeout.connect(self.perform_global_refresh)
+
+        # Connect BOTH directory and file change signals to the same refresh slot.
+        self.config_manager.file_watcher.directoryChanged.connect(self.schedule_global_refresh)
+        self.config_manager.file_watcher.fileChanged.connect(self.schedule_global_refresh) 
+
         self.check_me3_installation()
         self.auto_launch_steam_if_enabled()
+
 
     def _fetch_github_version_python(self) -> str | None:
         """Uses Python's requests to fetch the latest ME3 release version from GitHub."""
@@ -683,10 +693,50 @@ class ModEngine3Manager(QMainWindow):
         for name, page in self.game_pages.items(): page.setVisible(name == game_name)
     
     def setup_file_watcher(self):
-        self.config_manager.file_watcher.directoryChanged.connect(self.on_mods_changed)
-    
-    def on_mods_changed(self, path: str):
-        for page in self.game_pages.values(): page.load_mods()
+        """
+        This is a placeholder that is now handled by config_manager's own init.
+        We just need to make sure the connection is right.
+        """
+        # The connection is now made in __init__ for robustness.
+        # We can call setup_file_watcher() from config_manager to ensure paths are up-to-date.
+        self.config_manager.setup_file_watcher()
+
+    @pyqtSlot(str)
+    def schedule_global_refresh(self, path: str):
+        """
+        This method is triggered by the QFileSystemWatcher. It starts a
+        debounced timer to perform a full refresh, preventing rapid-fire updates.
+        """
+        print(f"Filesystem change detected at: {path}. Scheduling a full refresh.")
+        self.refresh_timer.start(500)
+
+    def perform_global_refresh(self):
+        """
+        This is the master refresh function. It cleans the config and then forces
+        every single game page to completely reload its UI from that clean config.
+        """
+        print("Performing global state refresh...")
+
+        # Step 1: Prune the master list of profiles from the settings file.
+        # This removes profiles whose folders have been deleted.
+        self.config_manager.validate_and_prune_profiles()
+
+        # Step 2: For each game, sync the *active* profile's contents with the filesystem.
+        # This removes individual mods from a profile if their files are gone.
+        for game_name in self.game_pages.keys():
+            self.config_manager.sync_profile_with_filesystem(game_name)
+
+        # Step 3: Now that the config is fully clean, tell every game page to reload its UI.
+        for game_page in self.game_pages.values():
+            if isinstance(game_page, GamePage):
+                # The simplified load_mods will now read the clean data and update the entire page,
+                # including the profile dropdown.
+                game_page.load_mods(reset_page=False)
+
+        # Step 4: Update the file watcher to only monitor directories that still exist.
+        self.config_manager.setup_file_watcher()
+
+        print("Global refresh complete.")
     
     def on_game_order_changed(self, new_order):
         self.config_manager.set_game_order(new_order)
