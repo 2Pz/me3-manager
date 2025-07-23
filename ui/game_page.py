@@ -322,7 +322,6 @@ class GamePage(QWidget):
                 border-top-left-radius: 8px;
                 border-bottom-left-radius: 8px;
                 min-height: 20px;
-                qproperty-alignment: AlignCenter;
             }
         """
 
@@ -340,7 +339,6 @@ class GamePage(QWidget):
                 font-weight: 500; 
                 padding: 12px 36px 12px 16px;
                 text-align: center;
-                qproperty-alignment: AlignVCenter;
             }}
             QPushButton:hover {{ 
                 background-color: #0078d4;
@@ -353,7 +351,6 @@ class GamePage(QWidget):
                 position: absolute;
                 right: 12px;
                 top: 50%;
-                transform: translateY(-50%);
                 width: 12px;
                 height: 12px;
             }}
