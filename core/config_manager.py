@@ -342,10 +342,11 @@ class ConfigManager:
         Gets the config path for a mod.
         Checks for a custom path first, then falls back to the default.
         """
-        mod_filename = Path(mod_path_str).name
+        # Use the normalized mod path as the unique key to prevent collisions
+        mod_key = mod_path_str.replace('\\', '/')
         
-        # Check for a saved custom path
-        custom_path = self.custom_config_paths.get(game_name, {}).get(mod_filename)
+        # Check for a saved custom path using the new robust key
+        custom_path = self.custom_config_paths.get(game_name, {}).get(mod_key)
         if custom_path:
             return Path(custom_path)
             
@@ -356,12 +357,14 @@ class ConfigManager:
 
     def set_mod_config_path(self, game_name: str, mod_path_str: str, config_path: str):
         """Saves a custom config path for a mod."""
-        mod_filename = Path(mod_path_str).name
+        # Use the normalized mod path as the unique key
+        mod_key = mod_path_str.replace('\\', '/')
         
         # Ensure the game's dictionary exists
         self.custom_config_paths.setdefault(game_name, {})
         
-        self.custom_config_paths[game_name][mod_filename] = config_path
+        # Save the custom path.
+        self.custom_config_paths[game_name][mod_key] = config_path
         self._save_settings()
 
     def track_external_mod(self, game_name: str, mod_path: str):
