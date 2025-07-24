@@ -720,14 +720,14 @@ class ConfigManager:
         if set(current_dirs) != target_dirs:
             if current_dirs: self.file_watcher.removePaths(current_dirs)
             if target_dirs_list: self.file_watcher.addPaths(target_dirs_list)
-            print(f"Updated watched directories to: {target_dirs_list}")
+
 
         # Update file watcher
         if set(current_files) != target_files:
             # Note: removePaths and addPaths work for both files and dirs
             if current_files: self.file_watcher.removePaths(current_files)
             if target_files_list: self.file_watcher.addPaths(target_files_list)
-            print(f"Updated watched files to: {target_files_list}")
+    
         
     def get_mods_dir(self, game_name: str) -> Path:
         """Get the mods directory for the active profile of a game."""
