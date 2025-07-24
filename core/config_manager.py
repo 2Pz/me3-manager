@@ -616,7 +616,7 @@ class ConfigManager:
                     if potential_absolute.exists():
                         path = str(potential_absolute.resolve())
                 
-                native_items.append(f"    {{path = '{path}'}}")
+                native_items.append(f"    {{ path = '{path}' }}")
             lines.append(",\n".join(native_items))
             lines.append("]")
         else:

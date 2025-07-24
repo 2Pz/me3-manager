@@ -7,52 +7,75 @@ from core.config_manager import ConfigManager
 
 
 class TomlHighlighter(QSyntaxHighlighter):
-    """Syntax highlighter for TOML-like config files with enhanced keyword highlighting."""
+    """Syntax highlighter for TOML-like config files with VSCode Dark+ style."""
+    
     def __init__(self, parent):
         super().__init__(parent)
         self.highlighting_rules = []
 
-        # Main section keywords (blue, bold) - top-level configuration keys
+        # Top-level keys (bright blue, bold)
         main_keyword_format = QTextCharFormat()
-        main_keyword_format.setForeground(QColor("#569cd6"))
+        main_keyword_format.setForeground(QColor("#569CD6"))  # Blue
         main_keyword_format.setFontWeight(QFont.Weight.Bold)
-        main_keywords = [
-            "profileVersion", "natives", "supports", "packages"
-        ]
-        self.highlighting_rules.extend([(re.compile(r"\b" + keyword + r"\b"), main_keyword_format) for keyword in main_keywords])
+        main_keywords = ["profileVersion", "natives", "supports", "packages"]
+        self.highlighting_rules.extend([
+            (re.compile(rf"\b{keyword}\b"), main_keyword_format)
+            for keyword in main_keywords
+        ])
 
-        # Object property keywords (lighter blue) - properties within objects
+        # Property keys (light blue)
         property_keyword_format = QTextCharFormat()
-        property_keyword_format.setForeground(QColor("#9cdcfe")) 
+        property_keyword_format.setForeground(QColor("#9CDCFE"))  # Light blue
         property_keyword_format.setFontWeight(QFont.Weight.Normal)
-        property_keywords = [
-            "path", "game", "id", "source", "load_after", "load_before"
-        ]
-        self.highlighting_rules.extend([(re.compile(r"\b" + keyword + r"\b"), property_keyword_format) for keyword in property_keywords])
+        property_keywords = ["path", "game", "id", "source", "load_after", "load_before"]
+        self.highlighting_rules.extend([
+            (re.compile(rf"\b{keyword}\b"), property_keyword_format)
+            for keyword in property_keywords
+        ])
 
-        # String format (orange)
+        # Strings (orange, match single and double quotes)
         string_format = QTextCharFormat()
-        string_format.setForeground(QColor("#ce9178"))
-        self.highlighting_rules.append((re.compile(r"'.*?'"), string_format))
-        self.highlighting_rules.append((re.compile(r'".*?"'), string_format))
+        string_format.setForeground(QColor("#CE9178"))  # Orange
+        self.highlighting_rules.append((re.compile(r'"[^"]*"'), string_format))
+        self.highlighting_rules.append((re.compile(r"'[^']*'"), string_format))
 
-        # Punctuation format (light grey)
+        # Numbers (light purple)
+        number_format = QTextCharFormat()
+        number_format.setForeground(QColor("#B5CEA8"))  # VSCode light greenish number
+        self.highlighting_rules.append((re.compile(r"\b\d+(\.\d+)?\b"), number_format))
+
+        # Booleans (true/false)
+        boolean_format = QTextCharFormat()
+        boolean_format.setForeground(QColor("#569CD6"))  # Same blue as keywords
+        boolean_format.setFontWeight(QFont.Weight.DemiBold)
+        self.highlighting_rules.append((re.compile(r"\b(true|false)\b"), boolean_format))
+
+        # Punctuation (light gray)
         punctuation_format = QTextCharFormat()
-        punctuation_format.setForeground(QColor("#d4d4d4"))
-        self.highlighting_rules.append((re.compile(r"[\[\]{}=,]"), punctuation_format))
+        punctuation_format.setForeground(QColor("#D4D4D4"))  # Light gray
+        self.highlighting_rules.append((re.compile(r"[=,]"), punctuation_format))
 
-        # Comment format (green, italic)
+        # Brackets: [ ] (yellow)
+        bracket_format = QTextCharFormat()
+        bracket_format.setForeground(QColor("#DCDCAA"))  # Yellow-ish
+        self.highlighting_rules.append((re.compile(r"[\[\]]"), bracket_format))
+
+        # Braces: { } (pinkish/magenta)
+        brace_format = QTextCharFormat()
+        brace_format.setForeground(QColor("#C586C0"))  # Pink
+        self.highlighting_rules.append((re.compile(r"[{}]"), brace_format))
+
+        # Comments (green italic)
         comment_format = QTextCharFormat()
-        comment_format.setForeground(QColor("#6a9955"))
+        comment_format.setForeground(QColor("#6A9955"))  # Green
         comment_format.setFontItalic(True)
         self.highlighting_rules.append((re.compile(r"#.*"), comment_format))
 
     def highlightBlock(self, text):
-        # Apply all highlighting rules
-        for pattern, format in self.highlighting_rules:
+        for pattern, fmt in self.highlighting_rules:
             for match in pattern.finditer(text):
                 start, end = match.span()
-                self.setFormat(start, end - start, format)
+                self.setFormat(start, end - start, fmt)
 
 class ProfileEditor(QDialog):
     """A dialog for editing .me3 profile files with better layout and scaling."""
