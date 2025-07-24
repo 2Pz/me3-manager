@@ -32,6 +32,9 @@ class SettingsDialog(QDialog):
         
         # Steam Integration Section
         self.create_steam_section(layout)
+
+        # Update Settings Section
+        self.create_update_section(layout) 
         
         # Future sections can be added here
         # self.create_ui_section(layout)
@@ -81,6 +84,19 @@ class SettingsDialog(QDialog):
         button_layout.addWidget(close_button)
         
         parent_layout.addLayout(button_layout)
+
+    def create_update_section(self, parent_layout):
+        """Create update checking settings section"""
+        # Section header
+        update_header = QLabel("Mod Engine 3 Updates")
+        update_header.setObjectName("SectionHeader")
+        parent_layout.addWidget(update_header)
+        
+        # Check for updates checkbox
+        self.check_updates_checkbox = QCheckBox("Check for ME3 updates on app startup")
+        self.check_updates_checkbox.setChecked(self.config_manager.get_check_for_updates())
+        self.check_updates_checkbox.toggled.connect(self.on_check_updates_toggled)
+        parent_layout.addWidget(self.check_updates_checkbox)
     
     def apply_styles(self):
         """Apply consistent styling to the dialog"""
@@ -156,3 +172,7 @@ class SettingsDialog(QDialog):
     def on_auto_launch_steam_toggled(self, checked):
         """Handle auto-launch Steam setting change"""
         self.config_manager.set_auto_launch_steam(checked)
+
+    def on_check_updates_toggled(self, checked):
+        """Handle check for updates setting change"""
+        self.config_manager.set_check_for_updates(checked)

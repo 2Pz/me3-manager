@@ -75,6 +75,15 @@ class ConfigManager:
         self.file_watcher = QFileSystemWatcher()
         self.setup_file_watcher()
 
+    def get_check_for_updates(self) -> bool:
+        """Get whether to check for updates on startup"""
+        return self.ui_settings.get('check_for_updates', True)  # Default to True
+
+    def set_check_for_updates(self, enabled: bool):
+        """Set whether to check for updates on startup"""
+        self.ui_settings['check_for_updates'] = enabled
+        self._save_settings()
+
     def _migrate_external_mods_to_profile_system(self):
         """
         One-time migration to associate existing global external mods with the 'default' profile.
