@@ -616,7 +616,7 @@ class ConfigManager:
                     if potential_absolute.exists():
                         path = str(potential_absolute.resolve())
                 
-                native_items.append(f"    {{ path = '{path}' }}")
+                native_items.append(f"    {{path = '{path}'}}")
             lines.append(",\n".join(native_items))
             lines.append("]")
         else:
@@ -645,7 +645,6 @@ class ConfigManager:
 
         if packages_to_write:
             lines.append("packages = [")
-            package_items = []
             for package in packages_to_write:
                 package_parts = []
                 if "id" in package:
@@ -656,36 +655,30 @@ class ConfigManager:
                     source_path = package["source"]
                 elif "path" in package:
                     source_path = package["path"]
-                
+
                 if source_path:
-                    # For custom profiles, always use absolute paths with forward slashes
                     if is_custom_profile:
                         if not Path(source_path).is_absolute():
-                            # Try to resolve relative path from the profile's directory
                             profile_dir = config_path.parent
                             potential_absolute = profile_dir / source_path
                             if potential_absolute.exists():
                                 source_path = str(potential_absolute.resolve()).replace('\\', '/')
                         else:
-                            # Convert backslashes to forward slashes for Windows compatibility
                             source_path = source_path.replace('\\', '/')
-                        # Use single quotes to avoid TOML escaping issues
                         package_parts.append(f"source = '{source_path}'")
                     else:
-                        # For default profiles, convert to relative path if it's within the config root
                         if Path(source_path).is_absolute() and source_path.startswith(str(self.config_root)):
-                            # Make it relative to config_root and use forward slashes
                             relative_path = Path(source_path).relative_to(self.config_root)
                             source_path = str(relative_path).replace('\\', '/')
                         package_parts.append(f"source = '{source_path}'")
-                
-                package_str = "{ " + ", ".join(package_parts) + " }"
-                package_items.append(f"    {package_str}")
-            
-            lines.append(",\n".join(package_items))
+
+                # No extra spaces inside braces
+                package_str = "{" + ", ".join(package_parts) + "}"
+                lines.append(f"    {package_str},")
             lines.append("]")
         else:
             lines.append("packages = []")
+
 
         with open(config_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(lines) + '\n')
