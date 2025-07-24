@@ -363,7 +363,7 @@ class ConfigManager:
         # Ensure the game's dictionary exists
         self.custom_config_paths.setdefault(game_name, {})
         
-        # Save the custom path.
+        # Save the custom path
         self.custom_config_paths[game_name][mod_key] = config_path
         self._save_settings()
 
