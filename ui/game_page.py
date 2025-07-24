@@ -676,9 +676,10 @@ class GamePage(QWidget):
             installed_something = True
         
         if installed_something:
+            self.config_manager.sync_and_clean_profile(self.game_name)
             self.load_mods(reset_page=False)
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
-
+            
     def handle_profile_import(self, import_folder: Path, profile_file: Path):
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(f"Import Profile & Mods - {self.game_name}")

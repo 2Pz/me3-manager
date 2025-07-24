@@ -930,6 +930,8 @@ class ConfigManager:
 
         # Step 1: Scan the filesystem for all mods in the active mods folder.
         if mods_dir.exists(): # Add a check to prevent errors if the dir was deleted
+            dll_stems = set() # To track names of DLLs and ignore their config folders.
+
             for dll_file in mods_dir.glob("*.dll"):
                 # Determine the correct path format for the config file
                 active_mods_dir = self.get_mods_dir(game_name)
@@ -949,13 +951,21 @@ class ConfigManager:
                     'external': False,
                     'is_folder_mod': False
                 }
+                dll_stems.add(dll_file.stem.lower()) # Add stem to our set for checking later
 
             acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
                                 'font', 'map', 'material', 'menu', 'movie', 'msg', 'other', 'param',
                                 'parts', 'script', 'sd', 'sfx', 'shader', 'sound']
             
             for folder in mods_dir.iterdir():
-                if folder.is_dir() and folder.name != self.games[game_name]['mods_dir']:
+                if not folder.is_dir():
+                    continue
+
+                # If a folder has the same name as a DLL, it's a config folder, not a mod.
+                if folder.name.lower() in dll_stems:
+                    continue
+                
+                if folder.name != self.games[game_name]['mods_dir']:
                     is_valid = False
                     has_regulation = (folder / "regulation.bin").exists() or (folder / "regulation.bin.disabled").exists()
                     
@@ -1016,6 +1026,41 @@ class ConfigManager:
             }
         
         return mods_info
+    
+    def sync_and_clean_profile(self, game_name: str):
+        """
+        Cleans the profile by removing package entries that are actually config folders for DLLs.
+        """
+        profile_path = self.get_profile_path(game_name)
+        if not profile_path.exists():
+            return
+        
+        mods_dir = self.get_mods_dir(game_name)
+        if not mods_dir.is_dir():
+            return
+
+        # 1. Get all DLL stems from the filesystem in the active mods directory
+        dll_stems = {dll.stem.lower() for dll in mods_dir.glob("*.dll")}
+        if not dll_stems:
+            return # No DLLs, no need to clean
+
+        # 2. Read the current profile
+        config_data = self._parse_toml_config(profile_path)
+        original_packages = config_data.get("packages", [])
+        if not original_packages:
+            return # Nothing to do
+
+        # 3. Filter out packages that are config folders for existing DLLs
+        valid_packages = [
+            pkg for pkg in original_packages 
+            if pkg.get("id", "").lower() not in dll_stems
+        ]
+
+        # 4. If changes were made, write back to the profile
+        if len(valid_packages) < len(original_packages):
+            print(f"Cleaning profile '{profile_path.name}': Removed package entries that are DLL config folders.")
+            config_data["packages"] = valid_packages
+            self._write_toml_config(profile_path, config_data)
     
     def _get_active_regulation_mod(self, game_name: str) -> Optional[str]:
         """Find which mod currently has the active regulation.bin file"""
