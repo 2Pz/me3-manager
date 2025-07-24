@@ -923,7 +923,7 @@ class ConfigManager:
         Get information about all mods for a game, discovering new mods from the
         filesystem and syncing the status of tracked mods from the config file.
         """
-        #self.sync_profile_with_filesystem(game_name)
+        self.sync_profile_with_filesystem(game_name)
 
         mods_info = {}
         profile_path = self.get_profile_path(game_name)
@@ -1267,7 +1267,7 @@ class ConfigManager:
             return
 
         config_data = self._parse_toml_config(profile_path)
-        modified = False
+        config_modified = False
 
         # Sync Natives (DLLs) ---
         if "natives" in config_data:
@@ -1277,32 +1277,36 @@ class ConfigManager:
                 path_str = native_entry.get("path", "")
                 if not path_str:
                     continue
-
               
                 path_obj = Path(path_str)
                 full_path = path_obj
                 
                 # If path is not absolute, it's assumed to be relative to the default config root.
-                # This is the format for mods in the default mods folder.
                 if not path_obj.is_absolute():
                     full_path = self.config_root / path_str.replace('\\', '/')
         
-                
                 if full_path.exists():
                     valid_natives.append(native_entry)
             
             if len(valid_natives) != len(original_natives):
                 config_data["natives"] = valid_natives
-                modified = True
+                config_modified = True
 
-        # Sync Tracked External Mods
-        if game_name in self.tracked_external_mods:
-            original_tracked = self.tracked_external_mods[game_name]
+        # Sync Tracked External Mods ---
+        settings_modified = False
+        active_profile_id = self.active_profiles.get(game_name, 'default')
+        game_profiles_mods = self.tracked_external_mods.get(game_name, {})
+
+        if isinstance(game_profiles_mods, dict) and active_profile_id in game_profiles_mods:
+            original_tracked = game_profiles_mods[active_profile_id]
             # Normalize all paths before checking for existence
             valid_tracked = [p for p in original_tracked if Path(p.replace('\\', '/')).exists()]
             if len(valid_tracked) != len(original_tracked):
-                self.tracked_external_mods[game_name] = valid_tracked
-                self._save_settings()
+                game_profiles_mods[active_profile_id] = valid_tracked
+                settings_modified = True
+        
+        if settings_modified:
+            self._save_settings()
 
         # Sync Packages (Folder Mods) ---
         if "packages" in config_data:
@@ -1317,10 +1321,9 @@ class ConfigManager:
 
                 source_str = package_entry.get("source") or package_entry.get("path")
                 if not source_str:
-                    modified = True
+                    config_modified = True
                     continue
                 
-        
                 path_obj = Path(source_str)
                 full_path = path_obj
                 
@@ -1328,16 +1331,15 @@ class ConfigManager:
                 if not path_obj.is_absolute():
                     full_path = self.config_root / source_str
          
-
                 if full_path.exists() and full_path.is_dir():
                     valid_packages.append(package_entry)
                 else:
-                    modified = True
+                    config_modified = True
             
             if len(valid_packages) != len(original_packages):
                  config_data["packages"] = valid_packages
 
-        if modified:
+        if config_modified:
             print(f"Saving updated profile for '{game_name}' after syncing with filesystem.")
             self._write_toml_config(profile_path, config_data)
 
