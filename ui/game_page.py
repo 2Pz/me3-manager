@@ -1071,11 +1071,20 @@ class GamePage(QWidget):
     def open_config_editor(self, mod_path: str):
         mod_name = Path(mod_path).stem
         initial_config_path = self.config_manager.get_mod_config_path(self.game_name, mod_path)
+        
         dialog = ConfigEditorDialog(mod_name, initial_config_path, self)
-        if dialog.exec() and dialog.new_path_selected and dialog.new_path_selected != initial_config_path:
-            self.config_manager.set_mod_config_path(self.game_name, mod_path, str(dialog.new_path_selected))
-            self.status_label.setText(f"Saved new config path for {mod_name}")
-            QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+        
+        # dialog.exec() returns True if the dialog was "Accepted".
+        # Our logic in the dialog calls self.accept() only when the path has changed.
+        if dialog.exec():
+            final_path = dialog.current_path
+            
+            # This check is technically redundant now because dialog.exec() would have been
+            # false, but it's good defensive programming to keep it.
+            if final_path and final_path != initial_config_path:
+                self.config_manager.set_mod_config_path(self.game_name, mod_path, str(final_path))
+                self.status_label.setText(f"Saved new config path for {mod_name}")
+                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
 
     def open_mods_folder(self):
         mods_dir = self.config_manager.get_mods_dir(self.game_name)

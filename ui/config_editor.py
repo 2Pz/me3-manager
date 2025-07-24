@@ -77,8 +77,9 @@ class ConfigEditorDialog(QDialog):
     """Dialog for editing mod INI configuration files."""
     def __init__(self, mod_name: str, config_path: Path, parent=None):
         super().__init__(parent)
+        # *** FIX: Store the initial path to detect changes later ***
+        self.initial_path = config_path
         self.current_path = config_path
-        self.new_path_selected: Optional[Path] = None # To track if user browsed for a new file
 
         self.setWindowTitle(f"Config Editor - {mod_name}")
         self.setMinimumSize(700, 500)
@@ -111,10 +112,17 @@ class ConfigEditorDialog(QDialog):
         self.status_label = QLabel("")
         button_layout.addWidget(self.status_label)
         button_layout.addStretch()
-        save_btn = QPushButton("Save"); save_btn.clicked.connect(self.save_config)
+
+        # A "Save" button that does NOT close the dialog
+        save_btn = QPushButton("Save")
+        save_btn.clicked.connect(self.save_text_only)
         button_layout.addWidget(save_btn)
-        close_btn = QPushButton("Close"); close_btn.clicked.connect(self.close)
+
+        # A "Close" button that intelligently accepts or rejects
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self.finalize_and_close)
         button_layout.addWidget(close_btn)
+        
         layout.addLayout(button_layout)
         
         if self.current_path.is_file():
@@ -122,7 +130,7 @@ class ConfigEditorDialog(QDialog):
         else:
             self.editor.setPlaceholderText(
                 f"Config file not found at default location:\n{self.current_path}\n\n"
-                "Use 'Browse...' to locate it, or 'Save' to create a new file at this path."
+                "Use 'Save' to create a new file at this path, or 'Browse...' to locate it."
             )
 
     def load_config(self, path: Path):
@@ -135,30 +143,39 @@ class ConfigEditorDialog(QDialog):
         except Exception as e:
             QMessageBox.warning(self, "Load Error", f"Could not load file:\n{path}\n\nError: {e}")
 
-    def save_config(self):
+    def save_text_only(self):
+        """Saves only the text content to the current path without closing."""
         if not self.current_path:
             QMessageBox.warning(self, "Save Error", "No config file path is set. Use 'Browse...' to select a file.")
             return
         
         try:
-            # Ensure parent directory exists
             self.current_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.current_path, 'w', encoding='utf-8') as f:
                 f.write(self.editor.toPlainText())
             self.status_label.setText(f"Saved: {self.current_path.name}")
+            # Clear the status message after 3 seconds
             QTimer.singleShot(3000, lambda: self.status_label.setText(""))
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Could not save file:\n{self.current_path}\n\nError: {e}")
+
+    def finalize_and_close(self):
+        """
+        Closes the dialog. If the path was changed, it signals 'Accepted' 
+        so the main window can save the new path permanently.
+        """
+        if self.current_path != self.initial_path:
+            # The path was changed, so signal success.
+            self.accept()
+        else:
+            # The path was not changed, so just close normally.
+            self.reject()
             
     def browse_for_config(self):
         start_dir = str(self.current_path.parent if self.current_path else Path.cwd())
         file_name, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Mod Config File",
-            start_dir,
-            "INI Files (*.ini);;All Files (*)"
+            self, "Select Mod Config File", start_dir, "INI Files (*.ini);;All Files (*)"
         )
         if file_name:
             new_path = Path(file_name)
             self.load_config(new_path)
-            self.new_path_selected = new_path

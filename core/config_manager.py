@@ -341,29 +341,30 @@ class ConfigManager:
         """
         Gets the config path for a mod.
         Checks for a custom path first, then falls back to the default.
+        Uses a standardized, case-insensitive key for reliability on all platforms.
         """
-        # Use the normalized mod path as the unique key to prevent collisions
-        mod_key = mod_path_str.replace('\\', '/')
+        # Create a canonical key: normalize slashes AND convert to lowercase.
+        mod_key = mod_path_str.replace('\\', '/').lower()
         
-        # Check for a saved custom path using the new robust key
+        # Check for a saved custom path using the reliable key.
         custom_path = self.custom_config_paths.get(game_name, {}).get(mod_key)
         if custom_path:
             return Path(custom_path)
             
-        # Fallback to default path convention
+        # Fallback to default path convention if no custom path is found.
         mod_path = Path(mod_path_str)
         config_dir = mod_path.parent / mod_path.stem
         return config_dir / "config.ini"
 
     def set_mod_config_path(self, game_name: str, mod_path_str: str, config_path: str):
-        """Saves a custom config path for a mod."""
-        # Use the normalized mod path as the unique key
-        mod_key = mod_path_str.replace('\\', '/')
+        """Saves a custom config path for a mod using the same standardized key."""
+        # Use the EXACT same key generation logic as the getter for a perfect match.
+        mod_key = mod_path_str.replace('\\', '/').lower()
         
-        # Ensure the game's dictionary exists
+        # Ensure the game's dictionary exists.
         self.custom_config_paths.setdefault(game_name, {})
         
-        # Save the custom path
+        # Save the custom path using the canonical key.
         self.custom_config_paths[game_name][mod_key] = config_path
         self._save_settings()
 
