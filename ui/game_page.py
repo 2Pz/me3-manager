@@ -651,6 +651,7 @@ class GamePage(QWidget):
         if not dropped_paths:
             return
 
+        # Handle .me3 profile imports first, as they are a special case.
         me3_files = [p for p in dropped_paths if p.suffix.lower() == '.me3']
         if me3_files:
             if len(me3_files) > 1:
@@ -661,25 +662,90 @@ class GamePage(QWidget):
             self.handle_profile_import(import_folder, profile_to_import)
             return
 
-        dlls_to_install = [p for p in dropped_paths if p.is_file() and p.suffix.lower() == '.dll']
-        other_items = [p for p in dropped_paths if not (p.is_file() and p.suffix.lower() == '.dll')]
-        installed_something = False
+        # Identify DLLs and their potential config folders.
+        dll_paths = {p for p in dropped_paths if p.is_file() and p.suffix.lower() == '.dll'}
+        dll_stems = {dll.stem for dll in dll_paths}
+        
+        # Items to be installed directly (DLLs and their config folders)
+        linked_items_to_install = set()
+        # Items that might be part of a mod package
+        items_for_bundling = []
 
-        if dlls_to_install:
-            if self.install_dll_mods(dlls_to_install):
+        # First pass: identify and collect all linked items (DLLs and their config folders)
+        for path in dropped_paths:
+            if path in dll_paths:
+                linked_items_to_install.add(path)
+            elif path.is_dir() and path.name in dll_stems:
+                linked_items_to_install.add(path)
+
+        # Second pass: collect everything else for bundling
+        for path in dropped_paths:
+            if path not in linked_items_to_install and path.suffix.lower() != '.me3':
+                items_for_bundling.append(path)
+
+        installed_something = False
+        
+        # Install the DLLs and their config folders without prompting for a name.
+        if linked_items_to_install:
+            if self.install_linked_mods(list(linked_items_to_install)):
                 installed_something = True
-        if other_items:
-            if len(other_items) == 1 and other_items[0].is_dir():
-                self.install_root_mod_package(other_items[0])
+
+        # Handle the remaining loose items, which may be a mod package.
+        if items_for_bundling:
+            # A single directory that is not a config folder. Treat as a mod package.
+            if len(items_for_bundling) == 1 and items_for_bundling[0].is_dir():
+                self.install_root_mod_package(items_for_bundling[0])
             else:
-                self.install_loose_items(other_items)
+                # Multiple files/folders, or a single file. Bundle them.
+                self.install_loose_items(items_for_bundling)
             installed_something = True
         
         if installed_something:
-            self.config_manager.sync_and_clean_profile(self.game_name)
             self.load_mods(reset_page=False)
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
-            
+
+    def install_linked_mods(self, items_to_install: List[Path]) -> bool:
+        """
+        Installs a list of items (DLLs and their associated config folders) directly
+        into the mods directory without bundling them.
+        """
+        mods_dir = self.config_manager.get_mods_dir(self.game_name)
+        conflicts = [p for p in items_to_install if (mods_dir / p.name).exists()]
+        
+        if conflicts:
+            conflict_msg = "The following files/folders already exist in the mods folder. Overwrite?\n\n" + "\n".join(f"- {p.name}" for p in conflicts)
+            reply = QMessageBox.question(self, "Confirm Overwrite", conflict_msg, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.No:
+                conflict_names = {p.name for p in conflicts}
+                items_to_install = [p for p in items_to_install if p.name not in conflict_names]
+
+        if not items_to_install:
+            self.status_label.setText("Installation cancelled or no new items to install.")
+            return False
+
+        installed_count = 0
+        errors = []
+        for item_path in items_to_install:
+            try:
+                dest_path = mods_dir / item_path.name
+                if item_path.is_dir():
+                    if dest_path.exists():
+                        shutil.rmtree(dest_path)
+                    shutil.copytree(item_path, dest_path)
+                else: # is_file
+                    shutil.copy2(item_path, dest_path)
+                installed_count += 1
+            except Exception as e:
+                errors.append(f"Failed to copy {item_path.name}: {e}")
+        
+        if errors:
+            QMessageBox.warning(self, "Install Error", "\n".join(errors))
+
+        if installed_count > 0:
+            self.status_label.setText(f"Successfully installed {installed_count} item{'s' if installed_count > 1 else ''}.")
+            return True
+        return False
+
     def handle_profile_import(self, import_folder: Path, profile_file: Path):
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(f"Import Profile & Mods - {self.game_name}")
