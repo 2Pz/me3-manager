@@ -19,6 +19,7 @@ from ui.mod_item import ModItem
 from ui.config_editor import ConfigEditorDialog
 from ui.profile_editor import ProfileEditor
 from ui.advanced_mod_options import AdvancedModOptionsDialog
+from core.mod_manager import ModManager, ModStatus, ModType
 
 class GamePage(QWidget):
     """Widget for managing mods for a specific game"""
@@ -27,6 +28,7 @@ class GamePage(QWidget):
         super().__init__()
         self.game_name = game_name
         self.config_manager = config_manager
+        self.mod_manager = ModManager(config_manager)
         self.mod_widgets = {}
         self.current_filter = "all"
         self.filter_buttons = {}
@@ -971,8 +973,7 @@ class GamePage(QWidget):
 
     def load_mods(self, reset_page: bool = True):
         """
-        Reloads and displays mods based on the CURRENT state from ConfigManager.
-        This function no longer performs any syncing or file writing itself.
+        Reloads and displays mods using the new ModManager.
         """
         # 1. Pre-flight check: If the main mods directory is gone, show an empty state.
         mods_dir = self.config_manager.get_mods_dir(self.game_name)
@@ -982,9 +983,22 @@ class GamePage(QWidget):
             self.status_label.setText(f"Warning: Mods directory for active profile not found.")
             return
 
-        # 2. Get the final, clean list of mods and update the UI.
-        # The orchestration of syncing is now handled by MainWindow.
-        final_mods = self.config_manager.get_mods_info(self.game_name)
+        # 2. Get mods using the new ModManager
+        mod_infos = self.mod_manager.get_all_mods(self.game_name)
+        
+        # 3. Convert ModInfo objects to the format expected by the UI
+        final_mods = {}
+        for mod_path, mod_info in mod_infos.items():
+            final_mods[mod_path] = {
+                'name': mod_info.name,
+                'enabled': mod_info.status == ModStatus.ENABLED,
+                'external': mod_info.is_external,
+                'is_folder_mod': mod_info.mod_type == ModType.PACKAGE,
+                'has_regulation': mod_info.has_regulation,
+                'regulation_active': mod_info.regulation_active,
+                'advanced_options': mod_info.advanced_options
+            }
+        
         self.apply_filters(reset_page=reset_page, source_mods=final_mods)
         self.update_profile_dropdown()
     
@@ -1031,13 +1045,14 @@ class GamePage(QWidget):
         self.update_pagination()
     
     def toggle_mod(self, mod_path: str, enabled: bool):
-        try:
-            self.config_manager.set_mod_enabled(self.game_name, mod_path, enabled)
+        success, message = self.mod_manager.set_mod_enabled(self.game_name, mod_path, enabled)
+        
+        if success:
             self.load_mods(reset_page=False)
-            self.status_label.setText(f"{'Enabled' if enabled else 'Disabled'} {Path(mod_path).name}")
+            self.status_label.setText(message)
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
-        except Exception as e:
-            QMessageBox.warning(self, "Toggle Error", f"Failed to toggle mod: {str(e)}")
+        else:
+            QMessageBox.warning(self, "Toggle Mod Error", message)
     
     def delete_mod(self, mod_path: str):
         mod_name = Path(mod_path).name
@@ -1055,19 +1070,14 @@ class GamePage(QWidget):
     def add_external_mod(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select External Mod DLL", str(Path.home()), "DLL Files (*.dll)")
         if file_name:
-            try:
-                mod_path = str(Path(file_name))
-                mod_name = Path(mod_path).name
-                if Path(file_name).parent == self.config_manager.get_mods_dir(self.game_name):
-                    QMessageBox.information(self, "Mod Info", f"The mod '{mod_name}' is inside this game's mods folder and should already be listed.")
-                    return
-                self.config_manager.track_external_mod(self.game_name, mod_path)
-                self.config_manager.set_mod_enabled(self.game_name, mod_path, True)
-                self.status_label.setText(f"Added external mod: {mod_name}")
+            success, message = self.mod_manager.add_external_mod(self.game_name, file_name)
+            
+            if success:
+                self.status_label.setText(message)
                 self.load_mods(reset_page=False)
                 QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
-            except Exception as e:
-                QMessageBox.warning(self, "Add Error", f"Failed to add external mod: {str(e)}")
+            else:
+                QMessageBox.warning(self, "Add External Mod Error", message)
                 
     def open_mod_folder(self, mod_path: str):
         folder_path = Path(mod_path).parent

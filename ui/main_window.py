@@ -423,7 +423,7 @@ class ModEngine3Manager(QMainWindow):
             # Trigger a full refresh of the application state
             self.perform_global_refresh()
             
-            print(f"ME3 version updated: {old_version} -> {self.me3_version}")
+           # print(f"ME3 version updated: {old_version} -> {self.me3_version}")
 
     def switch_game(self, game_name: str):
         for name, button in self.game_buttons.items(): 
@@ -446,7 +446,7 @@ class ModEngine3Manager(QMainWindow):
         This method is triggered by the QFileSystemWatcher. It starts a
         debounced timer to perform a full refresh, preventing rapid-fire updates.
         """
-        print(f"Filesystem change detected at: {path}. Scheduling a full refresh.")
+        #print(f"Filesystem change detected at: {path}. Scheduling a full refresh.")
         self.refresh_timer.start(500)
 
     def perform_global_refresh(self):
@@ -454,7 +454,7 @@ class ModEngine3Manager(QMainWindow):
         This is the master refresh function. It cleans the config and then forces
         every single game page to completely reload its UI from that clean config.
         """
-        print("Performing global state refresh...")
+        #print("Performing global state refresh...")
 
         # Step 1: Prune the master list of profiles from the settings file.
         # This removes profiles whose folders have been deleted.
@@ -475,7 +475,7 @@ class ModEngine3Manager(QMainWindow):
         # Step 4: Update the file watcher to only monitor directories that still exist.
         self.config_manager.setup_file_watcher()
 
-        print("Global refresh complete.")
+        #print("Global refresh complete.")
     
     def on_game_order_changed(self, new_order):
         self.config_manager.set_game_order(new_order)
