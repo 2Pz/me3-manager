@@ -18,6 +18,7 @@ from utils.resource_path import resource_path
 from ui.mod_item import ModItem
 from ui.config_editor import ConfigEditorDialog
 from ui.profile_editor import ProfileEditor
+from ui.advanced_mod_options import AdvancedModOptionsDialog
 
 class GamePage(QWidget):
     """Widget for managing mods for a specific game"""
@@ -949,11 +950,15 @@ class GamePage(QWidget):
             elif is_folder_mod: mod_type, type_icon = "MOD FOLDER", QIcon(resource_path("resources/icon/folder.png"))
             else: mod_type, type_icon = "DLL", QIcon(resource_path("resources/icon/dll.png"))
             
-            mod_widget = ModItem(mod_path, info['name'], is_enabled, info['external'], is_folder_mod, has_regulation, mod_type, type_icon, "transparent", text_color, regulation_active)
+            # Check if mod has active advanced options
+            has_advanced_options = self.config_manager.has_active_advanced_options(self.game_name, mod_path)
+            
+            mod_widget = ModItem(mod_path, info['name'], is_enabled, info['external'], is_folder_mod, has_regulation, mod_type, type_icon, "transparent", text_color, regulation_active, has_advanced_options)
             mod_widget.toggled.connect(self.toggle_mod)
             mod_widget.delete_requested.connect(self.delete_mod)
             mod_widget.edit_config_requested.connect(self.open_config_editor)
             mod_widget.open_folder_requested.connect(self.open_mod_folder)
+            mod_widget.advanced_options_requested.connect(self.open_advanced_options)
             if has_regulation:
                 mod_widget.regulation_activate_requested.connect(self.activate_regulation_mod)
             self.mods_layout.addWidget(mod_widget)
@@ -1085,6 +1090,49 @@ class GamePage(QWidget):
                 self.config_manager.set_mod_config_path(self.game_name, mod_path, str(final_path))
                 self.status_label.setText(f"Saved new config path for {mod_name}")
                 QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+
+    def open_advanced_options(self, mod_path: str):
+        """Open the advanced options dialog for a mod"""
+        try:
+            mod_name = Path(mod_path).name
+            is_folder_mod = Path(mod_path).is_dir()
+            
+            # Get current advanced options for this mod
+            current_options = self.config_manager.get_mod_advanced_options(self.game_name, mod_path)
+            
+            # Get list of available mods for dependency selection based on mod type
+            if is_folder_mod:
+                # Package mods can only depend on other packages
+                available_mods = self.config_manager.get_available_mod_names(self.game_name, 'packages')
+            else:
+                # Native mods can only depend on other natives
+                available_mods = self.config_manager.get_available_mod_names(self.game_name, 'natives')
+            
+            # Create and show the dialog
+            dialog = AdvancedModOptionsDialog(
+                mod_path=mod_path,
+                mod_name=mod_name,
+                is_folder_mod=is_folder_mod,
+                current_options=current_options,
+                available_mods=available_mods,
+                parent=self
+            )
+            
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                # Get the configured options
+                new_options = dialog.get_options()
+                
+                # Save the options
+                self.config_manager.set_mod_advanced_options(self.game_name, mod_path, new_options)
+                
+                # Reload mods to reflect changes
+                self.load_mods(reset_page=False)
+                
+                self.status_label.setText(f"Updated advanced options for {mod_name}")
+                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                
+        except Exception as e:
+            QMessageBox.warning(self, "Advanced Options Error", f"Failed to open advanced options: {str(e)}")
 
     def open_mods_folder(self):
         mods_dir = self.config_manager.get_mods_dir(self.game_name)

@@ -27,7 +27,11 @@ class TomlHighlighter(QSyntaxHighlighter):
         property_keyword_format = QTextCharFormat()
         property_keyword_format.setForeground(QColor("#9CDCFE"))  # Light blue
         property_keyword_format.setFontWeight(QFont.Weight.Normal)
-        property_keywords = ["path", "game", "id", "source", "load_after", "load_before"]
+        property_keywords = [
+            "path", "game", "id", "source", "load_after", "load_before", 
+            "enabled", "optional", "initializer", "finalizer", "function", 
+            "delay", "ms", "since"
+        ]
         self.highlighting_rules.extend([
             (re.compile(rf"\b{keyword}\b"), property_keyword_format)
             for keyword in property_keywords
@@ -165,14 +169,14 @@ class ProfileEditor(QDialog):
         # Add line breaks after main sections
         content = re.sub(r'(profileVersion\s*=\s*"[^"]*")', r'\1\n\n', content)
         
-        # Format natives array
-        content = re.sub(r'natives\s*=\s*\[(.*?)\]', self._format_array_section, content)
+        # Format natives array with advanced options support
+        content = re.sub(r'natives\s*=\s*\[(.*?)\]', self._format_natives_section, content)
         
         # Format supports array  
-        content = re.sub(r'supports\s*=\s*\[(.*?)\]', self._format_array_section, content)
+        content = re.sub(r'supports\s*=\s*\[(.*?)\]', self._format_simple_array_section, content)
         
-        # Format packages array
-        content = re.sub(r'packages\s*=\s*\[(.*?)\]', self._format_array_section, content)
+        # Format packages array with advanced options support
+        content = re.sub(r'packages\s*=\s*\[(.*?)\]', self._format_packages_section, content)
         
         # Clean up extra newlines
         content = re.sub(r'\n\s*\n\s*\n', '\n\n', content)
@@ -232,6 +236,303 @@ class ProfileEditor(QDialog):
         result += "]\n"
         
         return result
+
+    def _format_natives_section(self, match):
+        """Format natives array with proper indentation for advanced options."""
+        full_match = match.group(0)
+        array_content = match.group(1).strip()
+        
+        if not array_content:
+            return "\nnatives = []\n"
+        
+        # Parse native objects
+        natives = self._parse_objects(array_content)
+        
+        if not natives:
+            return "\nnatives = []\n"
+        
+        result = "\nnatives = [\n"
+        for i, native in enumerate(natives):
+            result += self._format_native_object(native, is_last=(i == len(natives) - 1))
+        result += "]\n"
+        
+        return result
+    
+    def _format_packages_section(self, match):
+        """Format packages array with proper indentation for advanced options."""
+        full_match = match.group(0)
+        array_content = match.group(1).strip()
+        
+        if not array_content:
+            return "\npackages = []\n"
+        
+        # Parse package objects
+        packages = self._parse_objects(array_content)
+        
+        if not packages:
+            return "\npackages = []\n"
+        
+        result = "\npackages = [\n"
+        for i, package in enumerate(packages):
+            result += self._format_package_object(package, is_last=(i == len(packages) - 1))
+        result += "]\n"
+        
+        return result
+    
+    def _format_simple_array_section(self, match):
+        """Format simple arrays like supports."""
+        full_match = match.group(0)
+        array_name = full_match.split('=')[0].strip()
+        array_content = match.group(1).strip()
+        
+        if not array_content:
+            return f"\n{array_name} = []\n"
+        
+        # Parse simple objects
+        objects = self._parse_objects(array_content)
+        
+        if not objects:
+            return f"\n{array_name} = []\n"
+        
+        result = f"\n{array_name} = [\n"
+        for obj in objects:
+            result += f"    {obj},\n"
+        result += "]\n"
+        
+        return result
+    
+    def _parse_objects(self, content):
+        """Parse TOML objects from array content."""
+        objects = []
+        current_obj = ""
+        brace_count = 0
+        
+        i = 0
+        while i < len(content):
+            char = content[i]
+            
+            if char == '{':
+                brace_count += 1
+                current_obj += char
+            elif char == '}':
+                brace_count -= 1
+                current_obj += char
+                if brace_count == 0:
+                    objects.append(current_obj.strip())
+                    current_obj = ""
+                    # Skip comma and whitespace
+                    while i + 1 < len(content) and content[i + 1] in ', \t':
+                        i += 1
+            elif char == ',' and brace_count == 0:
+                if current_obj.strip():
+                    objects.append(current_obj.strip())
+                current_obj = ""
+            else:
+                current_obj += char
+            
+            i += 1
+        
+        # Add remaining object
+        if current_obj.strip():
+            objects.append(current_obj.strip())
+        
+        return objects
+    
+    def _format_native_object(self, native_str, is_last=False):
+        """Format a single native object with proper indentation."""
+        # Remove outer braces
+        native_str = native_str.strip()
+        if native_str.startswith('{') and native_str.endswith('}'):
+            native_str = native_str[1:-1].strip()
+        
+        # Parse key-value pairs
+        properties = self._parse_properties(native_str)
+        
+        if not properties:
+            return "    {},\n" if not is_last else "    {}\n"
+        
+        # Check if this is a simple native (only path and enabled)
+        is_simple = len(properties) <= 2 and all(key in ['path', 'enabled'] for key in properties.keys())
+        
+        if is_simple:
+            # Single line format for simple natives
+            prop_strs = []
+            for key, value in properties.items():
+                prop_strs.append(f"{key} = {value}")
+            content = ", ".join(prop_strs)
+            return f"    {{{content}}}{',' if not is_last else ''}\n"
+        else:
+            # Multi-line format for complex natives
+            result = "    {\n"
+            
+            # Order properties logically
+            ordered_keys = ['path', 'enabled', 'optional', 'initializer', 'finalizer', 'load_before', 'load_after']
+            
+            for key in ordered_keys:
+                if key in properties:
+                    value = properties[key]
+                    if key in ['load_before', 'load_after'] and value.startswith('[') and value.endswith(']'):
+                        # Format dependency arrays nicely
+                        result += f"        {key} = {self._format_dependency_array(value)},\n"
+                    elif key == 'initializer' and value.startswith('{') and value.endswith('}'):
+                        # Format initializer object nicely
+                        result += f"        {key} = {self._format_initializer(value)},\n"
+                    else:
+                        result += f"        {key} = {value},\n"
+            
+            # Add any remaining properties not in ordered list
+            for key, value in properties.items():
+                if key not in ordered_keys:
+                    result += f"        {key} = {value},\n"
+            
+            result += "    }" + ("," if not is_last else "") + "\n"
+            return result
+    
+    def _format_package_object(self, package_str, is_last=False):
+        """Format a single package object with proper indentation."""
+        # Remove outer braces
+        package_str = package_str.strip()
+        if package_str.startswith('{') and package_str.endswith('}'):
+            package_str = package_str[1:-1].strip()
+        
+        # Parse key-value pairs
+        properties = self._parse_properties(package_str)
+        
+        if not properties:
+            return "    {},\n" if not is_last else "    {}\n"
+        
+        # Check if this is a simple package
+        is_simple = len(properties) <= 3 and all(key in ['id', 'path', 'source', 'enabled'] for key in properties.keys())
+        
+        if is_simple:
+            # Single line format for simple packages
+            prop_strs = []
+            for key, value in properties.items():
+                prop_strs.append(f"{key} = {value}")
+            content = ", ".join(prop_strs)
+            return f"    {{{content}}}{',' if not is_last else ''}\n"
+        else:
+            # Multi-line format for complex packages
+            result = "    {\n"
+            
+            # Order properties logically
+            ordered_keys = ['id', 'path', 'source', 'enabled', 'load_before', 'load_after']
+            
+            for key in ordered_keys:
+                if key in properties:
+                    value = properties[key]
+                    if key in ['load_before', 'load_after'] and value.startswith('[') and value.endswith(']'):
+                        # Format dependency arrays nicely
+                        result += f"        {key} = {self._format_dependency_array(value)},\n"
+                    else:
+                        result += f"        {key} = {value},\n"
+            
+            # Add any remaining properties
+            for key, value in properties.items():
+                if key not in ordered_keys:
+                    result += f"        {key} = {value},\n"
+            
+            result += "    }" + ("," if not is_last else "") + "\n"
+            return result
+    
+    def _parse_properties(self, content):
+        """Parse key-value properties from object content."""
+        properties = {}
+        current_key = ""
+        current_value = ""
+        in_key = True
+        brace_count = 0
+        bracket_count = 0
+        in_string = False
+        string_char = None
+        
+        i = 0
+        while i < len(content):
+            char = content[i]
+            
+            if not in_string and char in ['"', "'"]:
+                in_string = True
+                string_char = char
+                if in_key:
+                    current_key += char
+                else:
+                    current_value += char
+            elif in_string and char == string_char:
+                in_string = False
+                string_char = None
+                if in_key:
+                    current_key += char
+                else:
+                    current_value += char
+            elif not in_string:
+                if char == '=' and in_key:
+                    in_key = False
+                elif char == '{':
+                    brace_count += 1
+                    current_value += char
+                elif char == '}':
+                    brace_count -= 1
+                    current_value += char
+                elif char == '[':
+                    bracket_count += 1
+                    current_value += char
+                elif char == ']':
+                    bracket_count -= 1
+                    current_value += char
+                elif char == ',' and brace_count == 0 and bracket_count == 0:
+                    # End of property
+                    if current_key.strip() and current_value.strip():
+                        properties[current_key.strip()] = current_value.strip()
+                    current_key = ""
+                    current_value = ""
+                    in_key = True
+                else:
+                    if in_key:
+                        current_key += char
+                    else:
+                        current_value += char
+            else:
+                if in_key:
+                    current_key += char
+                else:
+                    current_value += char
+            
+            i += 1
+        
+        # Add final property
+        if current_key.strip() and current_value.strip():
+            properties[current_key.strip()] = current_value.strip()
+        
+        return properties
+    
+    def _format_dependency_array(self, array_str):
+        """Format dependency arrays with proper spacing."""
+        # Remove outer brackets
+        array_str = array_str.strip()
+        if array_str.startswith('[') and array_str.endswith(']'):
+            array_str = array_str[1:-1].strip()
+        
+        if not array_str:
+            return "[]"
+        
+        # Parse dependency objects
+        deps = self._parse_objects(array_str)
+        
+        if len(deps) == 1:
+            # Single dependency on one line
+            return f"[{deps[0]}]"
+        else:
+            # Multiple dependencies, format nicely
+            result = "[\n"
+            for dep in deps:
+                result += f"            {dep},\n"
+            result += "        ]"
+            return result
+    
+    def _format_initializer(self, init_str):
+        """Format initializer objects with proper spacing."""
+        # Simple formatting for initializer objects
+        return init_str
 
     def save_and_accept(self):
         content = self.editor.toPlainText()

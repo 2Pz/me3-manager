@@ -10,10 +10,11 @@ class ModItem(QWidget):
     open_folder_requested = pyqtSignal(str)
     edit_config_requested = pyqtSignal(str)
     regulation_activate_requested = pyqtSignal(str)
+    advanced_options_requested = pyqtSignal(str)
     
     def __init__(self, mod_path: str, mod_name: str, is_enabled: bool, is_external: bool, 
              is_folder_mod: bool, is_regulation: bool, mod_type: str, type_icon: QIcon, 
-             item_bg_color: str, text_color: str, is_regulation_active: bool):
+             item_bg_color: str, text_color: str, is_regulation_active: bool, has_advanced_options: bool = False):
         super().__init__()
         self.mod_path = mod_path
         self.mod_name = mod_name
@@ -112,6 +113,40 @@ class ModItem(QWidget):
             """)
             open_btn.clicked.connect(lambda: self.open_folder_requested.emit(self.mod_path))
             layout.addWidget(open_btn)
+        
+        # Advanced options button with indicator
+        advanced_btn = QPushButton("🔧")
+        advanced_btn.setFixedSize(30, 30)
+        
+        if has_advanced_options:
+            advanced_btn.setToolTip("Advanced options active (load order, initializers, etc.)")
+            advanced_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #ff8c00;
+                    border: none;
+                    border-radius: 15px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #ffa500;
+                }
+            """)
+        else:
+            advanced_btn.setToolTip("Advanced mod options (load order, initializers, etc.)")
+            advanced_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #4d4d4d;
+                    border: none;
+                    border-radius: 15px;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #0078d4;
+                }
+            """)
+        
+        advanced_btn.clicked.connect(lambda: self.advanced_options_requested.emit(self.mod_path))
+        layout.addWidget(advanced_btn)
         
         delete_btn = QPushButton("🗑")
         delete_btn.setFixedSize(30, 30)

@@ -606,17 +606,75 @@ class ConfigManager:
             lines.append("natives = [")
             native_items = []
             for native in natives:
-                path = native['path'] if isinstance(native, dict) else native
-                
-                # For custom profiles, ensure paths are absolute if they're relative
-                if is_custom_profile and not Path(path).is_absolute():
-                    # Try to resolve relative path from the profile's directory
-                    profile_dir = config_path.parent
-                    potential_absolute = profile_dir / path
-                    if potential_absolute.exists():
-                        path = str(potential_absolute.resolve())
-                
-                native_items.append(f"    {{path = '{path}'}}")
+                if isinstance(native, dict):
+                    path = native.get('path', '')
+                    
+                    # For custom profiles, ensure paths are absolute if they're relative
+                    if is_custom_profile and not Path(path).is_absolute():
+                        # Try to resolve relative path from the profile's directory
+                        profile_dir = config_path.parent
+                        potential_absolute = profile_dir / path
+                        if potential_absolute.exists():
+                            path = str(potential_absolute.resolve())
+                    
+                    # Build the native entry with all advanced options
+                    # Use single-line format with proper escaping for TOML compatibility
+                    native_parts = [f"path = '{path}'"]
+                    
+                    # Add enabled field (required by ME3 spec, defaults to true)
+                    enabled = native.get('enabled', True)
+                    native_parts.append(f"enabled = {str(enabled).lower()}")
+                    
+                    # Add optional flag if present
+                    if 'optional' in native:
+                        native_parts.append(f"optional = {str(native['optional']).lower()}")
+                    
+                    # Add initializer if present
+                    if 'initializer' in native:
+                        initializer = native['initializer']
+                        if isinstance(initializer, dict):
+                            if 'function' in initializer:
+                                native_parts.append(f"initializer = {{function = \"{initializer['function']}\"}}")
+                            elif 'delay' in initializer:
+                                delay_ms = initializer['delay'].get('ms', 1000)
+                                native_parts.append(f"initializer = {{delay = {{ms = {delay_ms}}}}}")
+                    
+                    # Add finalizer if present
+                    if 'finalizer' in native:
+                        native_parts.append(f"finalizer = \"{native['finalizer']}\"")
+                    
+                    # Add load_before if present
+                    if 'load_before' in native and native['load_before']:
+                        deps = []
+                        for dep in native['load_before']:
+                            dep_id = dep.get('id', '')
+                            # According to ME3 docs, optional is REQUIRED for dependencies
+                            dep_optional = str(dep.get('optional', False)).lower()
+                            deps.append(f"{{id = \"{dep_id}\", optional = {dep_optional}}}")
+                        native_parts.append(f"load_before = [{', '.join(deps)}]")
+                    
+                    # Add load_after if present
+                    if 'load_after' in native and native['load_after']:
+                        deps = []
+                        for dep in native['load_after']:
+                            dep_id = dep.get('id', '')
+                            # According to ME3 docs, optional is REQUIRED for dependencies
+                            dep_optional = str(dep.get('optional', False)).lower()
+                            deps.append(f"{{id = \"{dep_id}\", optional = {dep_optional}}}")
+                        native_parts.append(f"load_after = [{', '.join(deps)}]")
+                    
+                    # Join all parts in a single line with proper spacing
+                    native_items.append(f"    {{{', '.join(native_parts)}}}")
+                else:
+                    # Handle simple string format (legacy)
+                    path = native
+                    if is_custom_profile and not Path(path).is_absolute():
+                        profile_dir = config_path.parent
+                        potential_absolute = profile_dir / path
+                        if potential_absolute.exists():
+                            path = str(potential_absolute.resolve())
+                    native_items.append(f"    {{path = '{path}'}}")
+            
             lines.append(",\n".join(native_items))
             lines.append("]")
         else:
@@ -651,10 +709,10 @@ class ConfigManager:
                     package_parts.append(f'id = "{package["id"]}"')
 
                 source_path = ""
-                if "source" in package:
-                    source_path = package["source"]
-                elif "path" in package:
+                if "path" in package:
                     source_path = package["path"]
+                elif "source" in package:
+                    source_path = package["source"]
 
                 if source_path:
                     if is_custom_profile:
@@ -665,12 +723,34 @@ class ConfigManager:
                                 source_path = str(potential_absolute.resolve()).replace('\\', '/')
                         else:
                             source_path = source_path.replace('\\', '/')
-                        package_parts.append(f"source = '{source_path}'")
+                        package_parts.append(f"path = '{source_path}'")
                     else:
                         if Path(source_path).is_absolute() and source_path.startswith(str(self.config_root)):
                             relative_path = Path(source_path).relative_to(self.config_root)
                             source_path = str(relative_path).replace('\\', '/')
-                        package_parts.append(f"source = '{source_path}'")
+                        package_parts.append(f"path = '{source_path}'")
+
+                # Add enabled field (required for packages too)
+                enabled = package.get('enabled', True)
+                package_parts.append(f"enabled = {str(enabled).lower()}")
+
+                # Add load_before if present
+                if 'load_before' in package and package['load_before']:
+                    deps = []
+                    for dep in package['load_before']:
+                        dep_id = dep.get('id', '')
+                        dep_optional = str(dep.get('optional', False)).lower()
+                        deps.append(f"{{id = \"{dep_id}\", optional = {dep_optional}}}")
+                    package_parts.append(f"load_before = [{', '.join(deps)}]")
+                
+                # Add load_after if present
+                if 'load_after' in package and package['load_after']:
+                    deps = []
+                    for dep in package['load_after']:
+                        dep_id = dep.get('id', '')
+                        dep_optional = str(dep.get('optional', False)).lower()
+                        deps.append(f"{{id = \"{dep_id}\", optional = {dep_optional}}}")
+                    package_parts.append(f"load_after = [{', '.join(deps)}]")
 
                 # No extra spaces inside braces
                 package_str = "{" + ", ".join(package_parts) + "}"
@@ -864,6 +944,178 @@ class ConfigManager:
             self._save_settings()
             return True
         return False
+
+    def get_mod_advanced_options(self, game_name: str, mod_path: str) -> Dict[str, Any]:
+        """Get advanced options for a specific mod"""
+        mods_info = self.get_mods_info(game_name)
+        mod_info = mods_info.get(mod_path, {})
+        return mod_info.get('advanced_options', {})
+
+    def set_mod_advanced_options(self, game_name: str, mod_path: str, options: Dict[str, Any]):
+        """Set advanced options for a specific mod"""
+        profile_path = self.get_profile_path(game_name)
+        config_data = self._parse_toml_config(profile_path)
+        
+        mod_path_obj = Path(mod_path)
+        
+        if mod_path_obj.is_dir():
+            # Handle folder mod (package)
+            self._update_package_advanced_options(config_data, mod_path_obj.name, options)
+        else:
+            # Handle DLL mod (native)
+            # Determine the correct config path format
+            active_mods_dir = self.get_mods_dir(game_name)
+            default_mods_dir_path = self.config_root / self.games[game_name]["mods_dir"]
+            
+            if mod_path_obj.parent == default_mods_dir_path:
+                config_path = f"{self.games[game_name]['mods_dir']}\\{mod_path_obj.name}"
+            else:
+                config_path = mod_path.replace('\\', '/')
+            
+            self._update_native_advanced_options(config_data, config_path, options)
+        
+        self._write_toml_config(profile_path, config_data)
+
+    def _update_native_advanced_options(self, config_data: Dict[str, Any], config_path: str, options: Dict[str, Any]):
+        """Update advanced options for a native (DLL) mod"""
+        natives = config_data.get("natives", [])
+        
+        # Find existing native entry or create new one
+        native_entry = None
+        for native in natives:
+            if isinstance(native, dict) and native.get("path") == config_path:
+                native_entry = native
+                break
+        
+        if native_entry is None:
+            # Create new entry if there are any advanced options
+            if options:
+                native_entry = {"path": config_path, "enabled": True}
+                natives.append(native_entry)
+            else:
+                # No advanced options, nothing to do
+                return
+        
+        # Clear all advanced options first
+        for key in ['optional', 'initializer', 'finalizer', 'load_before', 'load_after']:
+            if key in native_entry:
+                del native_entry[key]
+        
+        # Add new advanced options
+        if 'optional' in options:
+            native_entry["optional"] = options['optional']
+        
+        if 'initializer' in options:
+            native_entry["initializer"] = options['initializer']
+        
+        if 'finalizer' in options:
+            native_entry["finalizer"] = options['finalizer']
+        
+        if 'load_before' in options:
+            native_entry["load_before"] = options['load_before']
+        
+        if 'load_after' in options:
+            native_entry["load_after"] = options['load_after']
+        
+        # If no advanced options remain, keep only path and enabled
+        has_advanced_options = any(key in native_entry for key in ['optional', 'initializer', 'finalizer', 'load_before', 'load_after'])
+        if not has_advanced_options:
+            # Clean entry - only keep path and enabled
+            native_entry.clear()
+            native_entry["path"] = config_path
+            native_entry["enabled"] = True
+        
+        config_data["natives"] = natives
+
+    def _update_package_advanced_options(self, config_data: Dict[str, Any], mod_name: str, options: Dict[str, Any]):
+        """Update advanced options for a package (folder) mod"""
+        packages = config_data.get("packages", [])
+        
+        # Find existing package entry or create new one
+        package_entry = None
+        for package in packages:
+            if isinstance(package, dict) and package.get("id") == mod_name:
+                package_entry = package
+                break
+        
+        if package_entry is None:
+            # Create new entry if mod is enabled
+            if options.get('enabled', False):
+                # Need to determine the source path
+                mods_dir = self.get_mods_dir(self.game_name) if hasattr(self, 'game_name') else None
+                if mods_dir:
+                    source_path = str(mods_dir / mod_name).replace('\\', '/')
+                    package_entry = {
+                        "id": mod_name,
+                        "source": source_path,
+                        "load_after": [],
+                        "load_before": []
+                    }
+                    packages.append(package_entry)
+                else:
+                    return
+            else:
+                # If mod is disabled and doesn't exist, nothing to do
+                return
+        
+        # Update the entry with advanced options
+        if options.get('enabled', True):
+            # Update package ID if provided
+            if 'id' in options and options['id']:
+                package_entry["id"] = options['id']
+            
+            if 'load_before' in options:
+                package_entry["load_before"] = options['load_before']
+            elif 'load_before' in package_entry:
+                del package_entry["load_before"]
+            
+            if 'load_after' in options:
+                package_entry["load_after"] = options['load_after']
+            elif 'load_after' in package_entry:
+                del package_entry["load_after"]
+        else:
+            # Remove the entry if mod is disabled
+            if package_entry in packages:
+                packages.remove(package_entry)
+        
+        config_data["packages"] = packages
+
+    def has_active_advanced_options(self, game_name: str, mod_path: str) -> bool:
+        """Check if a mod has any active advanced options"""
+        advanced_options = self.get_mod_advanced_options(game_name, mod_path)
+        
+        # Check for any advanced options beyond just enabled
+        advanced_keys = ['optional', 'initializer', 'finalizer', 'load_before', 'load_after']
+        return any(key in advanced_options and advanced_options[key] for key in advanced_keys)
+
+    def get_available_mod_names(self, game_name: str, mod_type: str = 'all') -> List[str]:
+        """Get list of available mod names for dependency selection
+        
+        Args:
+            game_name: The game to get mods for
+            mod_type: 'natives', 'packages', or 'all'
+        """
+        mods_info = self.get_mods_info(game_name)
+        mod_names = []
+        
+        for mod_path, info in mods_info.items():
+            is_folder_mod = info.get('is_folder_mod', False)
+            
+            # Filter by mod type
+            if mod_type == 'natives' and is_folder_mod:
+                continue
+            elif mod_type == 'packages' and not is_folder_mod:
+                continue
+            
+            # For DLL mods, use the full filename (including .dll extension)
+            # For folder mods, use just the folder name
+            if is_folder_mod:
+                mod_names.append(info['name'])
+            else:
+                # For DLL mods, include the .dll extension
+                mod_names.append(info['name'] + '.dll')
+        
+        return sorted(mod_names)
     
     def parse_me3_config(self, config_path: Path) -> List[str]:
         """Parse ME3 configuration file and extract native DLL paths"""
@@ -921,12 +1173,30 @@ class ConfigManager:
         mods_info = {}
         profile_path = self.get_profile_path(game_name)
         
-        enabled_dll_paths = set(self.parse_me3_config(profile_path))
         config_data = self._parse_toml_config(profile_path)
-        enabled_folder_mods = {
-            pkg.get("id", "") for pkg in config_data.get("packages", [])
-            if pkg.get("id") != self.games[game_name]['mods_dir']
-        }
+        
+        # Create lookup maps for advanced options
+        natives_lookup = {}
+        for native in config_data.get("natives", []):
+            if isinstance(native, dict) and "path" in native:
+                natives_lookup[native["path"]] = native
+        
+        packages_lookup = {}
+        for package in config_data.get("packages", []):
+            if isinstance(package, dict) and "id" in package:
+                packages_lookup[package["id"]] = package
+        
+        # Check enabled status from the enabled field, not just presence in the profile
+        enabled_dll_paths = set()
+        for path, native_data in natives_lookup.items():
+            if native_data.get('enabled', True):  # Default to True if not specified
+                enabled_dll_paths.add(path)
+        
+        enabled_folder_mods = set()
+        for pkg in config_data.get("packages", []):
+            pkg_id = pkg.get("id", "")
+            if pkg_id != self.games[game_name]['mods_dir'] and pkg.get('enabled', True):
+                enabled_folder_mods.add(pkg_id)
         
         active_regulation_mod = self._get_active_regulation_mod(game_name)
         mods_dir = self.get_mods_dir(game_name)
@@ -945,12 +1215,16 @@ class ConfigManager:
                 else:
                     # Mod in a custom folder: use its absolute path
                     config_path = str(dll_file).replace('\\', '/')
+                
+                # Get advanced options for this mod
+                advanced_options = natives_lookup.get(config_path, {})
                     
                 mods_info[str(dll_file)] = {
                     'name': dll_file.stem,
                     'enabled': config_path in enabled_dll_paths,
                     'external': False,
-                    'is_folder_mod': False
+                    'is_folder_mod': False,
+                    'advanced_options': advanced_options
                 }
 
             acceptable_folders = ['_backup', '_unknown', 'action', 'asset', 'chr', 'cutscene', 'event',
@@ -973,11 +1247,15 @@ class ConfigManager:
                         is_valid = True
                     
                     if is_valid:
+                        # Get advanced options for this package
+                        advanced_options = packages_lookup.get(folder.name, {})
+                        
                         mod_info = {
                             'name': folder.name,
                             'enabled': folder.name in enabled_folder_mods,
                             'external': False,
-                            'is_folder_mod': True
+                            'is_folder_mod': True,
+                            'advanced_options': advanced_options
                         }
                         if has_regulation:
                             mod_info['has_regulation'] = True
@@ -1011,11 +1289,15 @@ class ConfigManager:
             if path_str not in tracked_paths:
                 self.track_external_mod(game_name, path_str)
 
+            # Get advanced options for external mod
+            advanced_options = natives_lookup.get(path_str, {})
+
             mods_info[path_str] = {
                 'name': Path(path_str).stem,
                 'enabled': path_str in enabled_external_paths,
                 'external': True,
-                'is_folder_mod': False
+                'is_folder_mod': False,
+                'advanced_options': advanced_options
             }
         
         return mods_info
@@ -1052,50 +1334,90 @@ class ConfigManager:
                 disabled_file.rename(regulation_file)
     
     def set_mod_enabled(self, game_name: str, mod_path: str, enabled: bool):
-        """Enable or disable a mod"""
+        """Enable or disable a mod using the enabled field instead of removing from profile"""
         mod_path_obj = Path(mod_path)
         
         if mod_path_obj.is_dir():
-            # Handle folder mod (This logic is mostly fine)
-            if Path(mod_path).is_absolute() and mod_path.startswith(str(self.config_root)):
-                relative_path = Path(mod_path).relative_to(self.config_root)
-                config_mod_path = str(relative_path).replace('\\', '/')
-            else:
-                config_mod_path = mod_path.replace('\\', '/')
-            
-            if enabled:
-                self.add_folder_mod(game_name, mod_path_obj.name, config_mod_path)
-            else:
-                self.remove_folder_mod(game_name, mod_path_obj.name)
+            # Handle folder mod (package)
+            self._set_package_enabled(game_name, mod_path_obj.name, enabled)
         else:
-            # Handle DLL mod
-            profile_path = self.get_profile_path(game_name)
-            current_paths = self.parse_me3_config(profile_path)
-            
+            # Handle DLL mod (native)
+            self._set_native_enabled(game_name, mod_path, enabled)
 
-            # Determine default and active mods directories
-            active_mods_dir = self.get_mods_dir(game_name)
-            default_mods_dir_path = self.config_root / self.games[game_name]["mods_dir"]
+    def _set_native_enabled(self, game_name: str, mod_path: str, enabled: bool):
+        """Set enabled status for a native (DLL) mod while preserving advanced options"""
+        profile_path = self.get_profile_path(game_name)
+        config_data = self._parse_toml_config(profile_path)
+        
+        mod_path_obj = Path(mod_path)
+        active_mods_dir = self.get_mods_dir(game_name)
+        default_mods_dir_path = self.config_root / self.games[game_name]["mods_dir"]
 
-            config_path = ""
-            # A mod is only "internal" (with a relative path) if it's in the DEFAULT mods folder.
-            if mod_path_obj.parent == default_mods_dir_path:
-                # Standard internal mod: use the relative path format
-                config_path = f"{self.games[game_name]['mods_dir']}\\{mod_path_obj.name}"
-            else:
-                # Any other mod (in a custom mods folder or truly external) gets an absolute path.
-                # Use forward slashes for cross-platform compatibility in the config.
-                config_path = mod_path.replace('\\', '/')
-            
-            
-            # Normalize all paths before comparison to avoid slash issues.
-            normalized_config_path = config_path.replace('\\', '/')
-            current_paths = [p for p in current_paths if p.replace('\\', '/') != normalized_config_path]
-            
+        # Determine the correct config path format
+        if mod_path_obj.parent == default_mods_dir_path:
+            config_path = f"{self.games[game_name]['mods_dir']}\\{mod_path_obj.name}"
+        else:
+            config_path = mod_path.replace('\\', '/')
+        
+        natives = config_data.get("natives", [])
+        
+        # Find existing native entry
+        native_entry = None
+        for native in natives:
+            if isinstance(native, dict) and native.get("path") == config_path:
+                native_entry = native
+                break
+        
+        if native_entry is None:
+            # Create new entry if enabling
             if enabled:
-                current_paths.append(config_path)
-            
-            self.write_me3_config(profile_path, current_paths)
+                native_entry = {
+                    "path": config_path,
+                    "enabled": True
+                }
+                natives.append(native_entry)
+        else:
+            # Update existing entry
+            native_entry["enabled"] = enabled
+        
+        config_data["natives"] = natives
+        self._write_toml_config(profile_path, config_data)
+
+    def _set_package_enabled(self, game_name: str, mod_name: str, enabled: bool):
+        """Set enabled status for a package (folder) mod while preserving advanced options"""
+        profile_path = self.get_profile_path(game_name)
+        config_data = self._parse_toml_config(profile_path)
+        
+        packages = config_data.get("packages", [])
+        
+        # Find existing package entry
+        package_entry = None
+        for package in packages:
+            if isinstance(package, dict) and package.get("id") == mod_name:
+                package_entry = package
+                break
+        
+        if package_entry is None:
+            # Create new entry if enabling
+            if enabled:
+                # Determine the source path
+                mods_dir = self.get_mods_dir(game_name)
+                source_path = str(mods_dir / mod_name).replace('\\', '/')
+                
+                package_entry = {
+                    "id": mod_name,
+                    "source": source_path,
+                    "enabled": True,
+                    "load_after": [],
+                    "load_before": []
+                }
+                packages.append(package_entry)
+        else:
+            # Update existing entry
+            package_entry["enabled"] = enabled
+        
+        config_data["packages"] = packages
+        self._write_toml_config(profile_path, config_data)
 
     def _disable_other_regulation_mods(self, game_name: str, current_mod_path: str):
         """Disable all other mods that contain regulation.bin"""
