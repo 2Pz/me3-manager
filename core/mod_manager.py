@@ -178,22 +178,22 @@ class ModManager:
         return mods
     
     def _parse_enabled_status(self, config_data: Dict) -> Dict[str, bool]:
-        """Parse enabled status from profile config"""
+        """Parse enabled status from profile config - presence means enabled"""
         enabled_status = {}
         
-        # Parse natives
+        # Parse natives - if present in config, it's enabled
         for native in config_data.get("natives", []):
             if isinstance(native, dict) and "path" in native:
                 path = native["path"]
-                enabled = native.get("enabled", True)
-                enabled_status[path] = enabled
+                # If entry exists in config, it's enabled (regardless of enabled field)
+                enabled_status[path] = True
         
-        # Parse packages
+        # Parse packages - if present in config, it's enabled
         for package in config_data.get("packages", []):
             if isinstance(package, dict) and "id" in package:
                 pkg_id = package["id"]
-                enabled = package.get("enabled", True)
-                enabled_status[pkg_id] = enabled
+                # If entry exists in config, it's enabled (regardless of enabled field)
+                enabled_status[pkg_id] = True
         
         return enabled_status
     
@@ -356,28 +356,35 @@ class ModManager:
         
         # Find existing entry
         native_entry = None
-        for native in natives:
+        native_index = -1
+        for i, native in enumerate(natives):
             if isinstance(native, dict) and native.get("path") == config_path:
                 native_entry = native
+                native_index = i
                 break
         
-        if native_entry is None:
-            if enabled:
-                # Create new entry
-                native_entry = {
-                    "path": config_path,
-                    "enabled": True
-                }
+        if enabled:
+            if native_entry is None:
+                # Create new entry without enabled field
+                native_entry = {"path": config_path}
+                # Preserve any existing advanced options if they exist
                 natives.append(native_entry)
                 config_data["natives"] = natives
                 return True, "Created new native entry"
             else:
+                # Entry already exists, ensure no enabled field
+                if "enabled" in native_entry:
+                    del native_entry["enabled"]
+                return True, "Native entry already exists"
+        else:
+            if native_entry is not None:
+                # Remove the entry completely when disabling
+                natives.pop(native_index)
+                config_data["natives"] = natives
+                return True, "Removed native entry"
+            else:
                 # Nothing to disable
                 return True, "Mod was already disabled"
-        else:
-            # Update existing entry
-            native_entry["enabled"] = enabled
-            return True, "Updated native entry"
     
     def _set_package_enabled(self, config_data: Dict, mod_name: str, enabled: bool) -> Tuple[bool, str]:
         """Set enabled status for a package (folder) mod"""
@@ -385,24 +392,41 @@ class ModManager:
         
         # Find existing entry
         package_entry = None
-        for package in packages:
+        package_index = -1
+        for i, package in enumerate(packages):
             if isinstance(package, dict) and package.get("id") == mod_name:
                 package_entry = package
+                package_index = i
                 break
         
-        if package_entry is None:
-            if enabled:
-                # Create new entry
-                # Note: We need the source path, but we'll let the config manager handle this
-                # For now, just indicate we need to create an entry
-                return False, "Package entry needs to be created through config manager"
+        if enabled:
+            if package_entry is None:
+                # Create new entry - we need to determine the source path
+                # For package mods, we can infer the path from the mod name
+                # This assumes the package is in the current game's mods directory
+                package_entry = {
+                    "id": mod_name,
+                    "source": mod_name,  # Will be resolved to full path by config manager
+                    "load_after": [],
+                    "load_before": []
+                }
+                packages.append(package_entry)
+                config_data["packages"] = packages
+                return True, "Created new package entry"
+            else:
+                # Entry already exists, ensure no enabled field
+                if "enabled" in package_entry:
+                    del package_entry["enabled"]
+                return True, "Package entry already exists"
+        else:
+            if package_entry is not None:
+                # Remove the entry completely when disabling
+                packages.pop(package_index)
+                config_data["packages"] = packages
+                return True, "Removed package entry"
             else:
                 # Nothing to disable
                 return True, "Package was already disabled"
-        else:
-            # Update existing entry
-            package_entry["enabled"] = enabled
-            return True, "Updated package entry"
     
     def remove_mod(self, game_name: str, mod_path: str) -> Tuple[bool, str]:
         """

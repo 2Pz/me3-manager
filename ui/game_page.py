@@ -19,6 +19,7 @@ from ui.mod_item import ModItem
 from ui.config_editor import ConfigEditorDialog
 from ui.profile_editor import ProfileEditor
 from ui.advanced_mod_options import AdvancedModOptionsDialog
+from ui.game_options_dialog import GameOptionsDialog
 from core.mod_manager import ModManager, ModStatus, ModType
 
 class GamePage(QWidget):
@@ -150,10 +151,10 @@ class GamePage(QWidget):
         # Icon buttons configuration
         icon_buttons_config = [
             {
-                'attr': 'custom_exe_btn',
-                'icon': 'exe.png',
-                'tooltip': 'Set custom game executable path',
-                'callback': self.set_custom_exe_path
+                'attr': 'game_options_btn',
+                'icon': 'settings.png',
+                'tooltip': 'Configure game options (skip_logos, boot_boost, skip_steam_init, exe)',
+                'callback': self.open_game_options
             },
             {
                 'attr': 'open_mods_folder_btn', 
@@ -1143,6 +1144,14 @@ class GamePage(QWidget):
                 
         except Exception as e:
             QMessageBox.warning(self, "Advanced Options Error", f"Failed to open advanced options: {str(e)}")
+
+    def open_game_options(self):
+        """Open the game options dialog"""
+        try:
+            dialog = GameOptionsDialog(self.game_name, self.config_manager, self)
+            dialog.exec()
+        except Exception as e:
+            QMessageBox.warning(self, "Game Options Error", f"Failed to open game options: {str(e)}")
 
     def open_mods_folder(self):
         mods_dir = self.config_manager.get_mods_dir(self.game_name)

@@ -621,9 +621,7 @@ class ConfigManager:
                     # Use single-line format with proper escaping for TOML compatibility
                     native_parts = [f"path = '{path}'"]
                     
-                    # Add enabled field (required by ME3 spec, defaults to true)
-                    enabled = native.get('enabled', True)
-                    native_parts.append(f"enabled = {str(enabled).lower()}")
+                    # Don't add enabled field - presence in config means enabled
                     
                     # Add optional flag if present
                     if 'optional' in native:
@@ -730,9 +728,7 @@ class ConfigManager:
                             source_path = str(relative_path).replace('\\', '/')
                         package_parts.append(f"path = '{source_path}'")
 
-                # Add enabled field (required for packages too)
-                enabled = package.get('enabled', True)
-                package_parts.append(f"enabled = {str(enabled).lower()}")
+                # Don't add enabled field - presence in config means enabled
 
                 # Add load_before if present
                 if 'load_before' in package and package['load_before']:
@@ -1186,16 +1182,13 @@ class ConfigManager:
             if isinstance(package, dict) and "id" in package:
                 packages_lookup[package["id"]] = package
         
-        # Check enabled status from the enabled field, not just presence in the profile
-        enabled_dll_paths = set()
-        for path, native_data in natives_lookup.items():
-            if native_data.get('enabled', True):  # Default to True if not specified
-                enabled_dll_paths.add(path)
+        # Check enabled status - presence in config means enabled
+        enabled_dll_paths = set(natives_lookup.keys())
         
         enabled_folder_mods = set()
         for pkg in config_data.get("packages", []):
             pkg_id = pkg.get("id", "")
-            if pkg_id != self.games[game_name]['mods_dir'] and pkg.get('enabled', True):
+            if pkg_id != self.games[game_name]['mods_dir']:
                 enabled_folder_mods.add(pkg_id)
         
         active_regulation_mod = self._get_active_regulation_mod(game_name)
@@ -1363,22 +1356,26 @@ class ConfigManager:
         
         # Find existing native entry
         native_entry = None
-        for native in natives:
+        native_index = -1
+        for i, native in enumerate(natives):
             if isinstance(native, dict) and native.get("path") == config_path:
                 native_entry = native
+                native_index = i
                 break
         
-        if native_entry is None:
-            # Create new entry if enabling
-            if enabled:
-                native_entry = {
-                    "path": config_path,
-                    "enabled": True
-                }
+        if enabled:
+            if native_entry is None:
+                # Create new entry without enabled field
+                native_entry = {"path": config_path}
                 natives.append(native_entry)
+            else:
+                # Entry already exists, ensure no enabled field
+                if "enabled" in native_entry:
+                    del native_entry["enabled"]
         else:
-            # Update existing entry
-            native_entry["enabled"] = enabled
+            if native_entry is not None:
+                # Remove the entry completely when disabling
+                natives.pop(native_index)
         
         config_data["natives"] = natives
         self._write_toml_config(profile_path, config_data)
@@ -1392,29 +1389,34 @@ class ConfigManager:
         
         # Find existing package entry
         package_entry = None
-        for package in packages:
+        package_index = -1
+        for i, package in enumerate(packages):
             if isinstance(package, dict) and package.get("id") == mod_name:
                 package_entry = package
+                package_index = i
                 break
         
-        if package_entry is None:
-            # Create new entry if enabling
-            if enabled:
-                # Determine the source path
+        if enabled:
+            if package_entry is None:
+                # Create new entry without enabled field
                 mods_dir = self.get_mods_dir(game_name)
                 source_path = str(mods_dir / mod_name).replace('\\', '/')
                 
                 package_entry = {
                     "id": mod_name,
                     "source": source_path,
-                    "enabled": True,
                     "load_after": [],
                     "load_before": []
                 }
                 packages.append(package_entry)
+            else:
+                # Entry already exists, ensure no enabled field
+                if "enabled" in package_entry:
+                    del package_entry["enabled"]
         else:
-            # Update existing entry
-            package_entry["enabled"] = enabled
+            if package_entry is not None:
+                # Remove the entry completely when disabling
+                packages.pop(package_index)
         
         config_data["packages"] = packages
         self._write_toml_config(profile_path, config_data)
@@ -1722,6 +1724,113 @@ class ConfigManager:
         if dynamic_profile_dir:
             self.config_root = dynamic_profile_dir
             self.settings_file = self.config_root.parent / "manager_settings.json"
+
+    def get_me3_game_settings(self, game_name: str) -> Dict[str, Any]:
+        """Get ME3 game settings from me3.toml config file"""
+        config_path = self.me3_info.get_primary_config_path()
+        if not config_path or not config_path.exists():
+            return {}
+        
+        try:
+            with open(config_path, 'rb') as f:
+                config_data = tomllib.load(f)
+            
+            # Get CLI ID for the game
+            cli_id = self.get_game_cli_id(game_name)
+            if not cli_id:
+                return {}
+            
+            # Return game-specific settings
+            game_section = config_data.get('game', {}).get(cli_id, {})
+            return {
+                'skip_logos': game_section.get('skip_logos'),
+                'boot_boost': game_section.get('boot_boost'),
+                'skip_steam_init': game_section.get('skip_steam_init'),
+                'exe': game_section.get('exe')
+            }
+        
+        except Exception as e:
+            print(f"Error reading ME3 config: {e}")
+            return {}
+
+    def set_me3_game_settings(self, game_name: str, settings: Dict[str, Any]) -> bool:
+        """Set ME3 game settings in me3.toml config file"""
+        config_path = self.me3_info.get_primary_config_path()
+        if not config_path:
+            return False
+        
+        try:
+            # Read existing config or create new one
+            config_data = {}
+            if config_path.exists():
+                with open(config_path, 'rb') as f:
+                    config_data = tomllib.load(f)
+            
+            # Get CLI ID for the game
+            cli_id = self.get_game_cli_id(game_name)
+            if not cli_id:
+                return False
+            
+            # Ensure game section exists
+            if 'game' not in config_data:
+                config_data['game'] = {}
+            if cli_id not in config_data['game']:
+                config_data['game'][cli_id] = {}
+            
+            # Update only the provided settings, keeping existing ones
+            game_section = config_data['game'][cli_id]
+            for key, value in settings.items():
+                if value is None:
+                    # Remove the setting if value is None
+                    game_section.pop(key, None)
+                else:
+                    game_section[key] = value
+            
+            # Write back to file
+            self._write_me3_toml_config(config_path, config_data)
+            return True
+            
+        except Exception as e:
+            print(f"Error writing ME3 config: {e}")
+            return False
+
+    def _write_me3_toml_config(self, config_path: Path, config_data: Dict[str, Any]):
+        """Write ME3 TOML config file with proper formatting"""
+        lines = []
+        
+        # Write top-level settings first
+        for key, value in config_data.items():
+            if key != 'game' and not isinstance(value, dict):
+                if isinstance(value, bool):
+                    lines.append(f'{key} = {str(value).lower()}')
+                elif isinstance(value, str):
+                    lines.append(f'{key} = "{value}"')
+                else:
+                    lines.append(f'{key} = {value}')
+        
+        # Add empty line before game sections if there are top-level settings
+        if any(key != 'game' for key in config_data.keys()):
+            lines.append('')
+        
+        # Write game sections
+        if 'game' in config_data:
+            for game_id, game_settings in config_data['game'].items():
+                lines.append(f'[game.{game_id}]')
+                for key, value in game_settings.items():
+                    if isinstance(value, bool):
+                        lines.append(f'{key} = {str(value).lower()}')
+                    elif isinstance(value, str):
+                        lines.append(f'{key} = "{value}"')
+                    else:
+                        lines.append(f'{key} = {value}')
+                lines.append('')  # Empty line after each game section
+        
+        # Ensure parent directory exists
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write to file
+        with open(config_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
 
     def get_auto_launch_steam(self) -> bool:
         """Get the auto-launch Steam setting"""

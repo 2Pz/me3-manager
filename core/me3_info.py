@@ -269,6 +269,63 @@ class ME3InfoManager:
         info = self.get_me3_info()
         return info.get('installation_status') if info else None
 
+    def get_me3_config_paths(self) -> List[Path]:
+        """Get ME3 configuration search paths from 'me3 info' output."""
+        info = self.get_me3_info()
+        if not info:
+            return []
+        
+        try:
+            startupinfo = None
+            if sys.platform == "win32":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            command = self._prepare_command(["me3", "info"])
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                startupinfo=startupinfo,
+                timeout=15,
+                encoding='utf-8',
+                errors='replace'
+            )
+
+            if result.returncode != 0 or not result.stdout:
+                return []
+
+            # Parse configuration search paths
+            config_paths = []
+            lines = result.stdout.split('\n')
+            in_config_section = False
+            
+            for line in lines:
+                if '● Configuration search paths' in line:
+                    in_config_section = True
+                    continue
+                elif line.startswith('●') and in_config_section:
+                    # New section started, stop parsing
+                    break
+                elif in_config_section and ':' in line:
+                    # Extract path after the number and colon
+                    path_match = re.search(r'\d+:\s*(.+)', line.strip())
+                    if path_match:
+                        path_str = path_match.group(1).strip()
+                        config_paths.append(Path(path_str))
+            
+            return config_paths
+
+        except Exception as e:
+            print(f"Error getting ME3 config paths: {e}")
+            return []
+
+    def get_primary_config_path(self) -> Optional[Path]:
+        """Get the primary (first) ME3 config path."""
+        paths = self.get_me3_config_paths()
+        return paths[0] if paths else None
+
     def refresh_info(self):
         """Clear cached info to force refresh on next access."""
         self._info_cache = None
