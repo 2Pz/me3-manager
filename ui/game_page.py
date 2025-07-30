@@ -259,7 +259,7 @@ class GamePage(QWidget):
         layout.addWidget(label)
         
         self.items_per_page_spinbox = QSpinBox()
-        self.items_per_page_spinbox.setRange(5, 50)
+        self.items_per_page_spinbox.setRange(1, 50)
         self.items_per_page_spinbox.setValue(self.mods_per_page)
         self.items_per_page_spinbox.setStyleSheet(self._get_spinbox_style())
         self.items_per_page_spinbox.valueChanged.connect(self.change_items_per_page)
