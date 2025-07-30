@@ -379,45 +379,6 @@ class AdvancedModOptionsDialog(QDialog):
                 border-color: #555555;
             }
         """)
-    def setup_basic_tab(self):
-        """Setup the basic options tab"""
-        tab = QWidget()
-        layout = QVBoxLayout()
-        
-        # Basic settings group
-        basic_group = QGroupBox("Basic Settings")
-        basic_layout = QFormLayout()
-        
-        # Enabled checkbox
-        self.enabled_check = QCheckBox("Enabled")
-        self.enabled_check.setToolTip("Whether this mod is active")
-        basic_layout.addRow("Status:", self.enabled_check)
-        
-        # Optional checkbox (DLL only)
-        if not self.is_folder_mod:
-            self.optional_check = QCheckBox("Optional")
-            self.optional_check.setToolTip("If true, game continues if this mod fails to load")
-            basic_layout.addRow("Optional:", self.optional_check)
-        
-        basic_group.setLayout(basic_layout)
-        layout.addWidget(basic_group)
-        
-        # Package-specific options
-        if self.is_folder_mod:
-            package_group = QGroupBox("Package Settings")
-            package_layout = QFormLayout()
-            
-            # Package ID
-            self.package_id_edit = QLineEdit()
-            self.package_id_edit.setToolTip("Unique identifier for this package")
-            package_layout.addRow("Package ID:", self.package_id_edit)
-            
-            package_group.setLayout(package_layout)
-            layout.addWidget(package_group)
-        
-        layout.addStretch()
-        tab.setLayout(layout)
-        self.tabs.addTab(tab, "Basic")
     
     def setup_load_order_tab(self):
         """Setup the load order tab"""
@@ -471,6 +432,17 @@ class AdvancedModOptionsDialog(QDialog):
         tab = QWidget()
         layout = QVBoxLayout()
         
+        # Optional setting group
+        optional_group = QGroupBox("Optional Setting")
+        optional_layout = QFormLayout()
+        
+        self.optional_check = QCheckBox("Optional")
+        self.optional_check.setToolTip("If true, game continues if this mod fails to load")
+        optional_layout.addRow("Optional:", self.optional_check)
+        
+        optional_group.setLayout(optional_layout)
+        layout.addWidget(optional_group)
+        
         # Initializer group
         init_group = QGroupBox("Initializer")
         init_layout = QVBoxLayout()
@@ -516,11 +488,11 @@ class AdvancedModOptionsDialog(QDialog):
         # Help text
         help_text = QLabel("""
 <b>Native Module Configuration:</b><br>
+• <b>Optional:</b> If false and this native fails to load, treat as critical error (default: false)<br>
 • <b>Initializer:</b> Optional symbol called after this native successfully loads<br>
   - <b>Function:</b> Call a specific symbol/function in the DLL<br>
   - <b>Delay:</b> Wait specified milliseconds before calling initializer<br>
-• <b>Finalizer:</b> Optional symbol called when this native is queued for unload<br>
-• <b>Optional:</b> If false and this native fails to load, treat as critical error (default: false)
+• <b>Finalizer:</b> Optional symbol called when this native is queued for unload
         """)
         help_text.setWordWrap(True)
         help_text.setStyleSheet("color: #888888; font-size: 11px; margin-top: 10px;")
@@ -548,6 +520,11 @@ class AdvancedModOptionsDialog(QDialog):
     
     def load_current_options(self):
         """Load current options into the UI"""
+        # Optional checkbox (DLL only)
+        if not self.is_folder_mod and hasattr(self, 'optional_check'):
+            optional = self.current_options.get('optional', False)
+            self.optional_check.setChecked(optional)
+        
         # Advanced options (DLL only)
         if not self.is_folder_mod and hasattr(self, 'init_type_combo'):
             initializer = self.current_options.get('initializer')
@@ -568,6 +545,10 @@ class AdvancedModOptionsDialog(QDialog):
     
     def clear_all_options(self):
         """Clear all advanced options"""
+        # Clear optional setting
+        if not self.is_folder_mod and hasattr(self, 'optional_check'):
+            self.optional_check.setChecked(False)
+        
         # Clear load order
         for widget in self.load_before_widget.dependency_widgets[:]:
             self.load_before_widget.remove_dependency(widget)
@@ -585,6 +566,11 @@ class AdvancedModOptionsDialog(QDialog):
     def get_options(self) -> Dict[str, Any]:
         """Get the configured options (excluding enabled field)"""
         options = {}
+        
+        # Optional checkbox (DLL only)
+        if not self.is_folder_mod and hasattr(self, 'optional_check'):
+            if self.optional_check.isChecked():
+                options['optional'] = True
         
         # Load order
         load_before = self.load_before_widget.get_dependencies()

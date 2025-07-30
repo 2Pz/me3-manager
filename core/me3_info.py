@@ -18,14 +18,24 @@ class ME3InfoManager:
     def _prepare_command(self, cmd: List[str]) -> List[str]:
         """
         Prepares a command for execution, handling platform specifics.
+        Uses the same approach as the UI terminal for maximum compatibility.
         """
         if sys.platform == "linux":
             if os.environ.get('FLATPAK_ID'):
                 return ["flatpak-spawn", "--host"] + cmd
 
+            # Use the same shell detection logic as the UI terminal
             user_shell = os.environ.get("SHELL", "/bin/bash")
             if not Path(user_shell).exists():
                 user_shell = "/bin/bash"
+            
+            # If bash doesn't exist, fall back to sh
+            if not Path(user_shell).exists():
+                user_shell = "/bin/sh"
+            
+            # Final fallback to just 'sh' (should be in PATH)
+            if not Path(user_shell).exists():
+                user_shell = "sh"
 
             command_str = " ".join(cmd)
             return [user_shell, "-l", "-c", command_str]
