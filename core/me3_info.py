@@ -332,15 +332,52 @@ class ME3InfoManager:
             return []
 
     def get_primary_config_path(self) -> Optional[Path]:
-        """Get the first existing ME3 config path that contains me3.toml."""
+        """
+        Get the primary ME3 config path for creation when me3.toml not found.
+        Windows: uses path 0 (first path)
+        Linux: uses path 1 (second path, typically user config directory)
+        """
         paths = self.get_me3_config_paths()
+        if not paths:
+            return None
         
-        for path in paths:
-            if path.exists() and path.is_file():
-                return path
+        if sys.platform == "win32":
+            # Windows: use first path (index 0)
+            return paths[0] if len(paths) > 0 else None
+        else:
+            # Linux/Unix: use second path (index 1) if available, fallback to first
+            return paths[1] if len(paths) > 1 else (paths[0] if len(paths) > 0 else None)
+
+    def create_default_config(self) -> bool:
+        """
+        Create a default me3.toml file in the appropriate location.
+        Returns True if successful, False otherwise.
+        """
+        config_path = self.get_config_creation_path()
+        if not config_path:
+            return False
         
-        # If no existing config file found, return None
-        return None
+        try:
+            # Ensure the directory exists
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Create default config content
+            default_config = """# ME3 Configuration File
+# This file was automatically created
+
+[general]
+# Add your configuration options here
+"""
+            
+            # Write the config file
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(default_config)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error creating config file at {config_path}: {e}")
+            return False
 
     def refresh_info(self):
         """Clear cached info to force refresh on next access."""
