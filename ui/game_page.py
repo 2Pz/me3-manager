@@ -538,7 +538,7 @@ class GamePage(QWidget):
             
         self.profile_menu.addSeparator()
         
-        manage_action = QAction(QIcon(resource_path("resources/icon/settings.png")), "Manage Profiles...", self)
+        manage_action = QAction(QIcon(resource_path("resources/icon/profiles.png")), "Manage Profiles...", self)
         manage_action.triggered.connect(self.open_profile_manager)
         self.profile_menu.addAction(manage_action)
 
