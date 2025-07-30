@@ -332,9 +332,15 @@ class ME3InfoManager:
             return []
 
     def get_primary_config_path(self) -> Optional[Path]:
-        """Get the primary (first) ME3 config path."""
+        """Get the first existing ME3 config path that contains me3.toml."""
         paths = self.get_me3_config_paths()
-        return paths[0] if paths else None
+        
+        for path in paths:
+            if path.exists() and path.is_file():
+                return path
+        
+        # If no existing config file found, return None
+        return None
 
     def refresh_info(self):
         """Clear cached info to force refresh on next access."""

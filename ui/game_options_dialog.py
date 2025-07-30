@@ -19,8 +19,8 @@ class GameOptionsDialog(QDialog):
         
         self.setWindowTitle(f"Game Options - {game_name}")
         self.setModal(True)
-        self.resize(500, 400)
-        self.setStyleSheet(self._get_dialog_style())
+        self.resize(500, 500)
+        #self.setStyleSheet(self._get_dialog_style())
         
         self.init_ui()
         self.load_current_settings()

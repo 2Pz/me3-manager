@@ -1,9 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_data_files
+import os
 
 block_cipher = None
 
-# Collect data files
+# Collect data files - include the entire resources folder
 datas = [('resources', 'resources')]
 
 a = Analysis(
@@ -44,4 +45,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    onefile=True,
 )

@@ -34,8 +34,10 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    [],  # Empty - this makes it directory-based instead of onefile
-    exclude_binaries=True,  # Keep binaries separate
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
     name='Me3_Manager',
     debug=False,
     bootloader_ignore_signals=False,
@@ -49,17 +51,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='Me3_Manager'
+    onefile=True,
 )
 EOF
 
@@ -74,8 +66,8 @@ VERSION=$(cat version.py | grep VERSION | cut -d'"' -f2)
 BUILD_DIR="build/Me3_Manager_${VERSION}"
 mkdir -p "${BUILD_DIR}"
 
-# Copy the entire dist folder contents to build directory
-cp -r dist/Me3_Manager/* "${BUILD_DIR}/"
+# Copy the single executable file to build directory
+cp dist/Me3_Manager "${BUILD_DIR}/"
 
 # Ensure resources folder is properly copied
 if [ -d "resources" ]; then
