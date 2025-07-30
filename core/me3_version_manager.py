@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QObject, pyqtSignal, QThread, QStandardPaths
 from PyQt6.QtWidgets import QProgressDialog, QMessageBox, QFileDialog
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 
 class ME3Downloader(QObject):
@@ -148,6 +148,10 @@ class ME3VersionManager:
         self.progress_dialog = None
         self.thread = None
         self.worker = None
+        self.installation_monitor_timer = QTimer()
+        self.installation_monitor_timer.timeout.connect(self._check_installation_status)
+        self.monitoring_installation = False
+        self.last_known_version = None
 
     def _prepare_command(self, cmd: list) -> list:
         """Enhanced command preparation with better environment handling."""
@@ -312,14 +316,39 @@ class ME3VersionManager:
         if hasattr(self, 'worker') and isinstance(self.worker, ME3Downloader):
             self.worker.cancel()
 
+    def _start_installation_monitoring(self):
+        """Start monitoring for ME3 installation changes."""
+        self.last_known_version = self.config_manager.get_me3_version()
+        self.monitoring_installation = True
+        self.installation_monitor_timer.start(2000)  # Check every 2 seconds
+        print("Started monitoring ME3 installation...")
+    
+    def _stop_installation_monitoring(self):
+        """Stop monitoring for ME3 installation changes."""
+        self.installation_monitor_timer.stop()
+        self.monitoring_installation = False
+        print("Stopped monitoring ME3 installation.")
+    
+    def _check_installation_status(self):
+        """Check if ME3 installation status has changed."""
+        current_version = self.config_manager.get_me3_version()
+        
+        if current_version != self.last_known_version:
+            print(f"ME3 version changed: {self.last_known_version} -> {current_version}")
+            self._stop_installation_monitoring()
+            self.refresh_callback()
+            
+            # Show success message if ME3 was newly installed
+            if self.last_known_version is None and current_version is not None:
+                QMessageBox.information(
+                    self.parent,
+                    "Installation Detected",
+                    f"ME3 v{current_version} has been successfully installed!\nThe application has been refreshed."
+                )
+    
     def _on_download_finished(self, message: str, file_path: str):
         """Handle completion of ME3 installer download."""
         self._cleanup_thread()
-        
-        # Refresh ME3 status
-        old_version = self.config_manager.get_me3_version() or "Not Installed"
-        self.refresh_callback()
-        new_version = self.config_manager.get_me3_version() or "Not Installed"
         
         if "complete" in message.lower() and file_path:
             reply = QMessageBox.information(
@@ -332,23 +361,11 @@ class ME3VersionManager:
             
             if reply == QMessageBox.StandardButton.Yes:
                 self._open_file_or_directory(file_path, run_file=True)
-                QMessageBox.information(
-                    self.parent, 
-                    "Installation", 
-                    "The installer has been launched.\nAfter installation completes, "
-                    "please restart this manager to see the changes."
-                )
+                # Start monitoring for installation completion
+                self._start_installation_monitoring()
+                
         elif "cancelled" not in message.lower():
             QMessageBox.critical(self.parent, "Download Failed", message)
-        
-        # Check if ME3 version changed and show restart message
-        if old_version != new_version and new_version != "Not Installed":
-            QMessageBox.information(
-                self.parent, 
-                "ME3 Status Updated", 
-                f"ME3 version changed from {old_version} to {new_version}.\n"
-                "Please restart the application to apply changes."
-            )
 
     def install_linux_me3(self, release_type: str = 'latest', custom_installer_url: str = None):
         """Install or update ME3 on Linux/macOS using installer script."""
