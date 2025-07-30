@@ -38,7 +38,7 @@ class GameOptionsDialog(QDialog):
         layout.addWidget(title)
         
         # Description
-        desc = QLabel("Configure ME3 game options. These settings will be saved to the ME3 configuration file.")
+        desc = QLabel("Configure ME3 game options")
         desc.setStyleSheet("color: #cccccc; margin-bottom: 16px;")
         desc.setWordWrap(True)
         layout.addWidget(desc)
