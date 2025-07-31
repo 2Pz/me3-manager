@@ -20,7 +20,7 @@ from ui.config_editor import ConfigEditorDialog
 from ui.profile_editor import ProfileEditor
 from ui.advanced_mod_options import AdvancedModOptionsDialog
 from ui.game_options_dialog import GameOptionsDialog
-from core.mod_manager import ModManager, ModStatus, ModType
+from core.mod_manager import ImprovedModManager, ModStatus, ModType
 
 class GamePage(QWidget):
     """Widget for managing mods for a specific game"""
@@ -29,7 +29,7 @@ class GamePage(QWidget):
         super().__init__()
         self.game_name = game_name
         self.config_manager = config_manager
-        self.mod_manager = ModManager(config_manager)
+        self.mod_manager = ImprovedModManager(config_manager)
         self.mod_widgets = {}
         self.current_filter = "all"
         self.filter_buttons = {}
@@ -948,13 +948,33 @@ class GamePage(QWidget):
                 if regulation_active:
                     text_color = "#FFB347"
             
-            if regulation_active: mod_type, type_icon = "MOD FOLDER (ACTIVE REGULATION)", QIcon(resource_path("resources/icon/regulation_active.png"))
-            elif has_regulation: mod_type, type_icon = "MOD FOLDER WITH REGULATION", QIcon(resource_path("resources/icon/folder.png"))
-            elif is_folder_mod: mod_type, type_icon = "MOD FOLDER", QIcon(resource_path("resources/icon/folder.png"))
-            else: mod_type, type_icon = "DLL", QIcon(resource_path("resources/icon/dll.png"))
+            # Determine mod type and icon based on mod info
+            if hasattr(self, 'mod_infos') and mod_path in self.mod_infos:
+                mod_info = self.mod_infos[mod_path]
+                if mod_info.mod_type.value == "nested":
+                    mod_type, type_icon = f"NESTED DLL (in {mod_info.parent_package})", QIcon(resource_path("resources/icon/dll.png"))
+                elif regulation_active:
+                    mod_type, type_icon = "MOD FOLDER (ACTIVE REGULATION)", QIcon(resource_path("resources/icon/regulation_active.png"))
+                elif has_regulation:
+                    mod_type, type_icon = "MOD FOLDER WITH REGULATION", QIcon(resource_path("resources/icon/folder.png"))
+                elif is_folder_mod:
+                    mod_type, type_icon = "MOD FOLDER", QIcon(resource_path("resources/icon/folder.png"))
+                else:
+                    mod_type, type_icon = "DLL", QIcon(resource_path("resources/icon/dll.png"))
+            else:
+                # Fallback for when mod_infos is not available
+                if regulation_active:
+                    mod_type, type_icon = "MOD FOLDER (ACTIVE REGULATION)", QIcon(resource_path("resources/icon/regulation_active.png"))
+                elif has_regulation:
+                    mod_type, type_icon = "MOD FOLDER WITH REGULATION", QIcon(resource_path("resources/icon/folder.png"))
+                elif is_folder_mod:
+                    mod_type, type_icon = "MOD FOLDER", QIcon(resource_path("resources/icon/folder.png"))
+                else:
+                    mod_type, type_icon = "DLL", QIcon(resource_path("resources/icon/dll.png"))
             
-            # Check if mod has active advanced options
-            has_advanced_options = self.config_manager.has_active_advanced_options(self.game_name, mod_path)
+            # Check if mod has active advanced options using the improved mod manager
+            mod_info = self.mod_infos.get(mod_path) if hasattr(self, 'mod_infos') else None
+            has_advanced_options = self.mod_manager.has_advanced_options(mod_info) if mod_info else False
             
             mod_widget = ModItem(mod_path, info['name'], is_enabled, info['external'], is_folder_mod, has_regulation, mod_type, type_icon, "transparent", text_color, regulation_active, has_advanced_options)
             mod_widget.toggled.connect(self.toggle_mod)
@@ -985,11 +1005,11 @@ class GamePage(QWidget):
             return
 
         # 2. Get mods using the new ModManager
-        mod_infos = self.mod_manager.get_all_mods(self.game_name)
+        self.mod_infos = self.mod_manager.get_all_mods(self.game_name)
         
         # 3. Convert ModInfo objects to the format expected by the UI
         final_mods = {}
-        for mod_path, mod_info in mod_infos.items():
+        for mod_path, mod_info in self.mod_infos.items():
             final_mods[mod_path] = {
                 'name': mod_info.name,
                 'enabled': mod_info.status == ModStatus.ENABLED,
@@ -1005,13 +1025,14 @@ class GamePage(QWidget):
     
     def activate_regulation_mod(self, mod_path: str):
         mod_name = Path(mod_path).name
-        try:
-            self.config_manager.set_regulation_active(self.game_name, mod_name)
+        success, message = self.mod_manager.set_regulation_active(self.game_name, mod_name)
+        
+        if success:
             self.load_mods(reset_page=False)
-            self.status_label.setText(f"Set {mod_name} as active regulation")
+            self.status_label.setText(message)
             QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
-        except Exception as e:
-            QMessageBox.warning(self, "Regulation Error", f"Failed to set regulation active: {str(e)}")
+        else:
+            QMessageBox.warning(self, "Regulation Error", message)
 
     def apply_filters(self, reset_page: bool = True, source_mods: Optional[Dict[str, Any]] = None):
         """
@@ -1019,7 +1040,7 @@ class GamePage(QWidget):
         Can now accept a source_mods dictionary to bypass fetching from config_manager.
         """
         search_text = self.search_bar.text().lower()
-        all_mods = source_mods if source_mods is not None else self.config_manager.get_mods_info(self.game_name)
+        all_mods = source_mods if source_mods is not None else self.config_manager.get_mods_info(self.game_name, skip_sync=True)
         
         self.filtered_mods = {}
         
@@ -1060,13 +1081,14 @@ class GamePage(QWidget):
         reply = QMessageBox.question(self, "Delete Mod", f"Are you sure you want to delete '{mod_name}'?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
-            try:
-                self.config_manager.delete_mod(self.game_name, mod_path)
+            success, message = self.mod_manager.remove_mod(self.game_name, mod_path)
+            
+            if success:
                 self.load_mods(reset_page=False)
-                self.status_label.setText(f"Deleted {mod_name}")
+                self.status_label.setText(message)
                 QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
-            except Exception as e:
-                QMessageBox.warning(self, "Delete Error", f"Failed to delete mod: {str(e)}")
+            else:
+                QMessageBox.warning(self, "Delete Error", message)
     
     def add_external_mod(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select External Mod DLL", str(Path.home()), "DLL Files (*.dll)")

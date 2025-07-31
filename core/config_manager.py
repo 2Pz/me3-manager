@@ -1159,12 +1159,13 @@ class ConfigManager:
         # Write the corrected config
         self._write_toml_config(config_path, config_data)
     
-    def get_mods_info(self, game_name: str) -> Dict[str, Dict]:
+    def get_mods_info(self, game_name: str, skip_sync: bool = False) -> Dict[str, Dict]:
         """
         Get information about all mods for a game, discovering new mods from the
         filesystem and syncing the status of tracked mods from the config file.
         """
-        self.sync_profile_with_filesystem(game_name)
+        if not skip_sync:
+            self.sync_profile_with_filesystem(game_name)
 
         mods_info = {}
         profile_path = self.get_profile_path(game_name)
@@ -1474,7 +1475,7 @@ class ConfigManager:
                     self.untrack_external_mod(game_name, mod_path)
 
     def add_folder_mod(self, game_name: str, mod_name: str, mod_path: str):
-        """Add a folder mod to the packages section"""
+        """Add a folder mod to the packages section with consistent path format"""
         profile_path = self.get_profile_path(game_name)
         config_data = self._parse_toml_config(profile_path)
         
@@ -1483,9 +1484,13 @@ class ConfigManager:
         
         existing_ids = [pkg.get("id", "") for pkg in config_data.get("packages")]
         if mod_name not in existing_ids:
+            # Use consistent path format: mods-dir\mod-name
+            mods_dir_name = self.games[game_name]["mods_dir"]
+            relative_path = f"{mods_dir_name}\\{mod_name}"
+            
             config_data["packages"].append({
                 "id": mod_name,
-                "source": mod_path,
+                "path": relative_path,  # Use path instead of source for consistency
                 "load_after": [],
                 "load_before": []
             })
@@ -1936,9 +1941,11 @@ class ConfigManager:
 
             # --- 1. Process Natives (DLLs) ---
             processed_dll_paths = {p.get('path', '').replace('\\', '/') for p in current_config.get('natives', [])}
+            dll_paths_to_add = []
             
             for native in source_config.get('natives', []):
                 original_path_str = native.get('path', '') if isinstance(native, dict) else native
+                
                 if not original_path_str:
                     continue
 
@@ -1947,21 +1954,29 @@ class ConfigManager:
                 normalized_original_path = original_path_str.replace('\\', '/')
 
                 if normalized_full_path in processed_dll_paths or normalized_original_path in processed_dll_paths:
-                    # NEW: Add detailed reason for skipping
                     if merge:
                         results['mods_skipped'] += 1
                         results['skipped_details'].append(f"DLL '{Path(original_path_str).name}' already exists in the active profile.")
                     continue
 
                 if full_path.exists() and full_path.suffix.lower() == '.dll':
-                    processed_dll_paths.add(normalized_original_path)
-                    processed_dll_paths.add(normalized_full_path)
-                    self.track_external_mod(game_name, str(full_path))
-                    results['dll_mods_imported'] += 1
+                    # Check if this DLL is inside the import folder structure
+                    try:
+                        # Try to get relative path from import folder
+                        relative_to_import = full_path.relative_to(import_path)
+                        # This DLL is inside the import folder, will be moved with the package
+                        dll_paths_to_add.append((original_path_str, relative_to_import, True))  # True = internal to package
+                        results['dll_mods_imported'] += 1
+                    except ValueError:
+                        # This DLL is external to the import folder
+                        processed_dll_paths.add(normalized_original_path)
+                        processed_dll_paths.add(normalized_full_path)
+                        self.track_external_mod(game_name, str(full_path))
+                        dll_paths_to_add.append((str(full_path), None, False))  # False = external
+                        results['dll_mods_imported'] += 1
                 else:
                     if merge:
                         results['mods_skipped'] += 1
-                        # NEW: Add detailed reason for skipping
                         results['skipped_details'].append(f"DLL '{Path(original_path_str).name}' not found at expected path.")
                     else:
                         results['errors'].append(f"DLL mod from profile not found at expected path: {full_path}")
@@ -1996,19 +2011,57 @@ class ConfigManager:
                             for src_folder in folders_to_copy:
                                 shutil.copytree(src_folder, new_mod_folder, dirs_exist_ok=True)
                             
-                            mod_source_path = str(new_mod_folder).replace('\\', '/')
+                            # Use consistent path format: mods-dir\mod-name
+                            mods_dir_name = self.games[game_name]["mods_dir"]
+                            relative_path = f"{mods_dir_name}\\{final_mod_name}"
+                            
                             if final_mod_name not in {p.get('id') for p in current_config.get('packages', [])}:
                                 current_config.setdefault('packages', []).append({
-                                    "id": final_mod_name, "source": mod_source_path,
-                                    "load_after": [], "load_before": []
+                                    "id": final_mod_name, 
+                                    "path": relative_path,  # Use consistent path format
+                                    "load_after": [], 
+                                    "load_before": []
                                 })
                             results['package_mods_imported'] = 1
                         except Exception as e:
                             results['errors'].append(f"Failed to create bundled mod '{final_mod_name}': {str(e)}")
                             if new_mod_folder.exists(): shutil.rmtree(new_mod_folder)
 
-            # --- 3. Finalize Profile ---
-            current_config['natives'] = [{'path': p} for p in processed_dll_paths]
+            # --- 3. Process DLL paths and finalize Profile ---
+            # Build the new natives list by preserving existing entries and adding new ones
+            existing_natives = current_config.get('natives', [])
+            new_natives = []
+            
+            # First, preserve all existing native entries
+            for native in existing_natives:
+                if isinstance(native, dict) and 'path' in native:
+                    new_natives.append(native)
+            
+            # Then add new DLL paths with correct locations
+            for original_path, relative_path, is_internal in dll_paths_to_add:
+                if is_internal and custom_mod_name:
+                    # DLL is inside the package that was moved - update path to new location
+                    mods_dir_name = self.games[game_name]["mods_dir"]
+                    new_dll_path = f"{mods_dir_name}\\{final_mod_name}\\{relative_path}".replace('/', '\\')
+                    
+                    # Check if this path already exists to avoid duplicates
+                    path_exists = any(
+                        isinstance(native, dict) and native.get('path') == new_dll_path 
+                        for native in new_natives
+                    )
+                    if not path_exists:
+                        new_natives.append({'path': new_dll_path})
+                elif not is_internal:
+                    # External DLL - use the full path as-is
+                    # Check if this path already exists to avoid duplicates
+                    path_exists = any(
+                        isinstance(native, dict) and native.get('path') == original_path 
+                        for native in new_natives
+                    )
+                    if not path_exists:
+                        new_natives.append({'path': original_path})
+            
+            current_config['natives'] = new_natives
             current_config['supports'] = source_config.get('supports', [])
             current_config['profileVersion'] = source_config.get('profileVersion', 'v1')
             
