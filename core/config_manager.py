@@ -2190,3 +2190,76 @@ class ConfigManager:
             return False
         
         return False
+    
+    def get_me3_config_path(self, game_name: str) -> Optional[str]:
+        """Get the path to the ME3 config file for a game"""
+        try:
+            # First check if there's a custom path set
+            if hasattr(self, 'me3_config_paths') and game_name in self.me3_config_paths:
+                custom_path = self.me3_config_paths[game_name]
+                if Path(custom_path).exists():
+                    return custom_path
+            
+            # Use existing ME3 info to find config file
+            if hasattr(self, 'me3_info') and self.me3_info:
+                # Try to get existing config path from me3_info
+                config_paths = self.me3_info.get_me3_config_paths()
+                if config_paths:
+                    for config_path in config_paths:
+                        if config_path.exists():
+                            return str(config_path)
+                
+                # If no existing config found, return the primary config path where it should be created
+                primary_path = self.me3_info.get_primary_config_path()
+                if primary_path:
+                    return str(primary_path)
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting ME3 config path for {game_name}: {e}")
+            return None
+
+    def set_me3_config_path(self, game_name: str, config_path: str):
+        """Set a custom path to the ME3 config file for a game"""
+        try:
+            if not hasattr(self, 'me3_config_paths'):
+                self.me3_config_paths = {}
+            
+            self.me3_config_paths[game_name] = config_path
+            
+            # Save to persistent storage if you have a config file
+            # This would depend on your existing configuration saving mechanism
+            self.save_config()  # Assuming you have a save_config method
+            
+        except Exception as e:
+            print(f"Error setting ME3 config path for {game_name}: {e}")
+            raise
+
+    def load_me3_config_paths(self):
+        """Load custom ME3 config paths from persistent storage"""
+        try:
+            # This should be called in your ConfigManager.__init__ method
+            # Load from your existing config file structure
+            if hasattr(self, 'config_data') and 'me3_config_paths' in self.config_data:
+                self.me3_config_paths = self.config_data.get('me3_config_paths', {})
+            else:
+                self.me3_config_paths = {}
+        except Exception as e:
+            print(f"Error loading ME3 config paths: {e}")
+            self.me3_config_paths = {}
+
+    def save_me3_config_paths(self):
+        """Save custom ME3 config paths to persistent storage"""
+        try:
+            # This should be integrated into your existing save_config method
+            if not hasattr(self, 'config_data'):
+                self.config_data = {}
+            
+            if hasattr(self, 'me3_config_paths'):
+                self.config_data['me3_config_paths'] = self.me3_config_paths
+                
+            # Save to your config file using your existing mechanism
+            
+        except Exception as e:
+            print(f"Error saving ME3 config paths: {e}")

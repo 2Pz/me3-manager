@@ -1,11 +1,14 @@
+import sys
+import os
+import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox,
     QLineEdit, QFileDialog, QMessageBox, QGroupBox, QFormLayout
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QFont, QDesktopServices
 from utils.resource_path import resource_path
 
 class GameOptionsDialog(QDialog):
@@ -19,11 +22,30 @@ class GameOptionsDialog(QDialog):
         
         self.setWindowTitle(f"Game Options - {game_name}")
         self.setModal(True)
-        self.resize(555, 500)
-        #self.setStyleSheet(self._get_dialog_style())
+        self.resize(555, 600)  # Increased height to accommodate new section
         
         self.init_ui()
         self.load_current_settings()
+    
+    def _open_path(self, path: Path):
+        """Open a file or folder path using the system default application"""
+        try:
+            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                env = os.environ.copy()
+                env.pop('LD_LIBRARY_PATH', None)
+                env.pop('PYTHONPATH', None)
+                env.pop('PYTHONHOME', None)
+                
+                if sys.platform == "win32":
+                    subprocess.Popen(["explorer", str(path)], shell=True, env=env)
+                else:
+                    subprocess.run(["xdg-open", str(path)], env=env)
+            else:
+                url = QUrl.fromLocalFile(str(path))
+                if not QDesktopServices.openUrl(url):
+                    raise Exception("QDesktopServices failed to open URL.")
+        except Exception as e:
+            QMessageBox.warning(self, "Open Path Error", f"Failed to open path:\n{path}\n\nError: {str(e)}")
     
     def init_ui(self):
         """Initialize the dialog UI"""
@@ -43,6 +65,40 @@ class GameOptionsDialog(QDialog):
         desc.setWordWrap(True)
         layout.addWidget(desc)
         
+        # ME3 Config File group
+        config_group = QGroupBox("ME3 Configuration File")
+        config_group.setStyleSheet(self._get_group_style())
+        config_layout = QVBoxLayout(config_group)
+        config_layout.setSpacing(12)
+        
+        # Config file path display and browse
+        config_path_layout = QHBoxLayout()
+        self.config_path_label = QLabel("Loading...")
+        self.config_path_label.setStyleSheet("color: #cccccc; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;")
+        self.config_path_label.setWordWrap(True)
+        
+        self.open_config_btn = QPushButton("Open Folder")
+        self.open_config_btn.setStyleSheet(self._get_button_style())
+        self.open_config_btn.clicked.connect(self.open_config_folder)
+        
+        self.browse_config_btn = QPushButton("Browse...")
+        self.browse_config_btn.setStyleSheet(self._get_button_style())
+        self.browse_config_btn.clicked.connect(self.browse_config_file)
+        
+        config_path_layout.addWidget(self.config_path_label, 1)
+        config_path_layout.addWidget(self.open_config_btn)
+        config_path_layout.addWidget(self.browse_config_btn)
+        
+        config_layout.addLayout(config_path_layout)
+        
+        # Config file info
+        config_info = QLabel("💡 If ME3 cannot find your game's configuration file automatically, you can browse for it manually.")
+        config_info.setStyleSheet("color: #888888; font-size: 11px; margin-top: 4px;")
+        config_info.setWordWrap(True)
+        config_layout.addWidget(config_info)
+        
+        layout.addWidget(config_group)
+        
         # Options group
         options_group = QGroupBox("Game Options")
         options_group.setStyleSheet(self._get_group_style())
@@ -58,8 +114,6 @@ class GameOptionsDialog(QDialog):
         self.boot_boost_cb = QCheckBox("Enable boot boost for faster startup")
         self.boot_boost_cb.setStyleSheet(self._get_checkbox_style())
         options_layout.addRow("Boot Boost:", self.boot_boost_cb)
-        
-        # Skip Steam Init is handled automatically - no UI needed
         
         layout.addWidget(options_group)
         
@@ -88,8 +142,6 @@ class GameOptionsDialog(QDialog):
         exe_path_layout.addWidget(self.clear_exe_btn)
         
         exe_layout.addLayout(exe_path_layout)
-        
-        # No need to connect textChanged since skip_steam_init is handled automatically in save
         
         # Executable warning
         exe_warning = QLabel("⚠️ Only set a custom executable if ME3 cannot detect your game installation automatically.")
@@ -123,6 +175,23 @@ class GameOptionsDialog(QDialog):
         try:
             self.current_settings = self.config_manager.get_me3_game_settings(self.game_name)
             
+            # Update config file path display
+            config_path = None
+            if hasattr(self.config_manager, 'get_me3_config_path'):
+                config_path = self.config_manager.get_me3_config_path(self.game_name)
+            
+            if config_path:
+                config_path_obj = Path(config_path)
+                if config_path_obj.exists():
+                    self.config_path_label.setText(str(config_path))
+                    self.config_path_label.setStyleSheet("color: #81C784; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;")
+                else:
+                    self.config_path_label.setText(f"{config_path} (will be created)")
+                    self.config_path_label.setStyleSheet("color: #FFB347; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;")
+            else:
+                self.config_path_label.setText("ME3 config file path not available")
+                self.config_path_label.setStyleSheet("color: #FF6B6B; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;")
+            
             # Set checkbox states (convert None to False)
             skip_logos = self.current_settings.get('skip_logos')
             self.skip_logos_cb.setChecked(bool(skip_logos) if skip_logos is not None else False)
@@ -137,6 +206,88 @@ class GameOptionsDialog(QDialog):
                 
         except Exception as e:
             QMessageBox.warning(self, "Load Error", f"Failed to load current settings: {str(e)}")
+            self.config_path_label.setText(f"Error loading config: {str(e)}")
+            self.config_path_label.setStyleSheet("color: #FF6B6B; font-size: 12px;")
+    
+    def open_config_folder(self):
+        """Open the folder containing the ME3 config file"""
+        try:
+            config_path = None
+            if hasattr(self.config_manager, 'get_me3_config_path'):
+                config_path = self.config_manager.get_me3_config_path(self.game_name)
+                
+            if config_path:
+                config_path_obj = Path(config_path)
+                if config_path_obj.exists():
+                    # Config file exists, open its folder
+                    self._open_path(config_path_obj.parent)
+                else:
+                    # Config file doesn't exist but we know where it should be
+                    reply = QMessageBox.question(
+                        self, 
+                        "Config File Not Found", 
+                        f"ME3 configuration file doesn't exist yet:\n{config_path}\n\n"
+                        f"Would you like to create it and open the folder?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.Yes:
+                        # Try to create the config file using me3_info
+                        if hasattr(self.config_manager, 'me3_info') and self.config_manager.me3_info:
+                            if self.config_manager.me3_info.create_default_config():
+                                self._open_path(config_path_obj.parent)
+                                self.load_current_settings()  # Refresh the display
+                            else:
+                                QMessageBox.warning(self, "Create Error", "Failed to create default config file.")
+                        else:
+                            # Fallback: create the directory and try to open it
+                            config_path_obj.parent.mkdir(parents=True, exist_ok=True)
+                            self._open_path(config_path_obj.parent)
+            else:
+                QMessageBox.warning(self, "Config Not Found", 
+                                  "ME3 configuration file location not available. Use 'Browse...' to locate it manually.")
+        except Exception as e:
+            QMessageBox.warning(self, "Open Folder Error", f"Failed to open config folder: {str(e)}")
+    
+    def browse_config_file(self):
+        """Browse for ME3 config file (me3.toml)"""
+        file_name, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select ME3 Configuration File (me3.toml)",
+            str(Path.home()),
+            "TOML Files (*.toml);;All Files (*)"
+        )
+        
+        if file_name and Path(file_name).exists():
+            selected_path = Path(file_name)
+            if selected_path.name.lower() != "me3.toml":
+                reply = QMessageBox.question(
+                    self,
+                    "Confirm Config File",
+                    f"The selected file is '{selected_path.name}', not 'me3.toml'.\n\n"
+                    f"Are you sure this is the correct ME3 configuration file?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+            
+            try:
+                # Set the new config file path in the config manager if method exists
+                if hasattr(self.config_manager, 'set_me3_config_path'):
+                    self.config_manager.set_me3_config_path(self.game_name, str(selected_path))
+                    
+                    # Reload settings with the new config file
+                    self.load_current_settings()
+                    
+                    QMessageBox.information(self, "Config File Updated", 
+                                          f"ME3 configuration file updated to:\n{selected_path}")
+                else:
+                    QMessageBox.information(self, "Config File Selected", 
+                                          f"Selected config file:\n{selected_path}\n\n"
+                                          f"Note: Custom config path setting is not available in this version.")
+                
+            except Exception as e:
+                QMessageBox.warning(self, "Config File Error", 
+                                  f"Failed to set config file path: {str(e)}")
     
     
     def browse_executable(self):
