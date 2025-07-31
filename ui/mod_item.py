@@ -200,7 +200,7 @@ class ModItem(QWidget):
             layout.addWidget(external_label)
         
         # Children indicator for parent mods
-        if self.has_children and not self.is_nested:
+        '''if self.has_children and not self.is_nested:
             children_icon = self._create_status_icon("▣", "#0078d4")
             children_label = QLabel()
             children_label.setPixmap(children_icon.pixmap(QSize(16, 16)))
@@ -214,11 +214,11 @@ class ModItem(QWidget):
                     background-color: rgba(0, 120, 212, 0.2);
                 }
             """)
-            layout.addWidget(children_label)
+            layout.addWidget(children_label)'''
 
     def _add_action_buttons(self, layout, has_advanced_options):
         """Add action buttons to the right side"""
-        button_size = 28 if not self.is_nested else 24
+        button_size = 28 
         
         # Toggle button
         self.toggle_btn = QPushButton("⏻")
@@ -285,23 +285,24 @@ class ModItem(QWidget):
 
     def _get_expand_button_style(self):
         """Style for expand/collapse button"""
-        return """
-            QPushButton {
-                background-color: #3a3a3a;
-                border: 1px solid #555555;
+        radius = 12 if not self.is_nested else 10
+        return f"""
+            QPushButton {{
+                background-color: #4a4a4a;
+                border: none;
+                border-radius: {radius}px;
                 color: #cccccc;
                 font-size: 12px;
                 font-weight: bold;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #0078d4;
-                border-color: #0078d4;
+            }}
+            QPushButton:hover {{
+                background-color: #5a5a5a;
+                border: 1px solid #0078d4;
                 color: white;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: #005a9e;
-            }
+            }}
         """
 
     def _get_action_button_style(self):
