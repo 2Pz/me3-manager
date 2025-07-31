@@ -103,7 +103,12 @@ class HelpAboutDialog(QDialog):
         video_header.setObjectName("HeaderLabel")
         layout.addWidget(video_header)
         
-        video_link = QLabel('<a href="https://www.youtube.com/watch?v=Xtshnmu6Y2o">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide</a>')
+        if sys.platform == "win32":
+            video_link = QLabel('<a href="https://www.youtube.com/watch?v=2Pz123">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide</a>')
+        else:
+            # For Linux/macOS, use the same video link but with a different text
+            # since the installation process is different.
+            video_link = QLabel('<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide for LInux</a>')
         video_link.setObjectName("VideoLinkLabel")
         video_link.setOpenExternalLinks(True)
         video_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
@@ -192,12 +197,6 @@ class HelpAboutDialog(QDialog):
             self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
         
-        # Custom installer button (Alternative)
-        custom_button = QPushButton("Install/Update with Custom Script")
-        custom_button.setToolTip("An alternative custom script for better error handling.")
-        custom_button.clicked.connect(self.handle_custom_install)
-        layout.addWidget(custom_button)
-
         # Pre-release installer button
         btn_text = "Install/Update with Official Pre-release Script"
         if versions_info['prerelease']['version']:
@@ -460,6 +459,12 @@ class ModEngine3Manager(QMainWindow):
         # This removes profiles whose folders have been deleted.
         self.config_manager.validate_and_prune_profiles()
 
+        # After an install/update, re-validate the format of each active profile.
+        for game_name in self.game_pages.keys():
+            profile_path = self.config_manager.get_profile_path(game_name)
+            if profile_path.exists():
+                self.config_manager.check_and_reformat_profile(profile_path)
+
         # Step 2: For each game, sync the *active* profile's contents with the filesystem.
         # This removes individual mods from a profile if their files are gone.
         for game_name in self.game_pages.keys():
@@ -509,13 +514,10 @@ class ModEngine3Manager(QMainWindow):
             QMessageBox.information(self, "Platform Info", 
                                   "Use the Linux installation scripts from the Help/About dialog instead.")
 
-    def install_me3_linux(self, release_type='latest', custom_url=None):
+    def install_me3_linux(self, release_type='latest'):
         """Install ME3 on Linux using the version manager."""
         if sys.platform != "win32":
-            if custom_url:
-                self.version_manager.install_linux_me3(custom_installer_url=custom_url)
-            else:
-                self.version_manager.install_linux_me3(release_type)
+            self.version_manager.install_linux_me3(release_type)
         else:
             QMessageBox.information(self, "Platform Info", 
                                   "Use the Windows installer download from the Help/About dialog instead.")
