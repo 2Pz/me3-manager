@@ -103,12 +103,21 @@ class ImprovedModManager:
         """Scan filesystem for internal mods (DLLs and packages)"""
         mods = {}
         
+        # Check if we're using a custom profile (not in default config_root)
+        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
+        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
+        
         # Scan for DLL mods
         for dll_file in mods_dir.glob("*.dll"):
             mod_path = str(dll_file)
-            # Use normalized path format for consistency
-            mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-            config_key = self._normalize_path(f"{mods_dir_name}/{dll_file.name}")
+            
+            # Use the same logic as _set_native_enabled for config key generation
+            if is_custom_profile:
+                # For custom profiles, use full absolute path as config key
+                config_key = self._normalize_path(str(dll_file.resolve()))
+            else:
+                # For default profiles, use mods-dir-name/filename format
+                config_key = self._normalize_path(f"{mods_dir_name}/{dll_file.name}")
             
             mod_info = ModInfo(
                 path=mod_path,
@@ -179,6 +188,10 @@ class ImprovedModManager:
         """
         nested_mods = {}
         
+        # Check if we're using a custom profile (not in default config_root)
+        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
+        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
+        
         # Scan through all package folders
         for folder in mods_dir.iterdir():
             if not folder.is_dir() or folder.name == self.config_manager.games[game_name]['mods_dir']:
@@ -193,9 +206,14 @@ class ImprovedModManager:
                 # Create a relative path from the mods directory
                 try:
                     relative_path = dll_file.relative_to(mods_dir)
-                    # Use the same format as _set_native_enabled: mods-dir-name/relative-path
-                    mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-                    config_key = self._normalize_path(f"{mods_dir_name}/{relative_path}")
+                    
+                    # Use the same logic as _set_native_enabled for config key generation
+                    if is_custom_profile:
+                        # For custom profiles, use full absolute path as config key
+                        config_key = self._normalize_path(str(dll_file.resolve()))
+                    else:
+                        # For default profiles, use mods-dir-name/relative-path format
+                        config_key = self._normalize_path(f"{mods_dir_name}/{relative_path}")
                     
                     # Create a unique identifier for this nested mod
                     nested_mod_path = str(dll_file)
@@ -322,22 +340,32 @@ class ImprovedModManager:
         current_dll_names = set()
         current_package_names = set()
         current_external_paths = set()
-        current_nested_paths = set()  # NEW: Track nested mod paths
+        current_nested_paths = set()  # Track nested mod paths
+        current_absolute_paths = set()  # Track absolute paths for custom profiles
         
         mods_dir = self.config_manager.get_mods_dir(game_name)
+        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
+        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
         
         for mod_path, mod_info in current_mods.items():
             if mod_info.is_external:
                 current_external_paths.add(mod_path)
             elif mod_info.mod_type == ModType.DLL:
                 current_dll_names.add(mod_info.name + '.dll')
+                # For custom profiles, also track the absolute path
+                if is_custom_profile:
+                    current_absolute_paths.add(self._normalize_path(mod_path))
             elif mod_info.mod_type == ModType.NESTED:
-                # For nested mods, store the full path with mods directory prefix
+                # For nested mods, handle both custom and default profiles
                 try:
                     relative_path = Path(mod_path).relative_to(mods_dir)
-                    mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-                    full_config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
-                    current_nested_paths.add(full_config_path)
+                    if is_custom_profile:
+                        # For custom profiles, track the absolute path
+                        current_absolute_paths.add(self._normalize_path(mod_path))
+                    else:
+                        # For default profiles, track the relative path format
+                        full_config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
+                        current_nested_paths.add(full_config_path)
                 except ValueError:
                     pass
             else:  # PACKAGE
@@ -351,11 +379,11 @@ class ImprovedModManager:
                 normalized_path = self._normalize_path(path)
                 
                 if Path(path).is_absolute():
-                    # External mod
-                    if path in current_external_paths:
+                    # Check if it's an external mod or a custom profile mod
+                    if path in current_external_paths or normalized_path in current_absolute_paths:
                         valid_natives.append(native)
                 else:
-                    # Internal mod - check if it's a direct DLL or nested mod
+                    # Internal mod with relative path - check if it's a direct DLL or nested mod
                     filename = Path(path).name
                     if filename in current_dll_names or normalized_path in current_nested_paths:
                         valid_natives.append(native)
@@ -411,19 +439,32 @@ class ImprovedModManager:
         mods_dir = self.config_manager.get_mods_dir(game_name)
         mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
         
+        # Check if we're using a custom profile (not in default config_root)
+        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
+        
         # Determine the correct path format for the config - always use normalized paths
         try:
             # Check if this is a nested mod (inside mods directory but not directly in it)
             relative_path = mod_path_obj.relative_to(mods_dir)
-            # For nested mods, prepend the mods directory name like regular DLLs
-            config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
+            
+            if is_custom_profile:
+                # For custom profiles, always use full absolute paths
+                config_path = self._normalize_path(str(mod_path_obj.resolve()))
+            else:
+                # For default profiles, use the mods-dir/relative-path format
+                config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
         except ValueError:
             # Not inside mods directory - external mod
             if mod_path_obj.parent == mods_dir:
-                # Direct child of mods directory - internal mod
-                config_path = self._normalize_path(f"{mods_dir_name}/{mod_path_obj.name}")
+                # Direct child of mods directory
+                if is_custom_profile:
+                    # For custom profiles, use full absolute path
+                    config_path = self._normalize_path(str(mod_path_obj.resolve()))
+                else:
+                    # For default profiles, use mods-dir/filename format
+                    config_path = self._normalize_path(f"{mods_dir_name}/{mod_path_obj.name}")
             else:
-                # External mod - use normalized absolute path
+                # External mod - always use normalized absolute path
                 config_path = self._normalize_path(str(mod_path_obj.resolve()))
         
         # Find existing entry using normalized path comparison
@@ -472,13 +513,21 @@ class ImprovedModManager:
         
         if enabled:
             if package_entry is None:
-                # Create new entry with normalized path that includes mods directory
+                # Check if we're using a custom profile (not in default config_root)
+                mods_dir = self.config_manager.get_mods_dir(game_name)
                 mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-                package_path = self._normalize_path(f"{mods_dir_name}/{mod_name}")
+                is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
+                
+                if is_custom_profile:
+                    # For custom profiles, use full absolute path
+                    package_path = self._normalize_path(str((mods_dir / mod_name).resolve()))
+                else:
+                    # For default profiles, use mods-dir/mod-name format
+                    package_path = self._normalize_path(f"{mods_dir_name}/{mod_name}")
                 
                 package_entry = {
                     "id": mod_name,
-                    "path": package_path,  # Use normalized mods-dir/mod-name format for consistency
+                    "path": package_path,
                     "load_after": [],
                     "load_before": []
                 }

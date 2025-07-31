@@ -22,7 +22,7 @@ class GameOptionsDialog(QDialog):
         
         self.setWindowTitle(f"Game Options - {game_name}")
         self.setModal(True)
-        self.resize(555, 600)  # Increased height to accommodate new section
+        self.resize(580, 600)  # Increased height to accommodate new section
         
         self.init_ui()
         self.load_current_settings()

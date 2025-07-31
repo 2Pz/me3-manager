@@ -921,13 +921,16 @@ class GamePage(QWidget):
             self.update_pagination()
 
     def update_pagination(self):
+        """Update pagination with expandable tree structure"""
         total_mods = len(self.filtered_mods)
         self.total_pages = max(1, math.ceil(total_mods / self.mods_per_page))
-        if self.current_page > self.total_pages: self.current_page = self.total_pages
+        if self.current_page > self.total_pages: 
+            self.current_page = self.total_pages
         self.page_label.setText(f"Page {self.current_page} of {self.total_pages}")
         self.prev_btn.setEnabled(self.current_page > 1)
         self.next_btn.setEnabled(self.current_page < self.total_pages)
         
+        # Clear existing widgets
         while self.mods_layout.count():
             child = self.mods_layout.takeAt(0)
             if child.widget():
@@ -937,60 +940,182 @@ class GamePage(QWidget):
         end_idx = start_idx + self.mods_per_page
         mod_items = list(self.filtered_mods.items())[start_idx:end_idx]
         
-        for mod_path, info in mod_items:
-            is_enabled = info['enabled']
-            is_folder_mod = info.get('is_folder_mod', False)
-            has_regulation = info.get('has_regulation', False)
-            regulation_active = info.get('regulation_active', False)
-            text_color = "#9E9E9E"
-            if is_enabled:
-                text_color = "#81C784"
-                if regulation_active:
-                    text_color = "#FFB347"
-            
-            # Determine mod type and icon based on mod info
-            if hasattr(self, 'mod_infos') and mod_path in self.mod_infos:
-                mod_info = self.mod_infos[mod_path]
-                if mod_info.mod_type.value == "nested":
-                    mod_type, type_icon = f"NESTED DLL (in {mod_info.parent_package})", QIcon(resource_path("resources/icon/dll.png"))
-                elif regulation_active:
-                    mod_type, type_icon = "MOD FOLDER (ACTIVE REGULATION)", QIcon(resource_path("resources/icon/regulation_active.png"))
-                elif has_regulation:
-                    mod_type, type_icon = "MOD FOLDER WITH REGULATION", QIcon(resource_path("resources/icon/folder.png"))
-                elif is_folder_mod:
-                    mod_type, type_icon = "MOD FOLDER", QIcon(resource_path("resources/icon/folder.png"))
-                else:
-                    mod_type, type_icon = "DLL", QIcon(resource_path("resources/icon/dll.png"))
-            else:
-                # Fallback for when mod_infos is not available
-                if regulation_active:
-                    mod_type, type_icon = "MOD FOLDER (ACTIVE REGULATION)", QIcon(resource_path("resources/icon/regulation_active.png"))
-                elif has_regulation:
-                    mod_type, type_icon = "MOD FOLDER WITH REGULATION", QIcon(resource_path("resources/icon/folder.png"))
-                elif is_folder_mod:
-                    mod_type, type_icon = "MOD FOLDER", QIcon(resource_path("resources/icon/folder.png"))
-                else:
-                    mod_type, type_icon = "DLL", QIcon(resource_path("resources/icon/dll.png"))
-            
-            # Check if mod has active advanced options using the improved mod manager
-            mod_info = self.mod_infos.get(mod_path) if hasattr(self, 'mod_infos') else None
-            has_advanced_options = self.mod_manager.has_advanced_options(mod_info) if mod_info else False
-            
-            mod_widget = ModItem(mod_path, info['name'], is_enabled, info['external'], is_folder_mod, has_regulation, mod_type, type_icon, "transparent", text_color, regulation_active, has_advanced_options)
-            mod_widget.toggled.connect(self.toggle_mod)
-            mod_widget.delete_requested.connect(self.delete_mod)
-            mod_widget.edit_config_requested.connect(self.open_config_editor)
-            mod_widget.open_folder_requested.connect(self.open_mod_folder)
-            mod_widget.advanced_options_requested.connect(self.open_advanced_options)
-            if has_regulation:
-                mod_widget.regulation_activate_requested.connect(self.activate_regulation_mod)
-            self.mods_layout.addWidget(mod_widget)
+        # Group mods for tree display
+        grouped_mods = self._group_mods_for_tree_display(mod_items)
         
+        # Create widgets with tree structure
+        for group_key, group_data in grouped_mods.items():
+            if group_data['type'] == 'parent_with_children':
+                # Create parent mod widget
+                parent_info = group_data['parent']
+                parent_widget = self._create_mod_widget(
+                    group_key, parent_info, 
+                    has_children=True, 
+                    is_expanded=group_data.get('expanded', False)
+                )
+                parent_widget.expand_requested.connect(self._on_mod_expand_requested)
+                self.mods_layout.addWidget(parent_widget)
+                
+                # Create nested children (only if expanded)
+                if group_data.get('expanded', False):
+                    for child_path, child_info in group_data['children'].items():
+                        child_widget = self._create_mod_widget(child_path, child_info, is_nested=True)
+                        self.mods_layout.addWidget(child_widget)
+            else:
+                # Regular standalone mod
+                mod_widget = self._create_mod_widget(group_key, group_data['info'])
+                self.mods_layout.addWidget(mod_widget)
+        
+        # Update status
         total_mods_filtered = len(self.filtered_mods)
         enabled_mods_filtered = sum(1 for info in self.filtered_mods.values() if info['enabled'])
         showing_start = start_idx + 1 if total_mods_filtered > 0 else 0
         showing_end = min(end_idx, total_mods_filtered)
         self.status_label.setText(f"Showing {showing_start}-{showing_end} of {total_mods_filtered} mods ({enabled_mods_filtered} enabled)")
+
+    def _group_mods_for_tree_display(self, mod_items):
+        """Group mods to create expandable tree structure"""
+        if not hasattr(self, 'expanded_states'):
+            self.expanded_states = {}  # Track expanded state per parent
+        
+        grouped = {}
+        parent_packages = {}
+        nested_mods = {}
+        
+        # First pass: identify parent packages and nested mods
+        for mod_path, info in mod_items:
+            if hasattr(self, 'mod_infos') and mod_path in self.mod_infos:
+                mod_info = self.mod_infos[mod_path]
+                if mod_info.mod_type.value == "nested" and mod_info.parent_package:
+                    # This is a nested mod
+                    parent_name = mod_info.parent_package
+                    if parent_name not in nested_mods:
+                        nested_mods[parent_name] = []
+                    # Use clean name without parent prefix
+                    clean_info = info.copy()
+                    clean_info['name'] = Path(mod_path).name  # Just the filename
+                    nested_mods[parent_name].append((mod_path, clean_info))
+                elif mod_info.mod_type.value == "package":
+                    # This is a potential parent package
+                    parent_packages[mod_info.name] = (mod_path, info)
+                else:
+                    # Regular standalone mod
+                    grouped[mod_path] = {'type': 'standalone', 'info': info}
+            else:
+                # Fallback for when mod_infos is not available
+                grouped[mod_path] = {'type': 'standalone', 'info': info}
+        
+        # Second pass: create grouped structure
+        for parent_name, children_list in nested_mods.items():
+            if parent_name in parent_packages:
+                parent_path, parent_info = parent_packages[parent_name]
+                grouped[parent_path] = {
+                    'type': 'parent_with_children',
+                    'parent': parent_info,
+                    'children': {child_path: child_info for child_path, child_info in children_list},
+                    'expanded': self.expanded_states.get(parent_path, False)
+                }
+                # Remove from standalone packages
+                parent_packages.pop(parent_name, None)
+        
+        # Add remaining parent packages without nested children
+        for parent_path, parent_info in parent_packages.values():
+            if parent_path not in grouped:
+                grouped[parent_path] = {'type': 'standalone', 'info': parent_info}
+        
+        return grouped
+
+    def _create_mod_widget(self, mod_path, info, is_nested=False, has_children=False, is_expanded=False):
+        """Create a mod widget with tree styling"""
+        is_enabled = info['enabled']
+        is_folder_mod = info.get('is_folder_mod', False)
+        has_regulation = info.get('has_regulation', False)
+        regulation_active = info.get('regulation_active', False)
+        
+        # Determine text color
+        if is_nested:
+            text_color = "#b0b0b0" if not is_enabled else "#90EE90"
+        else:
+            text_color = "#cccccc" if not is_enabled else "#90EE90"
+            if regulation_active:
+                text_color = "#FFD700"
+        
+        # Determine mod type and icon
+        if hasattr(self, 'mod_infos') and mod_path in self.mod_infos:
+            mod_info = self.mod_infos[mod_path]
+            if mod_info.mod_type.value == "nested":
+                mod_type = "Nested DLL"
+                type_icon = QIcon(resource_path("resources/icon/dll.png"))
+            elif regulation_active:
+                mod_type = "Active Regulation Package"
+                type_icon = QIcon(resource_path("resources/icon/regulation_active.png"))
+            elif has_regulation:
+                mod_type = "Package with Regulation"
+                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+            elif is_folder_mod:
+                mod_type = "Mod Package"
+                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+            else:
+                mod_type = "DLL Mod"
+                type_icon = QIcon(resource_path("resources/icon/dll.png"))
+        else:
+            # Fallback
+            if regulation_active:
+                mod_type = "Active Regulation Package"
+                type_icon = QIcon(resource_path("resources/icon/regulation_active.png"))
+            elif has_regulation:
+                mod_type = "Package with Regulation"
+                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+            elif is_folder_mod:
+                mod_type = "Mod Package"
+                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+            else:
+                mod_type = "DLL Mod"
+                type_icon = QIcon(resource_path("resources/icon/dll.png"))
+        
+        # Check advanced options
+        mod_info = self.mod_infos.get(mod_path) if hasattr(self, 'mod_infos') else None
+        has_advanced_options = self.mod_manager.has_advanced_options(mod_info) if mod_info else False
+        
+        # Create the widget
+        mod_widget = ModItem(
+            mod_path=mod_path,
+            mod_name=info['name'],
+            is_enabled=is_enabled,
+            is_external=info['external'],
+            is_folder_mod=is_folder_mod,
+            is_regulation=has_regulation,
+            mod_type=mod_type,
+            type_icon=type_icon,
+            item_bg_color="transparent",
+            text_color=text_color,
+            is_regulation_active=regulation_active,
+            has_advanced_options=has_advanced_options,
+            is_nested=is_nested,
+            has_children=has_children,
+            is_expanded=is_expanded
+        )
+        
+        # Connect signals
+        mod_widget.toggled.connect(self.toggle_mod)
+        if not is_nested:  # Nested mods cannot be deleted individually
+            mod_widget.delete_requested.connect(self.delete_mod)
+        mod_widget.edit_config_requested.connect(self.open_config_editor)
+        mod_widget.open_folder_requested.connect(self.open_mod_folder)
+        mod_widget.advanced_options_requested.connect(self.open_advanced_options)
+        if has_regulation:
+            mod_widget.regulation_activate_requested.connect(self.activate_regulation_mod)
+        
+        return mod_widget
+    
+    def _on_mod_expand_requested(self, mod_path: str, expanded: bool):
+        """Handle mod expand/collapse request"""
+        if not hasattr(self, 'expanded_states'):
+            self.expanded_states = {}
+        
+        self.expanded_states[mod_path] = expanded
+        # Refresh the current page to show/hide nested mods
+        self.update_pagination()
 
     def load_mods(self, reset_page: bool = True):
         """
