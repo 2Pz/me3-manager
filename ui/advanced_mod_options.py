@@ -249,7 +249,7 @@ class AdvancedModOptionsDialog(QDialog):
         
         self.setWindowTitle(f"Advanced Options - {mod_name}")
         self.setMinimumSize(600, 500)
-        self.resize(700, 600)
+        self.resize(700, 680)
         
         self.setup_ui()
         self.load_current_options()
