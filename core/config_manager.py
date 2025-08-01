@@ -41,6 +41,7 @@ class ConfigManager:
         self.tracked_external_mods = settings.get('tracked_external_mods', {})
         self.ui_settings = settings.get('ui_settings', {})
         self.custom_config_paths = settings.get('custom_config_paths', {})
+        self.me3_config_paths = settings.get('me3_config_paths', {})
 
         # PROFILE MANAGEMENT SYSTEM
         self.profiles = settings.get('profiles', {})
@@ -195,7 +196,8 @@ class ConfigManager:
                 'tracked_external_mods': self.tracked_external_mods,
                 'profiles': self.profiles,
                 'active_profiles': self.active_profiles,
-                'custom_config_paths': self.custom_config_paths, # Add this line
+                'custom_config_paths': self.custom_config_paths,
+                'me3_config_paths': self.me3_config_paths,
             }
             with open(self.settings_file, 'w', encoding='utf-8') as f:
                 json.dump(all_settings, f, indent=4)
@@ -2194,26 +2196,28 @@ class ConfigManager:
     def get_me3_config_path(self, game_name: str) -> Optional[str]:
         """Get the path to the ME3 config file for a game"""
         try:
-            # First check if there's a custom path set
-            if hasattr(self, 'me3_config_paths') and game_name in self.me3_config_paths:
-                custom_path = self.me3_config_paths[game_name]
-                if Path(custom_path).exists():
-                    return custom_path
+            # 1. Check for a custom path set by the user. This has the highest priority.
+            if game_name in self.me3_config_paths:
+                return self.me3_config_paths[game_name]
             
-            # Use existing ME3 info to find config file
+            # 2. If no custom path, use me3_info to find the default/detected path.
             if hasattr(self, 'me3_info') and self.me3_info:
-                # Try to get existing config path from me3_info
+                # Try to find an existing config file first.
                 config_paths = self.me3_info.get_me3_config_paths()
                 if config_paths:
                     for config_path in config_paths:
                         if config_path.exists():
                             return str(config_path)
                 
-                # If no existing config found, return the primary config path where it should be created
+                # If no existing file is found, return the primary path where it would be created.
                 primary_path = self.me3_info.get_primary_config_path()
                 if primary_path:
                     return str(primary_path)
             
+            return None
+            
+        except Exception as e:
+            print(f"Error getting ME3 config path for {game_name}: {e}")
             return None
             
         except Exception as e:
@@ -2228,9 +2232,8 @@ class ConfigManager:
             
             self.me3_config_paths[game_name] = config_path
             
-            # Save to persistent storage if you have a config file
-            # This would depend on your existing configuration saving mechanism
-            self.save_config()  # Assuming you have a save_config method
+            # Use the existing method to save all settings.
+            self._save_settings()
             
         except Exception as e:
             print(f"Error setting ME3 config path for {game_name}: {e}")
@@ -2239,7 +2242,6 @@ class ConfigManager:
     def load_me3_config_paths(self):
         """Load custom ME3 config paths from persistent storage"""
         try:
-            # This should be called in your ConfigManager.__init__ method
             # Load from your existing config file structure
             if hasattr(self, 'config_data') and 'me3_config_paths' in self.config_data:
                 self.me3_config_paths = self.config_data.get('me3_config_paths', {})
