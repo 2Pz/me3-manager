@@ -2198,18 +2198,30 @@ class ConfigManager:
         try:
             # 1. Check for a custom path set by the user. This has the highest priority.
             if game_name in self.me3_config_paths:
-                return self.me3_config_paths[game_name]
+                custom_path = Path(self.me3_config_paths[game_name])
+                # Verify the custom path still exists and is accessible
+                try:
+                    if custom_path.exists() and custom_path.is_file():
+                        with open(custom_path, 'r', encoding='utf-8') as f:
+                            f.read(1)  # Test read access
+                        return str(custom_path)
+                    else:
+                        # Custom path no longer valid, remove it
+                        del self.me3_config_paths[game_name]
+                        self._save_settings()
+                except (PermissionError, OSError) as e:
+                    print(f"Custom config path {custom_path} is no longer accessible: {e}")
+                    del self.me3_config_paths[game_name]
+                    self._save_settings()
             
-            # 2. If no custom path, use me3_info to find the default/detected path.
+            # 2. If no custom path, use me3_info to find an existing config file.
             if hasattr(self, 'me3_info') and self.me3_info:
-                # Try to find an existing config file first.
-                config_paths = self.me3_info.get_me3_config_paths()
-                if config_paths:
-                    for config_path in config_paths:
-                        if config_path.exists():
-                            return str(config_path)
+                # Try to find an existing config file first
+                existing_config = self.me3_info.find_existing_config()
+                if existing_config:
+                    return str(existing_config)
                 
-                # If no existing file is found, return the primary path where it would be created.
+                # If no existing file is found, return the primary path where it would be created
                 primary_path = self.me3_info.get_primary_config_path()
                 if primary_path:
                     return str(primary_path)
@@ -2219,16 +2231,19 @@ class ConfigManager:
         except Exception as e:
             print(f"Error getting ME3 config path for {game_name}: {e}")
             return None
-            
-        except Exception as e:
-            print(f"Error getting ME3 config path for {game_name}: {e}")
-            return None
 
     def set_me3_config_path(self, game_name: str, config_path: str):
-        """Set a custom path to the ME3 config file for a game"""
+        """Set a custom path to the ME3 config file for a game and ensure it's the only one"""
         try:
             if not hasattr(self, 'me3_config_paths'):
                 self.me3_config_paths = {}
+            
+            # Ensure only this config file exists (create if needed, delete others)
+            config_path_obj = Path(config_path)
+            if hasattr(self, 'me3_info') and self.me3_info:
+                success = self.me3_info.ensure_single_config(config_path_obj)
+                if not success:
+                    raise Exception("Failed to ensure single config file")
             
             self.me3_config_paths[game_name] = config_path
             

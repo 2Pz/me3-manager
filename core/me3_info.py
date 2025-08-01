@@ -331,22 +331,156 @@ class ME3InfoManager:
             print(f"Error getting ME3 config paths: {e}")
             return []
 
-    def get_primary_config_path(self) -> Optional[Path]:
+    def find_existing_config(self) -> Optional[Path]:
         """
-        Get the primary ME3 config path for creation when me3.toml not found.
-        Windows: uses path 0 (first path)
-        Linux: uses path 1 (second path, typically user config directory)
+        Search through all config paths with error handling and return the first found config file.
+        Returns None if no config file is found.
         """
         paths = self.get_me3_config_paths()
         if not paths:
             return None
         
-        if sys.platform == "win32":
-            # Windows: use first path (index 0)
-            return paths[0] if len(paths) > 0 else None
-        else:
-            # Linux/Unix: use second path (index 1) if available, fallback to first
-            return paths[1] if len(paths) > 1 else (paths[0] if len(paths) > 0 else None)
+        for config_path in paths:
+            try:
+                if config_path.exists() and config_path.is_file():
+                    # Try to read the file to ensure we have permission
+                    try:
+                        with open(config_path, 'r', encoding='utf-8') as f:
+                            f.read(1)  # Just read one character to test access
+                        return config_path
+                    except (PermissionError, OSError) as e:
+                        print(f"Found config at {config_path} but cannot access it: {e}")
+                        continue
+            except (PermissionError, OSError) as e:
+                print(f"Cannot access path {config_path}: {e}")
+                continue
+        
+        return None
+
+    def get_primary_config_path(self) -> Optional[Path]:
+        """
+        Get the primary ME3 config path for creation when me3.toml not found.
+        First tries to find an existing config, then falls back to the first accessible path.
+        """
+        # First, try to find an existing config file
+        existing_config = self.find_existing_config()
+        if existing_config:
+            return existing_config
+        
+        # If no existing config, return the first accessible path for creation
+        paths = self.get_me3_config_paths()
+        if not paths:
+            return None
+        
+        for config_path in paths:
+            try:
+                # Test if we can create a file in this directory
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                # Test write permission by creating a temporary file
+                test_file = config_path.parent / ".me3_test_write"
+                try:
+                    with open(test_file, 'w') as f:
+                        f.write("test")
+                    test_file.unlink()  # Remove test file
+                    return config_path
+                except (PermissionError, OSError) as e:
+                    print(f"Cannot write to {config_path.parent}: {e}")
+                    continue
+            except (PermissionError, OSError) as e:
+                print(f"Cannot access directory {config_path.parent}: {e}")
+                continue
+        
+        # Fallback to first path if all else fails
+        return paths[0] if paths else None
+
+    def get_available_config_paths(self) -> List[Path]:
+        """
+        Get all available config paths that can be used for creating a config file.
+        Returns paths where we have write permission.
+        """
+        paths = self.get_me3_config_paths()
+        available_paths = []
+        
+        for config_path in paths:
+            try:
+                # Ensure parent directory exists or can be created
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Test write permission
+                test_file = config_path.parent / ".me3_test_write"
+                try:
+                    with open(test_file, 'w') as f:
+                        f.write("test")
+                    test_file.unlink()
+                    available_paths.append(config_path)
+                except (PermissionError, OSError):
+                    continue
+            except (PermissionError, OSError):
+                continue
+        
+        return available_paths
+
+    def cleanup_other_configs(self, keep_config_path: Path) -> List[Path]:
+        """
+        Remove all other me3.toml files from search paths, keeping only the specified one.
+        Returns a list of paths that were successfully deleted.
+        """
+        deleted_paths = []
+        all_paths = self.get_me3_config_paths()
+        
+        for config_path in all_paths:
+            if config_path != keep_config_path and config_path.exists():
+                try:
+                    # Try to delete the config file
+                    config_path.unlink()
+                    deleted_paths.append(config_path)
+                    print(f"Deleted existing config file: {config_path}")
+                except (PermissionError, OSError) as e:
+                    print(f"Could not delete config file {config_path}: {e}")
+        
+        return deleted_paths
+
+    def ensure_single_config(self, preferred_config_path: Path) -> bool:
+        """
+        Ensure only one me3.toml file exists across all search paths.
+        If the preferred path doesn't exist, create it. Then delete all others.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            # Create the preferred config if it doesn't exist
+            if not preferred_config_path.exists():
+                # First, check if there's an existing config to copy from
+                existing_config = self.find_existing_config()
+                
+                # Ensure directory exists
+                preferred_config_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                if existing_config and existing_config != preferred_config_path:
+                    # Copy existing config to new location
+                    import shutil
+                    shutil.copy2(existing_config, preferred_config_path)
+                    print(f"Copied config from {existing_config} to {preferred_config_path}")
+                else:
+                    # Create default config
+                    default_config = """# ME3 Configuration File
+# This file was created by ME3 Manager
+
+"""
+                    with open(preferred_config_path, 'w', encoding='utf-8') as f:
+                        f.write(default_config)
+                    print(f"Created new config file: {preferred_config_path}")
+            
+            # Now delete all other config files
+            deleted_paths = self.cleanup_other_configs(preferred_config_path)
+            
+            if deleted_paths:
+                print(f"Cleaned up {len(deleted_paths)} duplicate config files")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error ensuring single config: {e}")
+            return False
 
     def create_default_config(self) -> bool:
         """
