@@ -1,2 +1,2 @@
 Description available on Nexus Mods:  
-[https://www.nexusmods.com/eldenringnightreign/mods/213](https://www.nexusmods.com/eldenringnightreign/mods/213)
+[Mod Engine 3 Manager](https://www.nexusmods.com/eldenringnightreign/mods/213)
