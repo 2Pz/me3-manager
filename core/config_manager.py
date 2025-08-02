@@ -33,10 +33,11 @@ class ConfigManager:
         
         self.file_watcher = QFileSystemWatcher()
         
-        # Load games from JSON configuration
-        self.games = self._load_games_config()
-        
         settings = self._load_settings()
+        
+        # Load games configuration from settings with fallback
+        self.games = settings.get('games', self._get_default_games())
+        
         self.game_exe_paths = settings.get('game_exe_paths', {})
         self.tracked_external_mods = settings.get('tracked_external_mods', {})
         self.ui_settings = settings.get('ui_settings', {})
@@ -46,12 +47,6 @@ class ConfigManager:
         # PROFILE MANAGEMENT SYSTEM
         self.profiles = settings.get('profiles', {})
         self.active_profiles = settings.get('active_profiles', {})
-
-        self.validate_and_prune_profiles()
-        self._migrate_old_custom_paths()
-        self._ensure_default_profiles()
-
-        self._migrate_external_mods_to_profile_system()
         
         # Custom profile and mods folder paths
         self.custom_profile_paths = settings.get('custom_profile_paths', {})
@@ -60,16 +55,36 @@ class ConfigManager:
         # Stored custom paths (preserved when switching to default)
         self.stored_custom_profile_paths = settings.get('stored_custom_profile_paths', {})
         self.stored_custom_mods_paths = settings.get('stored_custom_mods_paths', {})
+
+        # Clean up settings for games that no longer exist (if any)
+        # This is mainly for migration purposes
+        current_games = set(self.games.keys())
+        games_to_remove = []
+        for game_name in self.profiles.keys():
+            if game_name not in current_games:
+                games_to_remove.append(game_name)
         
-        # Use default order from games config if not set in settings
+        for game_name in games_to_remove:
+            self._clean_game_data(game_name)
+            print(f"Cleaned up data for removed game: {game_name}")
+        
+        self.validate_and_prune_profiles()
+        self._migrate_old_custom_paths()
+        self._ensure_default_profiles()
+
+        self._migrate_external_mods_to_profile_system()
+        
+        # Use default order from settings if not set
         default_order = self._get_default_game_order()
         saved_order = settings.get('game_order', default_order)
         
-        # Merge saved order with new games from JSON config
+        # Merge saved order with available games
         self.game_order = self._merge_game_order(saved_order, list(self.games.keys()))
         
-        # Save the updated order if it was changed during merge
-        if self.game_order != saved_order:
+        # Save the updated configuration if games or order changed
+        current_settings = self._load_settings()
+        if (current_settings.get('games') != self.games or 
+            current_settings.get('game_order') != self.game_order):
             self._save_settings()
         
         self.ensure_directories()
@@ -186,10 +201,44 @@ class ConfigManager:
         except (json.JSONDecodeError, IOError):
             return {} # Return empty dict on error
 
+    def _get_default_games(self) -> dict:
+        """Get default games configuration"""
+        return {
+            "Elden Ring": {
+                "mods_dir": "eldenring-mods",
+                "profile": "eldenring-default.me3",
+                "cli_id": "elden-ring",
+                "executable": "eldenring.exe"
+            },
+            "Nightreign": {
+                "mods_dir": "nightreign-mods",
+                "profile": "nightreign-default.me3",
+                "cli_id": "nightreign",
+                "executable": "nightreign.exe"
+            },
+            "Sekiro": {
+                "mods_dir": "sekiro-mods",
+                "profile": "sekiro-default.me3",
+                "cli_id": "sekiro",
+                "executable": "sekiro.exe"
+            },
+            "Armoredcore6": {
+                "mods_dir": "armoredcore6-mods",
+                "profile": "armoredcore6-default.me3",
+                "cli_id": "armoredcore6",
+                "executable": "armoredcore6.exe"
+            }
+        }
+
+    def _get_default_game_order(self) -> list:
+        """Get default game order"""
+        return ["Elden Ring", "Nightreign", "Sekiro", "Armoredcore6"]
+
     def _save_settings(self):
         """Saves all settings to the JSON file."""
         try:
             all_settings = {
+                'games': self.games,
                 'game_exe_paths': self.game_exe_paths,
                 'game_order': getattr(self, 'game_order', list(self.games.keys())),
                 'ui_settings': self.ui_settings,
@@ -203,6 +252,89 @@ class ConfigManager:
                 json.dump(all_settings, f, indent=4)
         except IOError as e:
             print(f"Error saving settings: {e}")
+
+    # Game management methods
+    def add_game(self, name: str, mods_dir: str, profile: str, cli_id: str, executable: str):
+        """Add a new game configuration"""
+        self.games[name] = {
+            "mods_dir": mods_dir,
+            "profile": profile,
+            "cli_id": cli_id,
+            "executable": executable
+        }
+        
+        # Add to game order
+        if name not in self.game_order:
+            self.game_order.append(name)
+        
+        # Initialize profile system for new game
+        self._ensure_default_profiles_for_game(name)
+        
+        self._save_settings()
+        self.ensure_directories()
+        self.setup_file_watcher()
+
+    def remove_game(self, name: str):
+        """Remove a game configuration and all its associated data"""
+        if name not in self.games:
+            return
+        
+        # Remove from games
+        del self.games[name]
+        
+        # Remove from game order
+        if name in self.game_order:
+            self.game_order.remove(name)
+        
+        # Clean up all associated data
+        self._clean_game_data(name)
+        
+        self._save_settings()
+        self.setup_file_watcher()
+
+    def update_game(self, name: str, **kwargs):
+        """Update game configuration"""
+        if name not in self.games:
+            return
+        
+        for key, value in kwargs.items():
+            if key in ["mods_dir", "profile", "cli_id", "executable"]:
+                self.games[name][key] = value
+        
+        self._save_settings()
+        self.ensure_directories()
+
+    def _clean_game_data(self, game_name: str):
+        """Clean up all data for a specific game"""
+        # Remove from all settings dictionaries
+        self.profiles.pop(game_name, None)
+        self.active_profiles.pop(game_name, None)
+        self.tracked_external_mods.pop(game_name, None)
+        self.game_exe_paths.pop(game_name, None)
+        self.custom_config_paths.pop(game_name, None)
+        self.me3_config_paths.pop(game_name, None)
+        self.custom_profile_paths.pop(game_name, None)
+        self.custom_mods_paths.pop(game_name, None)
+        self.stored_custom_profile_paths.pop(game_name, None)
+        self.stored_custom_mods_paths.pop(game_name, None)
+
+    def _ensure_default_profiles_for_game(self, game_name: str):
+        """Ensure a specific game has a default profile"""
+        if game_name not in self.profiles:
+            self.profiles[game_name] = []
+        
+        # Check if default profile exists
+        if not any(p['id'] == 'default' for p in self.profiles[game_name]):
+            self.profiles[game_name].insert(0, {
+                "id": "default",
+                "name": "Default",
+                "profile_path": None,
+                "mods_path": None
+            })
+        
+        # Ensure an active profile is set
+        if game_name not in self.active_profiles:
+            self.active_profiles[game_name] = 'default'
 
     def validate_and_prune_profiles(self):
         """
@@ -242,64 +374,7 @@ class ConfigManager:
         if settings_changed:
             self._save_settings()
 
-    def _load_games_config(self) -> dict:
-        """Load games configuration from JSON file."""
-        games_config_path = Path(resource_path("resources/games_config.json"))
-        
-        # Fallback to hardcoded games if JSON file doesn't exist
-        fallback_games = {
-            "Elden Ring": {
-                "mods_dir": "eldenring-mods",
-                "profile": "eldenring-default.me3",
-                "cli_id": "elden-ring",
-                "executable": "eldenring.exe"
-            },
-            "Nightreign": {
-                "mods_dir": "nightreign-mods",
-                "profile": "nightreign-default.me3",
-                "cli_id": "nightreign",
-                "executable": "nightreign.exe"
-            },
-            "Sekiro": {
-                "mods_dir": "sekiro-mods",
-                "profile": "sekiro-default.me3",
-                "cli_id": "sekiro",
-                "executable": "sekiro.exe"
-            },
-            "Armoredcore6": {
-                "mods_dir": "armoredcore6-mods",
-                "profile": "armoredcore6-default.me3",
-                "cli_id": "armoredcore6",
-                "executable": "armoredcore6.exe"
-            }
-        }
-        
-        try:
-            if games_config_path.exists():
-                with open(games_config_path, 'r', encoding='utf-8') as f:
-                    config_data = json.load(f)
-                    return config_data.get('games', fallback_games)
-            else:
-                print(f"Games config file not found at {games_config_path}, using fallback")
-                return fallback_games
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Error loading games config: {e}, using fallback")
-            return fallback_games
 
-    def _get_default_game_order(self) -> list:
-        """Get default game order from JSON config."""
-        games_config_path = Path(resource_path("resources/games_config.json"))
-        
-        try:
-            if games_config_path.exists():
-                with open(games_config_path, 'r', encoding='utf-8') as f:
-                    config_data = json.load(f)
-                    return config_data.get('default_order', list(self.games.keys()))
-            else:
-                return list(self.games.keys())
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Error loading default game order: {e}")
-            return list(self.games.keys())
 
     def _merge_game_order(self, saved_order: list, available_games: list) -> list:
         """Merge saved game order with new games from JSON config."""
@@ -770,6 +845,10 @@ class ConfigManager:
         target_files = set()
 
         for game_name, profile_list in self.profiles.items():
+            # Skip if game no longer exists in games config
+            if game_name not in self.games:
+                continue
+                
             # Add the default mods directory for this game
             default_mods_dir = self.config_root / self.games[game_name]["mods_dir"]
             if default_mods_dir.is_dir():
@@ -798,7 +877,6 @@ class ConfigManager:
         if set(current_dirs) != target_dirs:
             if current_dirs: self.file_watcher.removePaths(current_dirs)
             if target_dirs_list: self.file_watcher.addPaths(target_dirs_list)
-
 
         # Update file watcher
         if set(current_files) != target_files:
