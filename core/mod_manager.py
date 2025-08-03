@@ -449,19 +449,27 @@ class ImprovedModManager:
             return False, f"Error setting mod status: {str(e)}"
     
     def _set_native_enabled(self, config_data: Dict, mod_path: str, enabled: bool, game_name: str) -> Tuple[bool, str]:
-        """Set enabled status for a native (DLL) mod with improved path handling"""
+        """Set enabled status for a native (DLL) mod with improved path handling and debugging"""
+        print(f"DEBUG: _set_native_enabled called with mod_path='{mod_path}', enabled={enabled}")
+        
         natives = config_data.get("natives", [])
         mod_path_obj = Path(mod_path)
         mods_dir = self.config_manager.get_mods_dir(game_name)
         mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
         
+        print(f"DEBUG: mods_dir={mods_dir}")
+        print(f"DEBUG: mods_dir_name={mods_dir_name}")
+        print(f"DEBUG: config_root={self.config_manager.config_root}")
+        
         # Check if we're using a custom profile (not in default config_root)
         is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
+        print(f"DEBUG: is_custom_profile={is_custom_profile}")
         
         # Determine the correct path format for the config - always use normalized paths
         try:
             # Check if this is a nested mod (inside mods directory but not directly in it)
             relative_path = mod_path_obj.relative_to(mods_dir)
+            print(f"DEBUG: relative_path={relative_path}")
             
             if is_custom_profile:
                 # For custom profiles, always use full absolute paths
@@ -469,7 +477,8 @@ class ImprovedModManager:
             else:
                 # For default profiles, use the mods-dir/relative-path format
                 config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
-        except ValueError:
+        except ValueError as e:
+            print(f"DEBUG: ValueError in relative_to: {e}")
             # Not inside mods directory - external mod
             if mod_path_obj.parent == mods_dir:
                 # Direct child of mods directory
@@ -483,35 +492,44 @@ class ImprovedModManager:
                 # External mod - always use normalized absolute path
                 config_path = self._normalize_path(str(mod_path_obj.resolve()))
         
+        print(f"DEBUG: config_path='{config_path}'")
+        
         # Find existing entry using normalized path comparison
         native_entry = None
         native_index = -1
+        print(f"DEBUG: Looking through {len(natives)} existing natives:")
         for i, native in enumerate(natives):
             if isinstance(native, dict) and "path" in native:
                 existing_path = self._normalize_path(native.get("path", ""))
+                print(f"DEBUG: natives[{i}] path='{existing_path}'")
                 if existing_path == config_path:
                     native_entry = native
                     native_index = i
+                    print(f"DEBUG: Found matching entry at index {i}")
                     break
         
         if enabled:
             if native_entry is None:
                 # Create new entry
-                native_entry = {"path": config_path}
-                natives.append(native_entry)
+                new_entry = {"path": config_path}
+                natives.append(new_entry)
                 config_data["natives"] = natives
+                print(f"DEBUG: Created new native entry: {new_entry}")
                 return True, "Created new native entry"
             else:
                 # Entry already exists
+                print(f"DEBUG: Native entry already exists: {native_entry}")
                 return True, "Native entry already exists"
         else:
             if native_entry is not None:
                 # Remove the entry completely when disabling
-                natives.pop(native_index)
+                removed_entry = natives.pop(native_index)
                 config_data["natives"] = natives
+                print(f"DEBUG: Removed native entry: {removed_entry}")
                 return True, "Removed native entry"
             else:
                 # Nothing to disable
+                print(f"DEBUG: No entry found to disable")
                 return True, "Mod was already disabled"
     
     def _set_package_enabled(self, config_data: Dict, mod_name: str, enabled: bool, game_name: str) -> Tuple[bool, str]:
