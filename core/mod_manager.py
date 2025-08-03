@@ -285,8 +285,14 @@ class ImprovedModManager:
         for native in config_data.get("natives", []):
             if isinstance(native, dict) and "path" in native:
                 path = native["path"]
-                normalized_path = path.replace('\\', '/')
-                enabled_status[normalized_path] = True
+                
+                # Use the same key format as in _scan_internal_mods for consistency
+                if Path(path).is_absolute():
+                    # External mod - use full path
+                    enabled_status[path] = True
+                else:
+                    # Internal mod - use the full path format (mods-dir\filename.dll)
+                    enabled_status[path] = True
         
         # Parse packages - if present in config, it's enabled
         for package in config_data.get("packages", []):
@@ -306,10 +312,14 @@ class ImprovedModManager:
         for native in config_data.get("natives", []):
             if isinstance(native, dict) and "path" in native:
                 path = native["path"]
-                normalized_path = path.replace('\\', '/')
                 options = {k: v for k, v in native.items() if k not in ["path", "enabled"]}
                 if options:
-                    advanced_options[normalized_path] = options
+                    # Use the same key format as in _scan_internal_mods for consistency
+                    if Path(path).is_absolute():
+                        advanced_options[path] = options
+                    else:
+                        # Use the full path format (mods-dir\filename.dll) as key
+                        advanced_options[path] = options
         
         # Parse packages advanced options
         for package in config_data.get("packages", []):
@@ -339,7 +349,7 @@ class ImprovedModManager:
         
         for mod_path, mod_info in current_mods.items():
             if mod_info.is_external:
-                current_external_paths.add(self._normalize_path(mod_path))
+                current_external_paths.add(mod_path)
             elif mod_info.mod_type == ModType.DLL:
                 current_dll_names.add(mod_info.name + '.dll')
                 # For custom profiles, also track the absolute path
@@ -428,52 +438,66 @@ class ImprovedModManager:
         mod_path_obj = Path(mod_path)
         mods_dir = self.config_manager.get_mods_dir(game_name)
         mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
+        
+        # Check if we're using a custom profile (not in default config_root)
         is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
-
-        # Determine the correct path format for the config - THIS IS THE CORE FIX
-        config_path = ""
+        
+        # Determine the correct path format for the config - always use normalized paths
         try:
-            # Check if the mod is inside the active mods directory
+            # Check if this is a nested mod (inside mods directory but not directly in it)
             relative_path = mod_path_obj.relative_to(mods_dir)
+            
             if is_custom_profile:
-                # For custom profiles, always use full absolute paths with forward slashes
-                config_path = str(mod_path_obj.resolve()).replace('\\', '/')
+                # For custom profiles, always use full absolute paths
+                config_path = self._normalize_path(str(mod_path_obj.resolve()))
             else:
-                # For default profiles, use 'mods_dir_name\relative\path' format
-                config_path = f"{mods_dir_name}\\{str(relative_path).replace('/', '\\')}"
+                # For default profiles, use the mods-dir/relative-path format
+                config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
         except ValueError:
-            # Not inside mods directory, so it's an external mod. Use absolute path.
-            config_path = str(mod_path_obj.resolve()).replace('\\', '/')
-
-        # Find existing entry by comparing normalized paths to handle both separators
+            # Not inside mods directory - external mod
+            if mod_path_obj.parent == mods_dir:
+                # Direct child of mods directory
+                if is_custom_profile:
+                    # For custom profiles, use full absolute path
+                    config_path = self._normalize_path(str(mod_path_obj.resolve()))
+                else:
+                    # For default profiles, use mods-dir/filename format
+                    config_path = self._normalize_path(f"{mods_dir_name}/{mod_path_obj.name}")
+            else:
+                # External mod - always use normalized absolute path
+                config_path = self._normalize_path(str(mod_path_obj.resolve()))
+        
+        # Find existing entry using normalized path comparison
         native_entry = None
         native_index = -1
-        normalized_config_path = config_path.replace('\\', '/')
         for i, native in enumerate(natives):
             if isinstance(native, dict) and "path" in native:
-                existing_path = native.get("path", "").replace('\\', '/')
-                if existing_path == normalized_config_path:
+                existing_path = self._normalize_path(native.get("path", ""))
+                if existing_path == config_path:
                     native_entry = native
                     native_index = i
                     break
         
         if enabled:
             if native_entry is None:
-                # Create new entry with the correctly formatted path
+                # Create new entry
                 native_entry = {"path": config_path}
                 natives.append(native_entry)
                 config_data["natives"] = natives
                 return True, "Created new native entry"
             else:
+                # Entry already exists
                 return True, "Native entry already exists"
         else:
             if native_entry is not None:
+                # Remove the entry completely when disabling
                 natives.pop(native_index)
                 config_data["natives"] = natives
                 return True, "Removed native entry"
             else:
+                # Nothing to disable
                 return True, "Mod was already disabled"
-
+    
     def _set_package_enabled(self, config_data: Dict, mod_name: str, enabled: bool, game_name: str) -> Tuple[bool, str]:
         """Set enabled status for a package (folder) mod with improved logic"""
         packages = config_data.get("packages", [])
