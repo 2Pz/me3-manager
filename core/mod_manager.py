@@ -442,22 +442,30 @@ class ImprovedModManager:
         # Check if we're using a custom profile (not in default config_root)
         is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
         
-        # Determine the correct path format for the config - CONSISTENT between read and write
+        # Determine the correct path format for the config - always use normalized paths
         try:
-            # Check if this is inside the mods directory
+            # Check if this is a nested mod (inside mods directory but not directly in it)
             relative_path = mod_path_obj.relative_to(mods_dir)
             
-            # FIXED: Use the same logic as in _scan_internal_mods for consistency
             if is_custom_profile:
                 # For custom profiles, always use full absolute paths
                 config_path = self._normalize_path(str(mod_path_obj.resolve()))
             else:
-                # For default profiles, use the mods-dir/relative-path format  
+                # For default profiles, use the mods-dir/relative-path format
                 config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
-                
         except ValueError:
-            # Not inside mods directory - external mod, always use absolute path
-            config_path = self._normalize_path(str(mod_path_obj.resolve()))
+            # Not inside mods directory - external mod
+            if mod_path_obj.parent == mods_dir:
+                # Direct child of mods directory
+                if is_custom_profile:
+                    # For custom profiles, use full absolute path
+                    config_path = self._normalize_path(str(mod_path_obj.resolve()))
+                else:
+                    # For default profiles, use mods-dir/filename format
+                    config_path = self._normalize_path(f"{mods_dir_name}/{mod_path_obj.name}")
+            else:
+                # External mod - always use normalized absolute path
+                config_path = self._normalize_path(str(mod_path_obj.resolve()))
         
         # Find existing entry using normalized path comparison
         native_entry = None
