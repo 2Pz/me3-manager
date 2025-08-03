@@ -119,16 +119,32 @@ class ImprovedModManager:
                 # For default profiles, use mods-dir-name/filename format
                 config_key = self._normalize_path(f"{mods_dir_name}/{dll_file.name}")
             
+            # ALSO check for the alternative path format to handle existing configs
+            alt_config_key = None
+            if is_custom_profile:
+                # Also check for the mods-dir/filename format in case config uses that
+                alt_config_key = self._normalize_path(f"{mods_dir_name}/{dll_file.name}")
+            else:
+                # Also check for absolute path format in case config uses that
+                alt_config_key = self._normalize_path(str(dll_file.resolve()))
+            
+            # Check both possible config keys
+            is_enabled = enabled_status.get(config_key, False) or (alt_config_key and enabled_status.get(alt_config_key, False))
+            mod_options = advanced_options.get(config_key, {})
+            if not mod_options and alt_config_key:
+                mod_options = advanced_options.get(alt_config_key, {})
+            
             mod_info = ModInfo(
                 path=mod_path,
                 name=dll_file.stem,
                 mod_type=ModType.DLL,
-                status=ModStatus.ENABLED if enabled_status.get(config_key, False) else ModStatus.DISABLED,
+                status=ModStatus.ENABLED if is_enabled else ModStatus.DISABLED,
                 is_external=False,
-                advanced_options=advanced_options.get(config_key, {})
+                advanced_options=mod_options
             )
             mods[mod_path] = mod_info
         
+        # Rest of the method remains the same...
         # Scan for package mods
         active_regulation_mod = self._get_active_regulation_mod(mods_dir)
         
