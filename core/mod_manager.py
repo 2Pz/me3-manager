@@ -494,19 +494,55 @@ class ImprovedModManager:
         
         print(f"DEBUG: config_path='{config_path}'")
         
-        # Find existing entry using normalized path comparison
+        # Find existing entry using multiple path comparison strategies
         native_entry = None
         native_index = -1
         print(f"DEBUG: Looking through {len(natives)} existing natives:")
+        
         for i, native in enumerate(natives):
             if isinstance(native, dict) and "path" in native:
                 existing_path = self._normalize_path(native.get("path", ""))
                 print(f"DEBUG: natives[{i}] path='{existing_path}'")
+                
+                # Strategy 1: Direct path comparison
                 if existing_path == config_path:
                     native_entry = native
                     native_index = i
-                    print(f"DEBUG: Found matching entry at index {i}")
+                    print(f"DEBUG: Found matching entry at index {i} (direct match)")
                     break
+                
+                # Strategy 2: Compare resolved absolute paths
+                try:
+                    existing_resolved = self._normalize_path(str(Path(existing_path).resolve()))
+                    config_resolved = self._normalize_path(str(Path(config_path).resolve()))
+                    if existing_resolved == config_resolved:
+                        native_entry = native
+                        native_index = i
+                        print(f"DEBUG: Found matching entry at index {i} (resolved path match)")
+                        break
+                except Exception as resolve_error:
+                    print(f"DEBUG: Could not resolve paths for comparison: {resolve_error}")
+                
+                # Strategy 3: For custom profiles, also check if existing path matches the input mod_path
+                if is_custom_profile:
+                    input_resolved = self._normalize_path(str(mod_path_obj.resolve()))
+                    if existing_path == input_resolved:
+                        native_entry = native
+                        native_index = i
+                        print(f"DEBUG: Found matching entry at index {i} (input path match)")
+                        break
+                
+                # Strategy 4: Compare just the filenames for mods in the same directory
+                try:
+                    existing_path_obj = Path(existing_path)
+                    if (existing_path_obj.name == mod_path_obj.name and 
+                        existing_path_obj.parent.resolve() == mod_path_obj.parent.resolve()):
+                        native_entry = native
+                        native_index = i
+                        print(f"DEBUG: Found matching entry at index {i} (filename + parent match)")
+                        break
+                except Exception as filename_error:
+                    print(f"DEBUG: Could not compare filenames: {filename_error}")
         
         if enabled:
             if native_entry is None:
@@ -517,7 +553,11 @@ class ImprovedModManager:
                 print(f"DEBUG: Created new native entry: {new_entry}")
                 return True, "Created new native entry"
             else:
-                # Entry already exists
+                # Entry already exists - but make sure it uses the correct path format
+                if native_entry["path"] != config_path:
+                    print(f"DEBUG: Updating existing entry path from '{native_entry['path']}' to '{config_path}'")
+                    native_entry["path"] = config_path
+                    config_data["natives"] = natives
                 print(f"DEBUG: Native entry already exists: {native_entry}")
                 return True, "Native entry already exists"
         else:
