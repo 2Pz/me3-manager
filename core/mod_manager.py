@@ -99,60 +99,71 @@ class ImprovedModManager:
         
         return all_mods
     
+    def _get_config_key_for_mod(self, mod_path: str, game_name: str) -> str:
+        """
+        Get the correct config key for a mod path, using the same logic for both
+        scanning and enabling/disabling operations.
+        """
+        mod_path_obj = Path(mod_path)
+        mods_dir = self.config_manager.get_mods_dir(game_name)
+        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
+        
+        # Check if we're using a custom profile
+        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
+        
+        if is_custom_profile:
+            # For custom profiles, always use normalized absolute paths
+            return self._normalize_path(str(mod_path_obj.resolve()))
+        else:
+            # For default profiles, use relative format
+            try:
+                # Try to get relative path from mods directory
+                relative_path = mod_path_obj.relative_to(mods_dir)
+                return self._normalize_path(f"{mods_dir_name}/{relative_path}")
+            except ValueError:
+                # External mod - use absolute path
+                return self._normalize_path(str(mod_path_obj.resolve()))
+
+    def _find_native_entry(self, natives: List[Dict], config_key: str) -> Tuple[Optional[Dict], int]:
+        """
+        Find a native entry by config key with normalized path comparison.
+        Returns (entry, index) or (None, -1) if not found.
+        """
+        for i, native in enumerate(natives):
+            if isinstance(native, dict) and "path" in native:
+                existing_path = self._normalize_path(native.get("path", ""))
+                if existing_path == config_key:
+                    return native, i
+        return None, -1
+    
     def _scan_internal_mods(self, game_name: str, mods_dir: Path, enabled_status: Dict, advanced_options: Dict) -> Dict[str, ModInfo]:
         """Scan filesystem for internal mods (DLLs and packages)"""
         mods = {}
-        
-        # Check if we're using a custom profile (not in default config_root)
-        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
         
         # Scan for DLL mods
         for dll_file in mods_dir.glob("*.dll"):
             mod_path = str(dll_file)
             
-            # Use the same logic as _set_native_enabled for config key generation
-            if is_custom_profile:
-                # For custom profiles, use full absolute path as config key
-                config_key = self._normalize_path(str(dll_file.resolve()))
-            else:
-                # For default profiles, use mods-dir-name/filename format
-                config_key = self._normalize_path(f"{mods_dir_name}/{dll_file.name}")
-            
-            # ALSO check for the alternative path format to handle existing configs
-            alt_config_key = None
-            if is_custom_profile:
-                # Also check for the mods-dir/filename format in case config uses that
-                alt_config_key = self._normalize_path(f"{mods_dir_name}/{dll_file.name}")
-            else:
-                # Also check for absolute path format in case config uses that
-                alt_config_key = self._normalize_path(str(dll_file.resolve()))
-            
-            # Check both possible config keys
-            is_enabled = enabled_status.get(config_key, False) or (alt_config_key and enabled_status.get(alt_config_key, False))
-            mod_options = advanced_options.get(config_key, {})
-            if not mod_options and alt_config_key:
-                mod_options = advanced_options.get(alt_config_key, {})
+            # Use helper function for consistent config key generation
+            config_key = self._get_config_key_for_mod(mod_path, game_name)
             
             mod_info = ModInfo(
                 path=mod_path,
                 name=dll_file.stem,
                 mod_type=ModType.DLL,
-                status=ModStatus.ENABLED if is_enabled else ModStatus.DISABLED,
+                status=ModStatus.ENABLED if enabled_status.get(config_key, False) else ModStatus.DISABLED,
                 is_external=False,
-                advanced_options=mod_options
+                advanced_options=advanced_options.get(config_key, {})
             )
             mods[mod_path] = mod_info
         
-        # Rest of the method remains the same...
-        # Scan for package mods
+        # Scan for package mods (unchanged)
         active_regulation_mod = self._get_active_regulation_mod(mods_dir)
         
         for folder in mods_dir.iterdir():
             if not folder.is_dir() or folder.name == self.config_manager.games[game_name]['mods_dir']:
                 continue
             
-            # Check if it's a valid mod folder
             is_valid = self._is_valid_mod_folder(folder)
             
             if is_valid:
@@ -198,45 +209,27 @@ class ImprovedModManager:
         return None
     
     def _scan_nested_mods(self, game_name: str, mods_dir: Path, enabled_status: Dict, advanced_options: Dict) -> Dict[str, ModInfo]:
-        """
-        Scan for nested mods within package folders.
-        These are DLLs that exist inside package mod folders and should be treated as separate mods.
-        """
+        """Scan for nested mods within package folders."""
         nested_mods = {}
-        
-        # Check if we're using a custom profile (not in default config_root)
-        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
         
         # Scan through all package folders
         for folder in mods_dir.iterdir():
             if not folder.is_dir() or folder.name == self.config_manager.games[game_name]['mods_dir']:
                 continue
             
-            # Check if this folder is a valid mod package
             if not self._is_valid_mod_folder(folder):
                 continue
             
             # Recursively scan for DLL files within this package
             for dll_file in folder.rglob("*.dll"):
-                # Create a relative path from the mods directory
                 try:
-                    relative_path = dll_file.relative_to(mods_dir)
-                    
-                    # Use the same logic as _set_native_enabled for config key generation
-                    if is_custom_profile:
-                        # For custom profiles, use full absolute path as config key
-                        config_key = self._normalize_path(str(dll_file.resolve()))
-                    else:
-                        # For default profiles, use mods-dir-name/relative-path format
-                        config_key = self._normalize_path(f"{mods_dir_name}/{relative_path}")
-                    
-                    # Create a unique identifier for this nested mod
+                    # Use helper function for consistent config key generation
                     nested_mod_path = str(dll_file)
+                    config_key = self._get_config_key_for_mod(nested_mod_path, game_name)
                     
                     mod_info = ModInfo(
                         path=nested_mod_path,
-                        name=f"{folder.name}/{dll_file.stem}",  # Show parent/child relationship
+                        name=f"{folder.name}/{dll_file.stem}",
                         mod_type=ModType.NESTED,
                         status=ModStatus.ENABLED if enabled_status.get(config_key, False) else ModStatus.DISABLED,
                         is_external=False,
@@ -246,8 +239,7 @@ class ImprovedModManager:
                     
                     nested_mods[nested_mod_path] = mod_info
                     
-                except ValueError:
-                    # Skip if we can't get relative path
+                except Exception:
                     continue
         
         return nested_mods
@@ -352,59 +344,29 @@ class ImprovedModManager:
         profile_path = self.config_manager.get_profile_path(game_name)
         config_data = self.config_manager._parse_toml_config(profile_path)
         
-        # Get current mod identifiers including nested mods
-        current_dll_names = set()
+        # Get current mod config keys using the helper function
+        current_config_keys = set()
         current_package_names = set()
         current_external_paths = set()
-        current_nested_paths = set()  # Track nested mod paths
-        current_absolute_paths = set()  # Track absolute paths for custom profiles
-        
-        mods_dir = self.config_manager.get_mods_dir(game_name)
-        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
         
         for mod_path, mod_info in current_mods.items():
             if mod_info.is_external:
-                current_external_paths.add(mod_path)
-            elif mod_info.mod_type == ModType.DLL:
-                current_dll_names.add(mod_info.name + '.dll')
-                # For custom profiles, also track the absolute path
-                if is_custom_profile:
-                    current_absolute_paths.add(self._normalize_path(mod_path))
-            elif mod_info.mod_type == ModType.NESTED:
-                # For nested mods, handle both custom and default profiles
-                try:
-                    relative_path = Path(mod_path).relative_to(mods_dir)
-                    if is_custom_profile:
-                        # For custom profiles, track the absolute path
-                        current_absolute_paths.add(self._normalize_path(mod_path))
-                    else:
-                        # For default profiles, track the relative path format
-                        full_config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
-                        current_nested_paths.add(full_config_path)
-                except ValueError:
-                    pass
+                current_external_paths.add(self._normalize_path(mod_path))
+            elif mod_info.mod_type in [ModType.DLL, ModType.NESTED]:
+                config_key = self._get_config_key_for_mod(mod_path, game_name)
+                current_config_keys.add(config_key)
             else:  # PACKAGE
                 current_package_names.add(mod_info.name)
         
-        # Clean up natives
+        # Clean up natives using normalized path comparison
         valid_natives = []
         for native in config_data.get("natives", []):
             if isinstance(native, dict) and "path" in native:
-                path = native["path"]
-                normalized_path = self._normalize_path(path)
-                
-                if Path(path).is_absolute():
-                    # Check if it's an external mod or a custom profile mod
-                    if path in current_external_paths or normalized_path in current_absolute_paths:
-                        valid_natives.append(native)
-                else:
-                    # Internal mod with relative path - check if it's a direct DLL or nested mod
-                    filename = Path(path).name
-                    if filename in current_dll_names or normalized_path in current_nested_paths:
-                        valid_natives.append(native)
+                normalized_path = self._normalize_path(native["path"])
+                if normalized_path in current_config_keys or normalized_path in current_external_paths:
+                    valid_natives.append(native)
         
-        # Clean up packages (keep main mods dir)
+        # Clean up packages (keep main mods dir) - unchanged
         valid_packages = []
         main_mods_dir = self.config_manager.games[game_name]["mods_dir"]
         
@@ -416,7 +378,7 @@ class ImprovedModManager:
         
         # Update config if needed
         if len(valid_natives) != len(config_data.get("natives", [])) or \
-           len(valid_packages) != len(config_data.get("packages", [])):
+        len(valid_packages) != len(config_data.get("packages", [])):
             config_data["natives"] = valid_natives
             config_data["packages"] = valid_packages
             self._write_improved_config(profile_path, config_data, game_name)
@@ -449,127 +411,33 @@ class ImprovedModManager:
             return False, f"Error setting mod status: {str(e)}"
     
     def _set_native_enabled(self, config_data: Dict, mod_path: str, enabled: bool, game_name: str) -> Tuple[bool, str]:
-        """Set enabled status for a native (DLL) mod with improved path handling and debugging"""
-        print(f"DEBUG: _set_native_enabled called with mod_path='{mod_path}', enabled={enabled}")
-        
+        """Set enabled status for a native (DLL) mod with consistent path handling"""
         natives = config_data.get("natives", [])
-        mod_path_obj = Path(mod_path)
-        mods_dir = self.config_manager.get_mods_dir(game_name)
-        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
         
-        print(f"DEBUG: mods_dir={mods_dir}")
-        print(f"DEBUG: mods_dir_name={mods_dir_name}")
-        print(f"DEBUG: config_root={self.config_manager.config_root}")
+        # Use helper function for consistent config key generation
+        config_key = self._get_config_key_for_mod(mod_path, game_name)
         
-        # Check if we're using a custom profile (not in default config_root)
-        is_custom_profile = mods_dir != (self.config_manager.config_root / mods_dir_name)
-        print(f"DEBUG: is_custom_profile={is_custom_profile}")
-        
-        # Determine the correct path format for the config - always use normalized paths
-        try:
-            # Check if this is a nested mod (inside mods directory but not directly in it)
-            relative_path = mod_path_obj.relative_to(mods_dir)
-            print(f"DEBUG: relative_path={relative_path}")
-            
-            if is_custom_profile:
-                # For custom profiles, always use full absolute paths
-                config_path = self._normalize_path(str(mod_path_obj.resolve()))
-            else:
-                # For default profiles, use the mods-dir/relative-path format
-                config_path = self._normalize_path(f"{mods_dir_name}/{relative_path}")
-        except ValueError as e:
-            print(f"DEBUG: ValueError in relative_to: {e}")
-            # Not inside mods directory - external mod
-            if mod_path_obj.parent == mods_dir:
-                # Direct child of mods directory
-                if is_custom_profile:
-                    # For custom profiles, use full absolute path
-                    config_path = self._normalize_path(str(mod_path_obj.resolve()))
-                else:
-                    # For default profiles, use mods-dir/filename format
-                    config_path = self._normalize_path(f"{mods_dir_name}/{mod_path_obj.name}")
-            else:
-                # External mod - always use normalized absolute path
-                config_path = self._normalize_path(str(mod_path_obj.resolve()))
-        
-        print(f"DEBUG: config_path='{config_path}'")
-        
-        # Find existing entry using multiple path comparison strategies
-        native_entry = None
-        native_index = -1
-        print(f"DEBUG: Looking through {len(natives)} existing natives:")
-        
-        for i, native in enumerate(natives):
-            if isinstance(native, dict) and "path" in native:
-                existing_path = self._normalize_path(native.get("path", ""))
-                print(f"DEBUG: natives[{i}] path='{existing_path}'")
-                
-                # Strategy 1: Direct path comparison
-                if existing_path == config_path:
-                    native_entry = native
-                    native_index = i
-                    print(f"DEBUG: Found matching entry at index {i} (direct match)")
-                    break
-                
-                # Strategy 2: Compare resolved absolute paths
-                try:
-                    existing_resolved = self._normalize_path(str(Path(existing_path).resolve()))
-                    config_resolved = self._normalize_path(str(Path(config_path).resolve()))
-                    if existing_resolved == config_resolved:
-                        native_entry = native
-                        native_index = i
-                        print(f"DEBUG: Found matching entry at index {i} (resolved path match)")
-                        break
-                except Exception as resolve_error:
-                    print(f"DEBUG: Could not resolve paths for comparison: {resolve_error}")
-                
-                # Strategy 3: For custom profiles, also check if existing path matches the input mod_path
-                if is_custom_profile:
-                    input_resolved = self._normalize_path(str(mod_path_obj.resolve()))
-                    if existing_path == input_resolved:
-                        native_entry = native
-                        native_index = i
-                        print(f"DEBUG: Found matching entry at index {i} (input path match)")
-                        break
-                
-                # Strategy 4: Compare just the filenames for mods in the same directory
-                try:
-                    existing_path_obj = Path(existing_path)
-                    if (existing_path_obj.name == mod_path_obj.name and 
-                        existing_path_obj.parent.resolve() == mod_path_obj.parent.resolve()):
-                        native_entry = native
-                        native_index = i
-                        print(f"DEBUG: Found matching entry at index {i} (filename + parent match)")
-                        break
-                except Exception as filename_error:
-                    print(f"DEBUG: Could not compare filenames: {filename_error}")
+        # Find existing entry using helper function
+        native_entry, native_index = self._find_native_entry(natives, config_key)
         
         if enabled:
             if native_entry is None:
                 # Create new entry
-                new_entry = {"path": config_path}
-                natives.append(new_entry)
+                native_entry = {"path": config_key}
+                natives.append(native_entry)
                 config_data["natives"] = natives
-                print(f"DEBUG: Created new native entry: {new_entry}")
                 return True, "Created new native entry"
             else:
-                # Entry already exists - but make sure it uses the correct path format
-                if native_entry["path"] != config_path:
-                    print(f"DEBUG: Updating existing entry path from '{native_entry['path']}' to '{config_path}'")
-                    native_entry["path"] = config_path
-                    config_data["natives"] = natives
-                print(f"DEBUG: Native entry already exists: {native_entry}")
+                # Entry already exists
                 return True, "Native entry already exists"
         else:
             if native_entry is not None:
                 # Remove the entry completely when disabling
-                removed_entry = natives.pop(native_index)
+                natives.pop(native_index)
                 config_data["natives"] = natives
-                print(f"DEBUG: Removed native entry: {removed_entry}")
                 return True, "Removed native entry"
             else:
                 # Nothing to disable
-                print(f"DEBUG: No entry found to disable")
                 return True, "Mod was already disabled"
     
     def _set_package_enabled(self, config_data: Dict, mod_name: str, enabled: bool, game_name: str) -> Tuple[bool, str]:
