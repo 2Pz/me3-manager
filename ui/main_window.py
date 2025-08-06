@@ -3,6 +3,7 @@ import sys
 import requests
 import os
 import re
+from ui.game_management_dialog import GameManagementDialog
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel,
@@ -258,6 +259,111 @@ class ModEngine3Manager(QMainWindow):
         self.auto_launch_steam_if_enabled()
         self.check_for_me3_updates_if_enabled()
 
+    def add_game(self, game_name: str):
+        if game_name in self.game_buttons:
+            return
+        btn = DraggableGameButton(game_name)
+        btn.setFixedHeight(45)
+        btn.setStyleSheet("/* same style as before */")
+        btn.setCheckable(True)
+        btn.clicked.connect(lambda checked, name=game_name: self.switch_game(name))
+        self.game_container.add_game_button(game_name, btn)
+        self.game_buttons[game_name] = btn
+
+        page = GamePage(game_name, self.config_manager)
+        page.setVisible(False)
+        self.content_layout.insertWidget(-1, page)
+        self.game_pages[game_name] = page
+
+    def remove_game(self, game_name: str):
+        btn = self.game_buttons.pop(game_name, None)
+        if btn:
+            self.game_container.remove_game_button(btn)
+        page = self.game_pages.pop(game_name, None)
+        if page:
+            self.content_layout.removeWidget(page)
+            page.deleteLater()
+
+
+    def show_game_management_dialog(self):
+        """Show the game management dialog"""
+        dialog = GameManagementDialog(self.config_manager, self)
+        dialog.exec()
+
+    def refresh_sidebar(self):
+        """
+        Refreshes the sidebar and content area after games have been
+        added, removed, or reordered, ensuring the correct layout is maintained.
+        """
+        # 1. Preserve the current state (which game is selected)
+        current_game = None
+        for name, button in self.game_buttons.items():
+            if button.isChecked():
+                current_game = name
+                break
+
+        # 2. Detach the terminal to preserve it while we rebuild the layout
+        self.content_layout.removeWidget(self.terminal)
+
+        # 3. Completely clear all old UI elements
+        # Clear sidebar buttons from the container
+        for button in self.game_buttons.values():
+            self.game_container.remove_game_button(button)
+        self.game_buttons.clear()
+
+        # Clear content pages from the layout and delete them
+        for page in self.game_pages.values():
+            self.content_layout.removeWidget(page)
+            page.deleteLater()
+        self.game_pages.clear()
+
+        # At this point, the content_layout is empty.
+
+        # 4. Rebuild the sidebar with the new game order
+        game_order = self.config_manager.get_game_order()
+        for game_name in game_order:
+            btn = DraggableGameButton(game_name)
+            btn.setFixedHeight(45)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px;
+                    padding: 8px 16px; text-align: left; font-size: 13px; font-weight: 500;
+                }
+                QPushButton:hover { background-color: #3d3d3d; border-color: #4d4d4d; }
+                QPushButton:checked { background-color: #0078d4; border-color: #0078d4; color: white; }
+            """)
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked, name=game_name: self.switch_game(name))
+            self.game_container.add_game_button(game_name, btn)
+            self.game_buttons[game_name] = btn
+        
+        self.game_container.set_game_order(game_order)
+
+        # 5. Rebuild the game pages in the content area
+        from ui.game_page import GamePage
+        # Iterate through the ordered list to add pages sequentially
+        for game_name in game_order:
+            if game_name in self.config_manager.games:
+                page = GamePage(game_name, self.config_manager)
+                page.setVisible(False)
+                self.content_layout.addWidget(page)  # Add to the end of the (now empty) layout
+                self.game_pages[game_name] = page
+
+        # 6. Re-attach the terminal at the very end of the layout
+        self.content_layout.addWidget(self.terminal)
+
+        # 7. Restore the active game selection
+        all_games = self.config_manager.get_game_order()
+        if not all_games:
+            # If no games are left, the view will be empty except for the terminal.
+            pass
+        elif current_game and current_game in self.game_buttons:
+            # If the previously selected game still exists, re-select it.
+            self.switch_game(current_game)
+        else:
+            # Otherwise, default to the first game in the new list.
+            self.switch_game(all_games[0])
+
     def check_for_me3_updates_if_enabled(self):
         """Check for ME3 updates on startup if enabled in settings."""
         if not self.config_manager.get_check_for_updates():
@@ -366,6 +472,12 @@ class ModEngine3Manager(QMainWindow):
         self.game_container.set_game_order(game_order)
         layout.addWidget(self.game_container)
         layout.addStretch()
+        
+        # Manage Games button
+        manage_games_button = QPushButton("Manage Games")
+        manage_games_button.clicked.connect(self.show_game_management_dialog)
+        layout.addWidget(manage_games_button)
+        
         help_button = QPushButton("Help / About")
         help_button.clicked.connect(self.show_help_dialog)
         layout.addWidget(help_button)

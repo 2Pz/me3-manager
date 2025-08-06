@@ -114,6 +114,20 @@ class DraggableGameContainer(QWidget):
         self.layout.addWidget(button_widget)
         if game_name not in self.game_order:
             self.game_order.append(game_name)
+
+    def remove_game_button(self, button):
+        """Remove a game button from the container"""
+        if button in self.game_buttons.values():
+            button.setParent(None)
+            # Remove from internal tracking
+            for game_name, btn in list(self.game_buttons.items()):
+                if btn == button:
+                    del self.game_buttons[game_name]
+                    break
+
+            # Update layout
+            self._reorder_widgets()
+
     
     def set_game_order(self, new_order: List[str]):
         """Set the order of game buttons"""
