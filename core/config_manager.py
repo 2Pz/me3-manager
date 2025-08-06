@@ -576,9 +576,53 @@ class ConfigManager:
         }
         
         self._write_toml_config(profile_path, config_data)
-    
+
+    def _normalize_and_deduplicate_config_paths(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize all paths in config data to use forward slashes and remove duplicates.
+        If both backslash and forward slash versions exist, keep only the forward slash version.
+        """
+        # Normalize and deduplicate natives
+        if "natives" in config_data:
+            seen_paths = {}  # normalized_path -> entry_with_most_options
+            
+            for native in config_data["natives"]:
+                if isinstance(native, dict) and "path" in native:
+                    original_path = native["path"]
+                    normalized_path = original_path.replace('\\', '/')
+                    
+                    if normalized_path in seen_paths:
+                        # Compare which entry has more advanced options and keep the better one
+                        existing_entry = seen_paths[normalized_path]
+                        current_options = len([k for k in native.keys() if k not in ["path", "enabled"]])
+                        existing_options = len([k for k in existing_entry.keys() if k not in ["path", "enabled"]])
+                        
+                        if current_options > existing_options:
+                            # Current entry has more options, replace
+                            native["path"] = normalized_path
+                            seen_paths[normalized_path] = native
+                        # else: keep existing entry
+                    else:
+                        # First time seeing this path, normalize and store
+                        native["path"] = normalized_path
+                        seen_paths[normalized_path] = native
+            
+            # Replace natives with deduplicated list
+            config_data["natives"] = list(seen_paths.values())
+        
+        # Normalize and deduplicate packages
+        if "packages" in config_data:
+            for package in config_data["packages"]:
+                if isinstance(package, dict):
+                    if "path" in package:
+                        package["path"] = package["path"].replace('\\', '/')
+                    if "source" in package:
+                        package["source"] = package["source"].replace('\\', '/')
+        
+        return config_data
+        
     def _parse_toml_config(self, config_path: Path) -> Dict[str, Any]:
-        """Parse TOML config file, with fallback to regex parsing"""
+        """Parse TOML config file, with fallback to regex parsing and path normalization"""
         if not config_path.exists():
             return {"profileVersion": "v1", "natives": [], "packages": [], "supports": []}
         
@@ -586,12 +630,18 @@ class ConfigManager:
             # Try using TOML library first
             if tomllib:
                 with open(config_path, 'rb') as f:
-                    return tomllib.load(f)
+                    config_data = tomllib.load(f)
+                    # Normalize and deduplicate paths
+                    config_data = self._normalize_and_deduplicate_config_paths(config_data)
+                    return config_data
         except Exception as e:
             print(f"TOML parsing failed, trying fallback: {e}")
         
         # Fallback to regex parsing for malformed files
-        return self._parse_config_fallback(config_path)
+        config_data = self._parse_config_fallback(config_path)
+        # Normalize and deduplicate paths
+        config_data = self._normalize_and_deduplicate_config_paths(config_data)
+        return config_data
     
     def _parse_config_fallback(self, config_path: Path) -> Dict[str, Any]:
         """Fallback parser for malformed TOML files"""
@@ -1663,32 +1713,48 @@ class ConfigManager:
         """
         Removes entries from the profile file that point to non-existent files or folders.
         This cleans up the config if a user manually deletes mod files.
+        Also normalizes paths and removes duplicates.
         """
         profile_path = self.get_profile_path(game_name)
         if not profile_path.exists():
             return
 
-        config_data = self._parse_toml_config(profile_path)
+        config_data = self._parse_toml_config(profile_path)  # This now includes normalization
         config_modified = False
 
         # Sync Natives (DLLs) ---
         if "natives" in config_data:
             original_natives = config_data.get("natives", [])
             valid_natives = []
+            seen_normalized_paths = set()
+            
             for native_entry in original_natives:
                 path_str = native_entry.get("path", "")
                 if not path_str:
                     continue
-              
-                path_obj = Path(path_str)
+                
+                # Normalize the path
+                normalized_path = path_str.replace('\\', '/')
+                
+                # Skip if we've already seen this normalized path (deduplication)
+                if normalized_path in seen_normalized_paths:
+                    config_modified = True
+                    continue
+                
+                path_obj = Path(normalized_path)
                 full_path = path_obj
                 
                 # If path is not absolute, it's assumed to be relative to the default config root.
                 if not path_obj.is_absolute():
-                    full_path = self.config_root / path_str.replace('\\', '/')
+                    full_path = self.config_root / normalized_path
         
                 if full_path.exists():
+                    # Update the entry to use normalized path
+                    native_entry["path"] = normalized_path
                     valid_natives.append(native_entry)
+                    seen_normalized_paths.add(normalized_path)
+                else:
+                    config_modified = True
             
             if len(valid_natives) != len(original_natives):
                 config_data["natives"] = valid_natives
@@ -1742,7 +1808,7 @@ class ConfigManager:
                  config_data["packages"] = valid_packages
 
         if config_modified:
-            print(f"Saving updated profile for '{game_name}' after syncing with filesystem.")
+            print(f"Saving updated profile for '{game_name}' after syncing with filesystem and normalizing paths.")
             self._write_toml_config(profile_path, config_data)
 
     def get_game_order(self) -> List[str]:

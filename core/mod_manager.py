@@ -129,10 +129,12 @@ class ImprovedModManager:
         Find a native entry by config key with normalized path comparison.
         Returns (entry, index) or (None, -1) if not found.
         """
+        normalized_search_key = config_key.replace('\\', '/')
+        
         for i, native in enumerate(natives):
             if isinstance(native, dict) and "path" in native:
-                existing_path = self._normalize_path(native.get("path", ""))
-                if existing_path == config_key:
+                existing_path = native.get("path", "").replace('\\', '/')
+                if existing_path == normalized_search_key:
                     return native, i
         return None, -1
     
@@ -293,14 +295,16 @@ class ImprovedModManager:
         for native in config_data.get("natives", []):
             if isinstance(native, dict) and "path" in native:
                 path = native["path"]
+                # Ensure path is normalized
+                normalized_path = path.replace('\\', '/')
                 
                 # Use the same key format as in _scan_internal_mods for consistency
-                if Path(path).is_absolute():
-                    # External mod - use full path
-                    enabled_status[path] = True
+                if Path(normalized_path).is_absolute():
+                    # External mod - use full normalized path
+                    enabled_status[normalized_path] = True
                 else:
-                    # Internal mod - use the full path format (mods-dir\filename.dll)
-                    enabled_status[path] = True
+                    # Internal mod - use the normalized path format
+                    enabled_status[normalized_path] = True
         
         # Parse packages - if present in config, it's enabled
         for package in config_data.get("packages", []):
@@ -320,14 +324,17 @@ class ImprovedModManager:
         for native in config_data.get("natives", []):
             if isinstance(native, dict) and "path" in native:
                 path = native["path"]
+                # Ensure path is normalized
+                normalized_path = path.replace('\\', '/')
+                
                 options = {k: v for k, v in native.items() if k not in ["path", "enabled"]}
                 if options:
-                    # Use the same key format as in _scan_internal_mods for consistency
-                    if Path(path).is_absolute():
-                        advanced_options[path] = options
+                    # Use the normalized path as key
+                    if Path(normalized_path).is_absolute():
+                        advanced_options[normalized_path] = options
                     else:
-                        # Use the full path format (mods-dir\filename.dll) as key
-                        advanced_options[path] = options
+                        # Use the normalized path format
+                        advanced_options[normalized_path] = options
         
         # Parse packages advanced options
         for package in config_data.get("packages", []):
