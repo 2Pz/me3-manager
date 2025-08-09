@@ -172,6 +172,16 @@ class HelpAboutDialog(QDialog):
             self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
 
+        # Custom installer button
+        custom_btn_text = f"Custom Portable Installer (Env Fix)"
+        if versions_info['stable']['version']:
+            custom_btn_text += f" ({versions_info['stable']['version']})"
+        self.custom_button = QPushButton(custom_btn_text)
+        self.custom_button.clicked.connect(lambda: self.handle_custom_install('latest'))
+        if not versions_info['stable']['available']:
+            self.custom_button.setDisabled(True)
+        layout.addWidget(self.custom_button)
+
         # Pre-release installer button
         btn_text = f"Download Pre-release Installer"
         if versions_info['prerelease']['version']:
@@ -181,7 +191,7 @@ class HelpAboutDialog(QDialog):
         if not versions_info['prerelease']['available']:
             self.prerelease_button.setDisabled(True)
         layout.addWidget(self.prerelease_button)
-    
+        
     def setup_linux_buttons(self, layout):
         """Creates buttons for Linux/macOS, highlighting the stable official script."""
         # Get version info using the centralized version manager
@@ -208,10 +218,9 @@ class HelpAboutDialog(QDialog):
             self.prerelease_button.setDisabled(True)
         layout.addWidget(self.prerelease_button)
 
-    def handle_custom_install(self):
-        """Handle installation using the custom installer script."""
-        custom_installer_url = "https://github.com/2Pz/me3-manager/releases/download/Linux-0.0.1/installer.sh"
-        self.version_manager.install_linux_me3(custom_installer_url=custom_installer_url)
+    def handle_custom_install(self, release_type):
+        """Handle custom Windows ME3 installation using the version manager."""
+        self.version_manager.custom_install_windows_me3(release_type)
         self.accept()
 
     def handle_update_cli(self):
@@ -240,12 +249,13 @@ class ModEngine3Manager(QMainWindow):
         
         # Initialize the centralized version manager
         self.version_manager = ME3VersionManager(
-            parent_widget=self,
-            config_manager=self.config_manager,
-            refresh_callback=self.refresh_me3_status
-        )
+        parent_widget=self,
+        config_manager=self.config_manager,
+        refresh_callback=self.refresh_me3_status 
+    )
         
         self.init_ui()
+
    
         self.refresh_timer = QTimer(self)
         self.refresh_timer.setSingleShot(True)
