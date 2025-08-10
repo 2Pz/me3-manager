@@ -18,7 +18,7 @@ class SettingsDialog(QDialog):
         """Initialize the settings dialog UI"""
         self.setWindowTitle("Settings")
         self.setMinimumWidth(450)
-        self.setMinimumHeight(300)
+        self.setMinimumHeight(350)
         self.apply_styles()
         
         layout = QVBoxLayout(self)
