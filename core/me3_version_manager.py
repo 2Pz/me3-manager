@@ -6,7 +6,9 @@ import re
 from typing import Optional, Tuple, Callable
 from pathlib import Path
 import zipfile
-import winreg
+if sys.platform == "win32":
+    import winreg
+import requests
 import ctypes
 from ctypes import wintypes
 
