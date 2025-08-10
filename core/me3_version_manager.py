@@ -396,8 +396,7 @@ class ME3VersionManager:
             f"Install ME3 Custom ({version})",
             f"This will download and install ME3 {version} to:\n"
             f"{install_path}\n\n"
-            f"The installation directory will be added to your user PATH.\n"
-            f"No administrator privileges required.\n\n"
+            f"The installation directory will be added to your user PATH.\n\n"
             f"Do you want to continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
