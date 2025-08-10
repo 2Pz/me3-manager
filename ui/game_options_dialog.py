@@ -5,14 +5,14 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox,
-    QLineEdit, QFileDialog, QMessageBox, QGroupBox, QFormLayout
+    QLineEdit, QFileDialog, QMessageBox, QGroupBox, QFormLayout, QWidget
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QFont, QDesktopServices
 from utils.resource_path import resource_path
 
 class GameOptionsDialog(QDialog):
-    """Dialog for configuring ME3 game options (skip_logos, boot_boost, skip_steam_init, exe)"""
+    """Dialog for configuring ME3 game options (skip_logos, boot_boost, skip_steam_init, exe, steam_dir)"""
     
     def __init__(self, game_name: str, config_manager, parent=None):
         super().__init__(parent)
@@ -22,7 +22,7 @@ class GameOptionsDialog(QDialog):
         
         self.setWindowTitle(f"Game Options - {game_name}")
         self.setModal(True)
-        self.resize(850, 600)  # Increased height to accommodate new section
+        self.resize(850, 700)
         
         self.init_ui()
         self.load_current_settings()
@@ -101,7 +101,7 @@ class GameOptionsDialog(QDialog):
         
         layout.addWidget(config_group)
         
-        # Options group
+        # Game Options group
         options_group = QGroupBox("Game Options")
         options_group.setStyleSheet(self._get_group_style())
         options_layout = QFormLayout(options_group)
@@ -118,6 +118,56 @@ class GameOptionsDialog(QDialog):
         options_layout.addRow("Boot Boost:", self.boot_boost_cb)
         
         layout.addWidget(options_group)
+        
+        # Steam Directory group
+        steam_group = QGroupBox("Steam Directory")
+        steam_group.setStyleSheet(self._get_group_style())
+        steam_layout = QVBoxLayout(steam_group)
+        steam_layout.setSpacing(12)
+        
+        # Steam Directory checkbox
+        self.steam_dir_cb = QCheckBox("Use custom Steam directory")
+        self.steam_dir_cb.setStyleSheet(self._get_checkbox_style())
+        self.steam_dir_cb.toggled.connect(self.on_steam_dir_toggled)
+        steam_layout.addWidget(self.steam_dir_cb)
+        
+        # Steam directory path selection
+        self.steam_dir_path_layout = QHBoxLayout()
+        
+        self.steam_dir_edit = QLineEdit()
+        self.steam_dir_edit.setPlaceholderText("Path to Steam installation directory")
+        self.steam_dir_edit.setStyleSheet(self._get_lineedit_style())
+        self.steam_dir_edit.setEnabled(False)
+        
+        self.browse_steam_btn = QPushButton("Browse...")
+        self.browse_steam_btn.setStyleSheet(self._get_button_style())
+        self.browse_steam_btn.clicked.connect(self.browse_steam_directory)
+        self.browse_steam_btn.setEnabled(False)
+        
+        self.clear_steam_btn = QPushButton("Clear")
+        self.clear_steam_btn.setStyleSheet(self._get_button_style())
+        self.clear_steam_btn.clicked.connect(self.clear_steam_directory)
+        self.clear_steam_btn.setEnabled(False)
+        
+        self.steam_dir_path_layout.addWidget(self.steam_dir_edit)
+        self.steam_dir_path_layout.addWidget(self.browse_steam_btn)
+        self.steam_dir_path_layout.addWidget(self.clear_steam_btn)
+        
+        # Create a widget to contain the steam directory path layout so we can hide it
+        self.steam_dir_widget = QWidget()
+        self.steam_dir_widget.setLayout(self.steam_dir_path_layout)
+        self.steam_dir_widget.setVisible(False)
+        
+        steam_layout.addWidget(self.steam_dir_widget)
+        
+        # Steam directory info
+        steam_info = QLabel("💡 Specify a custom Steam installation directory if ME3 cannot auto-detect it. "
+                           "This setting applies globally to all games.")
+        steam_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
+        steam_info.setWordWrap(True)
+        steam_layout.addWidget(steam_info)
+        
+        layout.addWidget(steam_group)
         
         # Executable path group
         exe_group = QGroupBox("Custom Executable")
@@ -205,11 +255,100 @@ class GameOptionsDialog(QDialog):
             exe_path = self.current_settings.get('exe')
             if exe_path:
                 self.exe_path_edit.setText(str(exe_path))
+            
+            # Load Steam directory from global settings (root level)
+            steam_dir = self._load_steam_dir_globally()
+            
+            # Fallback: check if it's in the game settings (wrong location but handle it)
+            if not steam_dir:
+                steam_dir = self.current_settings.get('steam_dir')
+                if steam_dir:
+                    print("WARNING: Found steam_dir in game settings, should be at global level")
+            
+            if steam_dir:
+                self.steam_dir_cb.setChecked(True)
+                self.steam_dir_edit.setText(str(steam_dir))
+                self.on_steam_dir_toggled(True)  # Show the steam dir controls
+            else:
+                self.steam_dir_cb.setChecked(False)
+                self.on_steam_dir_toggled(False)  # Hide the steam dir controls
                 
         except Exception as e:
             QMessageBox.warning(self, "Load Error", f"Failed to load current settings: {str(e)}")
             self.config_path_label.setText(f"Error loading config: {str(e)}")
             self.config_path_label.setStyleSheet("color: #FF6B6B; font-size: 12px;")
+    
+    def on_steam_dir_toggled(self, checked):
+        """Handle steam directory checkbox toggle"""
+        self.steam_dir_widget.setVisible(checked)
+        self.steam_dir_edit.setEnabled(checked)
+        self.browse_steam_btn.setEnabled(checked)
+        self.clear_steam_btn.setEnabled(checked)
+        
+        if not checked:
+            self.steam_dir_edit.clear()
+
+    def browse_steam_directory(self):
+        """Browse for Steam installation directory"""
+        # Try to find Steam's default installation path as starting point
+        import platform
+        system = platform.system()
+        
+        default_steam_paths = []
+        if system == "Windows":
+            default_steam_paths = [
+                Path("C:/Program Files (x86)/Steam"),
+                Path("C:/Program Files/Steam"),
+                Path("D:/Steam"),
+                Path("E:/Steam")
+            ]
+        elif system == "Linux":
+            home = Path.home()
+            default_steam_paths = [
+                home / ".steam" / "steam",
+                home / ".local" / "share" / "Steam"
+            ]
+        
+        # Find first existing default path
+        start_dir = str(Path.home())
+        for path in default_steam_paths:
+            if path.exists():
+                start_dir = str(path.parent)
+                break
+        
+        dir_name = QFileDialog.getExistingDirectory(
+            self,
+            "Select Steam Installation Directory",
+            start_dir,
+            QFileDialog.Option.ShowDirsOnly
+        )
+        
+        if dir_name:
+            steam_path = Path(dir_name)
+            
+            # Validate that this looks like a Steam directory
+            steam_exe_names = ["steam.exe", "steam", "Steam"]
+            has_steam_exe = any((steam_path / exe).exists() for exe in steam_exe_names)
+            has_steamapps = (steam_path / "steamapps").exists()
+            
+            if not (has_steam_exe or has_steamapps):
+                reply = QMessageBox.question(
+                    self,
+                    "Steam Directory Validation",
+                    f"The selected directory doesn't appear to contain Steam:\n{steam_path}\n\n"
+                    f"Expected to find 'steam.exe' (or 'steam') and/or 'steamapps' folder.\n\n"
+                    f"Do you want to use this directory anyway?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                
+                if reply == QMessageBox.StandardButton.No:
+                    return
+            
+            self.steam_dir_edit.setText(dir_name)
+
+    def clear_steam_directory(self):
+        """Clear the Steam directory path"""
+        self.steam_dir_edit.clear()
     
     def open_config_folder(self):
         """Open the folder containing the ME3 config file"""
@@ -411,34 +550,120 @@ class GameOptionsDialog(QDialog):
     def save_settings(self):
         """Save the settings to ME3 config"""
         try:
-            # Prepare settings dictionary
-            settings = {}
+            # Prepare game-specific settings dictionary (for [game.gamename] section)
+            game_settings = {}
             
             # Get checkbox values (always set explicitly to true or false)
-            settings['skip_logos'] = self.skip_logos_cb.isChecked()
-            settings['boot_boost'] = self.boot_boost_cb.isChecked()
+            game_settings['skip_logos'] = self.skip_logos_cb.isChecked()
+            game_settings['boot_boost'] = self.boot_boost_cb.isChecked()
             
             # Get executable path
             exe_path = self.exe_path_edit.text().strip()
             if exe_path:
-                settings['exe'] = exe_path
+                game_settings['exe'] = exe_path
                 # Automatically set skip_steam_init when custom exe is used
-                settings['skip_steam_init'] = True
+                game_settings['skip_steam_init'] = True
             else:
-                settings['exe'] = None  # Remove from config
-                settings['skip_steam_init'] = None  # Remove from config when no custom exe
+                game_settings['exe'] = None  # Remove from config
+                game_settings['skip_steam_init'] = None  # Remove from config when no custom exe
             
-            # Save to ME3 config
-            if self.config_manager.set_me3_game_settings(self.game_name, settings):
+            # Handle Steam directory
+            steam_dir = None
+            if self.steam_dir_cb.isChecked():
+                steam_dir = self.steam_dir_edit.text().strip()
+                if not steam_dir:
+                    # Checkbox is checked but no path provided
+                    QMessageBox.warning(self, "Steam Directory Required", 
+                                      "Please provide a Steam directory path or uncheck the option.")
+                    return
+            
+            print(f"DEBUG: Game settings to save: {game_settings}")
+            print(f"DEBUG: Steam directory to save: {steam_dir}")
+            
+            # Save game-specific settings first
+            game_save_success = self.config_manager.set_me3_game_settings(self.game_name, game_settings)
+            
+            # Handle steam_dir directly by modifying the TOML file
+            steam_save_success = self._save_steam_dir_globally(steam_dir)
+            
+            if game_save_success and steam_save_success:
                 QMessageBox.information(self, "Settings Saved", 
                                       f"Game options for {self.game_name} have been saved successfully.")
                 self.accept()
             else:
                 QMessageBox.warning(self, "Save Error", 
-                                  "Failed to save settings. Please check that ME3 is properly installed.")
+                                  "Failed to save some settings. Please check that ME3 is properly installed.")
                 
         except Exception as e:
             QMessageBox.warning(self, "Save Error", f"Failed to save settings: {str(e)}")
+    
+    def _save_steam_dir_globally(self, steam_dir):
+        """Save steam_dir at the root level of me3.toml"""
+        try:
+            import toml
+            
+            # Get the config file path
+            config_path = None
+            if hasattr(self.config_manager, 'get_me3_config_path'):
+                config_path = self.config_manager.get_me3_config_path(self.game_name)
+            
+            if not config_path:
+                print("ERROR: Could not get ME3 config path")
+                return False
+            
+            config_path_obj = Path(config_path)
+            
+            # Load existing config or create empty one
+            if config_path_obj.exists():
+                with open(config_path_obj, 'r', encoding='utf-8') as f:
+                    config = toml.load(f)
+            else:
+                config = {}
+            
+            # Set or remove steam_dir at root level
+            if steam_dir:
+                config['steam_dir'] = steam_dir
+                print(f"DEBUG: Setting steam_dir globally to: {steam_dir}")
+            else:
+                # Remove steam_dir if it exists
+                config.pop('steam_dir', None)
+                print("DEBUG: Removing steam_dir from global config")
+            
+            # Save back to file
+            with open(config_path_obj, 'w', encoding='utf-8') as f:
+                toml.dump(config, f)
+            
+            return True
+            
+        except Exception as e:
+            print(f"ERROR: Failed to save steam_dir globally: {e}")
+            return False
+    
+    def _load_steam_dir_globally(self):
+        """Load steam_dir from the root level of me3.toml"""
+        try:
+            import toml
+            
+            # Get the config file path
+            config_path = None
+            if hasattr(self.config_manager, 'get_me3_config_path'):
+                config_path = self.config_manager.get_me3_config_path(self.game_name)
+            
+            if not config_path:
+                return None
+            
+            config_path_obj = Path(config_path)
+            
+            if config_path_obj.exists():
+                with open(config_path_obj, 'r', encoding='utf-8') as f:
+                    config = toml.load(f)
+                return config.get('steam_dir')
+            
+            return None
+            
+        except Exception as e:
+            print(f"ERROR: Failed to load steam_dir globally: {e}")
+            return None
     
     def _get_dialog_style(self):
         """Get dialog stylesheet"""
