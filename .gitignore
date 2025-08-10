@@ -2,7 +2,8 @@
 node_modules/
 build/
 Backup/
-
+Me3_Manager.AppDir/
+dist/
 # Ignore Python cache
 __pycache__/
 
