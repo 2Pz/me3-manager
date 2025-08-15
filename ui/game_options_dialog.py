@@ -1,8 +1,8 @@
 import sys
 import os
+import configparser
 import subprocess
 from pathlib import Path
-from typing import Dict, Any, Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox,
     QLineEdit, QFileDialog, QMessageBox, QGroupBox, QFormLayout, QWidget
@@ -635,11 +635,9 @@ class GameOptionsDialog(QDialog):
             QMessageBox.warning(self, "Save Error", f"Failed to save settings: {str(e)}")
     
     def _save_steam_dir_globally(self, steam_dir):
-        """Save steam_dir at the root level of me3.toml"""
+        """Save steam_dir at the root level of me3.ini"""
         try:
-            import toml
-            
-            # Get the config file path
+            # Get the config file path (change extension to .ini)
             config_path = None
             if hasattr(self.config_manager, 'get_me3_config_path'):
                 config_path = self.config_manager.get_me3_config_path(self.game_name)
@@ -649,38 +647,41 @@ class GameOptionsDialog(QDialog):
                 return False
             
             config_path_obj = Path(config_path)
+            # Change extension to .ini if it was .toml
+            if config_path_obj.suffix == '.toml':
+                config_path_obj = config_path_obj.with_suffix('.ini')
             
             # Load existing config or create empty one
+            config = configparser.ConfigParser()
             if config_path_obj.exists():
-                with open(config_path_obj, 'r', encoding='utf-8') as f:
-                    config = toml.load(f)
-            else:
-                config = {}
+                config.read(config_path_obj, encoding='utf-8')
+            
+            # Ensure we have a DEFAULT section for root-level settings
+            if not config.has_section('DEFAULT'):
+                config.add_section('DEFAULT')
             
             # Set or remove steam_dir at root level
             if steam_dir:
-                config['steam_dir'] = steam_dir
+                config.set('DEFAULT', 'steam_dir', steam_dir)
                 print(f"DEBUG: Setting steam_dir globally to: {steam_dir}")
             else:
                 # Remove steam_dir if it exists
-                config.pop('steam_dir', None)
+                config.remove_option('DEFAULT', 'steam_dir')
                 print("DEBUG: Removing steam_dir from global config")
             
             # Save back to file
             with open(config_path_obj, 'w', encoding='utf-8') as f:
-                toml.dump(config, f)
+                config.write(f)
             
             return True
             
         except Exception as e:
             print(f"ERROR: Failed to save steam_dir globally: {e}")
             return False
-    
+
     def _load_steam_dir_globally(self):
-        """Load steam_dir from the root level of me3.toml"""
+        """Load steam_dir from the root level of me3.ini"""
         try:
-            import toml
-            
             # Get the config file path
             config_path = None
             if hasattr(self.config_manager, 'get_me3_config_path'):
@@ -690,11 +691,14 @@ class GameOptionsDialog(QDialog):
                 return None
             
             config_path_obj = Path(config_path)
+            # Change extension to .ini if it was .toml
+            if config_path_obj.suffix == '.toml':
+                config_path_obj = config_path_obj.with_suffix('.ini')
             
             if config_path_obj.exists():
-                with open(config_path_obj, 'r', encoding='utf-8') as f:
-                    config = toml.load(f)
-                return config.get('steam_dir')
+                config = configparser.ConfigParser()
+                config.read(config_path_obj, encoding='utf-8')
+                return config.get('DEFAULT', 'steam_dir', fallback=None)
             
             return None
             
