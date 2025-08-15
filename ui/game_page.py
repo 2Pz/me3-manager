@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 from pathlib import Path
+from tkinter import dialog
 from typing import List, Optional, Dict, Any
 import math
 from collections import deque
@@ -1703,11 +1704,31 @@ class GamePage(QWidget):
         def on_add():
             name, ok = QInputDialog.getText(dialog, "New Profile Name", "Enter a name for the new profile:")
             if ok and name.strip():
-                mods_dir = QFileDialog.getExistingDirectory(dialog, "Select a Folder for the New Profile's Mods", str(Path.home()))
-                if mods_dir:
-                    self.config_manager.add_profile(self.game_name, name.strip(), mods_dir)
+                # Get the default profiles directory from an existing profile path
+                default_profiles_dir = Path(self.config_manager.get_profile_path(self.game_name)).expanduser().parent
+                default_profiles_dir.mkdir(parents=True, exist_ok=True)
+
+                # Updated hint text to match actual behavior
+                profile_dir = QFileDialog.getExistingDirectory(
+                    dialog,
+                    "Select a Folder for the New Profile",
+                    str(default_profiles_dir)
+                )
+
+                if profile_dir:
+                    # Ensure .me3 file is created outside its mods folder
+                    profile_path = Path(profile_dir)
+                    if profile_path == default_profiles_dir:
+                        mods_dir = default_profiles_dir / f"{name.strip()}-mods"
+                        mods_dir.mkdir(exist_ok=True)
+                        self.config_manager.add_profile(self.game_name, name.strip(), str(mods_dir))
+                    else:
+                        # Fallback: keep current behavior if user selects another folder
+                        self.config_manager.add_profile(self.game_name, name.strip(), profile_dir)
+
                     refresh_list()
-        
+
+
         def on_rename():
             selected_item = list_widget.currentItem()
             if not selected_item: return
