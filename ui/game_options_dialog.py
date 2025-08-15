@@ -1,6 +1,6 @@
 import sys
 import os
-import configparser
+import toml
 import subprocess
 from pathlib import Path
 from PyQt6.QtWidgets import (
@@ -635,9 +635,9 @@ class GameOptionsDialog(QDialog):
             QMessageBox.warning(self, "Save Error", f"Failed to save settings: {str(e)}")
     
     def _save_steam_dir_globally(self, steam_dir):
-        """Save steam_dir at the root level of me3.ini"""
+        """Save steam_dir at the root level of me3.toml (keeping TOML format)"""
         try:
-            # Get the config file path (change extension to .ini)
+            # Get the config file path (keep as .toml)
             config_path = None
             if hasattr(self.config_manager, 'get_me3_config_path'):
                 config_path = self.config_manager.get_me3_config_path(self.game_name)
@@ -647,40 +647,113 @@ class GameOptionsDialog(QDialog):
                 return False
             
             config_path_obj = Path(config_path)
-            # Change extension to .ini if it was .toml
-            if config_path_obj.suffix == '.toml':
-                config_path_obj = config_path_obj.with_suffix('.ini')
             
-            # Load existing config or create empty one
-            config = configparser.ConfigParser()
+            # Check if the config path is writable
             if config_path_obj.exists():
-                config.read(config_path_obj, encoding='utf-8')
+                try:
+                    # Test write access
+                    with open(config_path_obj, 'a', encoding='utf-8'):
+                        pass
+                except (PermissionError, OSError) as e:
+                    print(f"ERROR: Config file is not writable: {config_path_obj}")
+                    print(f"This is likely a system config file. Error: {e}")
+                    
+                    # Try to get a writable config path instead
+                    writable_path = self._get_writable_config_path()
+                    if writable_path:
+                        config_path_obj = writable_path
+                        print(f"Using writable config path instead: {config_path_obj}")
+                    else:
+                        return False
+            else:
+                # File doesn't exist, check if parent directory is writable
+                try:
+                    config_path_obj.parent.mkdir(parents=True, exist_ok=True)
+                except (PermissionError, OSError) as e:
+                    print(f"ERROR: Cannot create config file at: {config_path_obj}")
+                    print(f"Parent directory not writable. Error: {e}")
+                    
+                    # Try to get a writable config path instead
+                    writable_path = self._get_writable_config_path()
+                    if writable_path:
+                        config_path_obj = writable_path
+                        print(f"Using writable config path instead: {config_path_obj}")
+                    else:
+                        return False
             
-            # Ensure we have a DEFAULT section for root-level settings
-            if not config.has_section('DEFAULT'):
-                config.add_section('DEFAULT')
+            # Load existing TOML config or create empty one
+            config_data = {}
+            if config_path_obj.exists():
+                try:
+                    with open(config_path_obj, 'r', encoding='utf-8') as f:
+                        config_data = toml.load(f)
+                except Exception as e:
+                    print(f"Warning: Could not parse existing TOML config: {e}")
+                    config_data = {}
             
             # Set or remove steam_dir at root level
             if steam_dir:
-                config.set('DEFAULT', 'steam_dir', steam_dir)
+                config_data['steam_dir'] = steam_dir
                 print(f"DEBUG: Setting steam_dir globally to: {steam_dir}")
             else:
                 # Remove steam_dir if it exists
-                config.remove_option('DEFAULT', 'steam_dir')
+                config_data.pop('steam_dir', None)
                 print("DEBUG: Removing steam_dir from global config")
             
-            # Save back to file
+            # Save back to file in TOML format
             with open(config_path_obj, 'w', encoding='utf-8') as f:
-                config.write(f)
+                toml.dump(config_data, f)
             
             return True
             
         except Exception as e:
             print(f"ERROR: Failed to save steam_dir globally: {e}")
             return False
+        
+    def _get_writable_config_path(self):
+        """Get a writable config path, preferring user locations over system ones"""
+        try:
+            if hasattr(self.config_manager, 'me3_info') and self.config_manager.me3_info:
+                available_paths = self.config_manager.me3_info.get_available_config_paths()
+                
+                for path in available_paths:
+                    # Skip system paths
+                    if self._is_system_path(path):
+                        continue
+                        
+                    # Check if path is writable or can be created
+                    if path.exists():
+                        try:
+                            with open(path, 'a', encoding='utf-8'):
+                                pass
+                            return path
+                        except (PermissionError, OSError):
+                            continue
+                    else:
+                        # Check if we can create the file
+                        try:
+                            path.parent.mkdir(parents=True, exist_ok=True)
+                            # Test by creating a temporary file
+                            with open(path, 'w', encoding='utf-8') as f:
+                                f.write("")
+                            return path
+                        except (PermissionError, OSError):
+                            continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"ERROR: Failed to get writable config path: {e}")
+            return None
+
+    def _is_system_path(self, file_path: Path) -> bool:
+        """Check if a path is in a system directory that requires root privileges"""
+        system_prefixes = ['/etc/', '/usr/', '/opt/', '/var/lib/', '/var/opt/']
+        str_path = str(file_path)
+        return any(str_path.startswith(prefix) for prefix in system_prefixes)
 
     def _load_steam_dir_globally(self):
-        """Load steam_dir from the root level of me3.ini"""
+        """Load steam_dir from the root level of me3.toml (keeping TOML format)"""
         try:
             # Get the config file path
             config_path = None
@@ -691,21 +764,52 @@ class GameOptionsDialog(QDialog):
                 return None
             
             config_path_obj = Path(config_path)
-            # Change extension to .ini if it was .toml
-            if config_path_obj.suffix == '.toml':
-                config_path_obj = config_path_obj.with_suffix('.ini')
             
             if config_path_obj.exists():
-                config = configparser.ConfigParser()
-                config.read(config_path_obj, encoding='utf-8')
-                return config.get('DEFAULT', 'steam_dir', fallback=None)
+                try:
+                    with open(config_path_obj, 'r', encoding='utf-8') as f:
+                        config_data = toml.load(f)
+                    return config_data.get('steam_dir')
+                except Exception as e:
+                    print(f"ERROR: Failed to read TOML config file {config_path_obj}: {e}")
+                    # If the system config is not readable, try to find a user config
+                    user_steam_dir = self._find_user_config_with_steam_dir()
+                    if user_steam_dir:
+                        return user_steam_dir
             
             return None
             
         except Exception as e:
             print(f"ERROR: Failed to load steam_dir globally: {e}")
             return None
-    
+
+    def _find_user_config_with_steam_dir(self):
+        """Find steam_dir setting in a user-accessible TOML config file"""
+        try:
+            if hasattr(self.config_manager, 'me3_info') and self.config_manager.me3_info:
+                available_paths = self.config_manager.me3_info.get_available_config_paths()
+                
+                for path in available_paths:
+                    # Skip system paths
+                    if self._is_system_path(path):
+                        continue
+                    
+                    if path.exists() and path.suffix == '.toml':
+                        try:
+                            with open(path, 'r', encoding='utf-8') as f:
+                                config_data = toml.load(f)
+                            steam_dir = config_data.get('steam_dir')
+                            if steam_dir:
+                                return steam_dir
+                        except Exception:
+                            continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"ERROR: Failed to find user config with steam_dir: {e}")
+            return None
+        
     def _get_dialog_style(self):
         """Get dialog stylesheet"""
         return """

@@ -2358,17 +2358,43 @@ class ConfigManager:
                     del self.me3_config_paths[game_name]
                     self._save_settings()
             
-            # 2. If no custom path, use me3_info to find an existing config file.
+            # 2. If no custom path, find a config prioritizing writable ones
             if hasattr(self, 'me3_info') and self.me3_info:
-                # Try to find an existing config file first
-                existing_config = self.me3_info.find_existing_config()
-                if existing_config:
-                    return str(existing_config)
+                # Get all available config paths in their search order
+                available_paths = self.me3_info.get_available_config_paths()
                 
-                # If no existing file is found, return the primary path where it would be created
-                primary_path = self.me3_info.get_primary_config_path()
-                if primary_path:
-                    return str(primary_path)
+                # First pass: look for existing writable configs
+                for path in available_paths:
+                    if path.exists() and self._is_writable(path):
+                        return str(path)
+                
+                # Second pass: look for existing readable configs (for reading system configs)
+                existing_readable = None
+                for path in available_paths:
+                    if path.exists() and self._is_readable(path):
+                        existing_readable = path
+                        break
+                
+                # Third pass: find first writable location for creating new config
+                writable_location = None
+                for path in available_paths:
+                    # Skip system paths when looking for writable locations
+                    if self._is_system_path(path):
+                        continue
+                    if self._is_writable(path) or self._is_parent_writable(path):
+                        writable_location = path
+                        break
+                
+                # If we have a readable existing config but it's not writable,
+                # we need to use a writable location and copy the config
+                if existing_readable and not self._is_writable(existing_readable) and writable_location:
+                    # Copy the system config to user location if it doesn't exist there
+                    if not writable_location.exists():
+                        self._copy_config_to_writable_location(existing_readable, writable_location)
+                    return str(writable_location)
+                
+                # Return existing writable config or writable location
+                return str(existing_readable if existing_readable and self._is_writable(existing_readable) else writable_location)
             
             return None
             
@@ -2376,18 +2402,93 @@ class ConfigManager:
             print(f"Error getting ME3 config path for {game_name}: {e}")
             return None
 
+    def _is_readable(self, file_path: Path) -> bool:
+        """Check if a file is readable"""
+        try:
+            if file_path.exists():
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    f.read(1)  # Test read access
+                return True
+            return False
+        except (PermissionError, OSError):
+            return False
+
+    def _is_writable(self, file_path: Path) -> bool:
+        """Check if a file is writable (exists and writable)"""
+        try:
+            if file_path.exists():
+                # Test write access by trying to open in append mode
+                with open(file_path, 'a', encoding='utf-8'):
+                    pass
+                return True
+            return False
+        except (PermissionError, OSError):
+            return False
+
+    def _is_parent_writable(self, file_path: Path) -> bool:
+        """Check if the parent directory is writable (for creating new files)"""
+        try:
+            parent = file_path.parent
+            if parent.exists():
+                return os.access(parent, os.W_OK)
+            else:
+                # Check if we can create the parent directory
+                try:
+                    parent.mkdir(parents=True, exist_ok=True)
+                    return True
+                except (PermissionError, OSError):
+                    return False
+        except Exception:
+            return False
+
+    def _is_system_path(self, file_path: Path) -> bool:
+        """Check if a path is in a system directory that requires root privileges"""
+        system_prefixes = ['/etc/', '/usr/', '/opt/', '/var/lib/', '/var/opt/']
+        str_path = str(file_path)
+        return any(str_path.startswith(prefix) for prefix in system_prefixes)
+
+    def _copy_config_to_writable_location(self, source_config: Path, target_config: Path):
+        """Copy a system config file to a writable user location"""
+        try:
+            # Ensure target directory exists
+            target_config.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Copy the config file content
+            import shutil
+            shutil.copy2(source_config, target_config)
+            print(f"Copied system config from {source_config} to {target_config}")
+            
+        except Exception as e:
+            print(f"Failed to copy config from {source_config} to {target_config}: {e}")
+            # If copy fails, create a default config instead
+            if hasattr(self, 'me3_info') and self.me3_info:
+                self.me3_info.create_default_config_at(target_config)
+
     def set_me3_config_path(self, game_name: str, config_path: str):
-        """Set a custom path to the ME3 config file for a game and ensure it's the only one"""
+        """Set a custom path to the ME3 config file for a game"""
         try:
             if not hasattr(self, 'me3_config_paths'):
                 self.me3_config_paths = {}
             
-            # Ensure only this config file exists (create if needed, delete others)
             config_path_obj = Path(config_path)
+            
+            # Verify the selected path is writable
+            if not (self._is_writable(config_path_obj) or self._is_parent_writable(config_path_obj)):
+                raise Exception(f"Selected config path is not writable: {config_path}")
+            
+            # Create the config file if it doesn't exist
+            if not config_path_obj.exists():
+                if hasattr(self, 'me3_info') and self.me3_info:
+                    # Ensure parent directory exists
+                    config_path_obj.parent.mkdir(parents=True, exist_ok=True)
+                    # Create default config at the selected location
+                    success = self.me3_info.create_default_config_at(config_path_obj)
+                    if not success:
+                        raise Exception("Failed to create config file at selected location")
+            
+            # Only clean up OTHER writable configs, skip system configs
             if hasattr(self, 'me3_info') and self.me3_info:
-                success = self.me3_info.ensure_single_config(config_path_obj)
-                if not success:
-                    raise Exception("Failed to ensure single config file")
+                self._cleanup_duplicate_configs(config_path_obj)
             
             self.me3_config_paths[game_name] = config_path
             
@@ -2397,6 +2498,34 @@ class ConfigManager:
         except Exception as e:
             print(f"Error setting ME3 config path for {game_name}: {e}")
             raise
+
+    def _cleanup_duplicate_configs(self, keep_config_path: Path):
+        """Clean up duplicate config files, but skip system configs that require root"""
+        try:
+            if not hasattr(self, 'me3_info') or not self.me3_info:
+                return
+            
+            available_paths = self.me3_info.get_available_config_paths()
+            
+            for config_path in available_paths:
+                if config_path != keep_config_path and config_path.exists():
+                    # Skip system paths that we can't delete
+                    if self._is_system_path(config_path):
+                        print(f"Skipping cleanup of system config: {config_path} (requires root privileges)")
+                        continue
+                    
+                    # Only delete if we have write access
+                    if self._is_writable(config_path):
+                        try:
+                            config_path.unlink()
+                            print(f"Removed duplicate config: {config_path}")
+                        except (PermissionError, OSError) as e:
+                            print(f"Could not remove duplicate config {config_path}: {e}")
+                    else:
+                        print(f"Skipping cleanup of non-writable config: {config_path}")
+            
+        except Exception as e:
+            print(f"Error during config cleanup: {e}")
 
     def load_me3_config_paths(self):
         """Load custom ME3 config paths from persistent storage"""
