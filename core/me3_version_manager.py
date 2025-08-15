@@ -388,8 +388,10 @@ class ME3VersionManager:
             return
 
         # Show installation path to user
-        install_path = os.path.join(os.path.expanduser("~"), "AppData", "Local", "me3", "bin")
-        
+        install_path = os.path.join(
+            os.path.expanduser("~"), "AppData", "Local", "garyttierney", "me3", "bin"
+        )
+
         # Confirm installation
         reply = QMessageBox.question(
             self.parent, 
@@ -627,8 +629,10 @@ class ME3CustomInstaller(QObject):
         super().__init__()
         self.url = url
         self.temp_path = temp_path
-        # Use user directory to avoid admin privileges
-        self.install_path = os.path.join(os.path.expanduser("~"), "AppData", "Local", "me3", "bin")
+        # UPDATED: Use garyttierney path to match official installer structure
+        self.install_path = os.path.join(
+            os.path.expanduser("~"), "AppData", "Local", "garyttierney", "me3", "bin"
+        )
         self._is_cancelled = False
 
     def run(self):
@@ -763,12 +767,13 @@ class ME3CustomInstaller(QObject):
                 # Split PATH into individual paths and clean them up
                 paths = [p.strip() for p in current_path.split(';') if p.strip()]
                 
-                # Remove any existing ME3 paths (paths ending with "\me3\bin")
+                # UPDATED: Remove any existing ME3 paths (both old and new patterns)
                 cleaned_paths = []
                 for path in paths:
-                    # Normalize path separators and check if it ends with me3\bin
-                    normalized_path = path.replace('/', '\\').rstrip('\\')
-                    if not normalized_path.lower().endswith('\\me3\\bin'):
+                    # Normalize path separators and check if it ends with me3\bin or garyttierney\me3\bin
+                    normalized_path = path.replace('/', '\\').rstrip('\\').lower()
+                    if not (normalized_path.endswith('\\me3\\bin') or 
+                           normalized_path.endswith('\\garyttierney\\me3\\bin')):
                         cleaned_paths.append(path)
                     else:
                         print(f"Removed existing ME3 path from user PATH: {path}")
@@ -828,12 +833,13 @@ class ME3CustomInstaller(QObject):
             # Get system PATH
             system_path = os.environ.get('PATH', '')
             
-            # Also clean the current process PATH of old ME3 entries
+            # UPDATED: Clean the current process PATH of old ME3 entries (both patterns)
             current_process_paths = [p.strip() for p in system_path.split(';') if p.strip()]
             cleaned_system_paths = []
             for path in current_process_paths:
-                normalized_path = path.replace('/', '\\').rstrip('\\')
-                if not normalized_path.lower().endswith('\\me3\\bin'):
+                normalized_path = path.replace('/', '\\').rstrip('\\').lower()
+                if not (normalized_path.endswith('\\me3\\bin') or 
+                       normalized_path.endswith('\\garyttierney\\me3\\bin')):
                     cleaned_system_paths.append(path)
             
             # Combine user PATH with cleaned system PATH (user PATH takes precedence)
@@ -848,6 +854,7 @@ class ME3CustomInstaller(QObject):
             
         except Exception as e:
             print(f"Warning: Could not refresh current process PATH: {e}")
+
 
     def cancel(self):
         self._is_cancelled = True
