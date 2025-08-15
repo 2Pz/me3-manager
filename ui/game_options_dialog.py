@@ -93,9 +93,9 @@ class GameOptionsDialog(QDialog):
         config_layout.addLayout(config_path_layout)
         
         # Config file info
-        config_info = QLabel("💡 The app searches all ME3 config paths and uses the first found config file. "
+        config_info = QLabel("💡 The manager searches all ME3 config paths and uses the first found config file. "
                             "Use 'Change Location...' to choose from available writable locations.")
-        config_info.setStyleSheet("color: #888888; font-size: 11px; margin-top: 4px;")
+        config_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         config_info.setWordWrap(True)
         config_layout.addWidget(config_info)
         
