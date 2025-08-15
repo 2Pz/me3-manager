@@ -1517,7 +1517,8 @@ class GamePage(QWidget):
 
     def run_me3_with_custom_exe(self, exe_path: str, cli_id: str, profile_path: str, terminal):
         args = ["launch", "--exe", exe_path, "--skip-steam-init", "--game", cli_id, "-p", profile_path]
-        display_command = f"me3 launch --exe {exe_path} --skip-steam-init --game {cli_id} -p {profile_path}"
+        # Display the command nicely in terminal
+        display_command = f"me3 launch --exe {shlex.quote(exe_path)} --skip-steam-init --game {cli_id} -p {shlex.quote(profile_path)}"
         terminal.output.append(f"$ {display_command}")
         if terminal.process is not None:
             terminal.process.kill()
@@ -1571,46 +1572,26 @@ class GamePage(QWidget):
 
     def _launch_in_terminal(self, command_args, terminal):
         """Launch the game command in the terminal."""
-        if sys.platform == "linux":
-            # Use shell wrapper for Linux
-            user_shell = os.environ.get("SHELL", "/bin/bash")
-            if not Path(user_shell).exists():
-                user_shell = "/bin/bash"
-                
-            # Create shell-safe command string
-            try:
-                me3_command_str = shlex.join(command_args)
-            except AttributeError:
-                me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
-                
-            final_command_list = [user_shell, "-l", "-c", me3_command_str]
-            command_to_run = shlex.join(final_command_list)
-        else:
-            # Windows: simple space-separated command
-            command_to_run = " ".join(command_args)
-            
-        terminal.run_command(command_to_run, None)
+        # Display the command nicely in terminal
+        display_command = " ".join(shlex.quote(arg) for arg in command_args)
+        terminal.output.append(f"$ {display_command}")
+        
+        if terminal.process is not None:
+            terminal.process.kill()
+            terminal.process.waitForFinished(1000)
+        
+        terminal.process = QProcess(terminal)
+        terminal.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        terminal.process.readyReadStandardOutput.connect(terminal.handle_stdout)
+        terminal.process.finished.connect(terminal.process_finished)
+        
+        # Start me3 directly with argument list
+        terminal.process.start(command_args[0], command_args[1:])
 
     def _launch_direct(self, command_args):
         """Launch the game command directly via subprocess."""
-        if sys.platform == "linux":
-            # Use shell wrapper for Linux
-            user_shell = os.environ.get("SHELL", "/bin/bash")
-            if not Path(user_shell).exists():
-                user_shell = "/bin/bash"
-                
-            # Create shell-safe command string
-            try:
-                me3_command_str = shlex.join(command_args)
-            except AttributeError:
-                me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
-                
-            final_command_list = [user_shell, "-l", "-c", me3_command_str]
-        else:
-            # Windows: use command args directly
-            final_command_list = command_args
-            
-        subprocess.Popen(final_command_list)
+        # Use argument list directly
+        subprocess.Popen(command_args)
 
     def _update_status(self, message):
         """Update status label with automatic reset."""

@@ -154,72 +154,128 @@ class EmbeddedTerminal(QWidget):
             
         return html_output
     
-    def run_command(self, command: str, working_dir: str = None):
+    def run_command(self, command, working_dir: str = None):
+        """Run a command in the embedded terminal
+        
+        Args:
+            command: Either a string command or list of arguments
+            working_dir: Optional working directory
+        """
         import os
-        """Run a command in the embedded terminal"""
-        self.output.append(f"$ {command}")
+        
+        # Handle both string commands and argument lists
+        if isinstance(command, str):
+            # Legacy string command - display as-is
+            display_command = command
+            is_legacy_string = True
+        else:
+            # New argument list - display nicely quoted
+            display_command = " ".join(shlex.quote(arg) for arg in command)
+            is_legacy_string = False
+        
+        self.output.append(f"$ {display_command}")
         
         if self.process is not None:
             self.process.kill()
             self.process.waitForFinished(1000)
         
         self.process = QProcess(self)
-        
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
-        
         self.process.readyReadStandardOutput.connect(self.handle_stdout)
         self.process.finished.connect(self.process_finished)
         
         if working_dir:
             self.process.setWorkingDirectory(working_dir)
 
-        if sys.platform == "win32":
-            self.process.start("cmd", ["/c", command])
-        
-        else:
-        
-            # Check if we're running in Flatpak
-            is_flatpak = os.path.exists("/.flatpak-info") or "/app/" in os.environ.get("PATH", "")
-
-            if is_flatpak:
-                # Use flatpak-spawn to run on host with proper environment
-                user_home = os.path.expanduser("~")
-                me3_path = f"{user_home}/.local/bin/me3"
-                
-                # Construct command with full path to me3
-                if command.startswith("me3 "):
-                    host_command = command.replace("me3 ", f"{me3_path} ", 1)
-                else:
-                    host_command = command
-                
-                full_command = f"flatpak-spawn --host bash -l -c '{host_command}'"
-                self.process.start("bash", ["-c", full_command])
-                self.output.append("Running command on host system via flatpak-spawn...")
+        if is_legacy_string:
+            # Handle legacy string commands with shell
+            if sys.platform == "win32":
+                self.process.start("cmd", ["/c", command])
             else:
-                # Get environment from login shell
-                from PyQt6.QtCore import QProcessEnvironment
-                import subprocess
-                
-                try:
-                    result = subprocess.run(
-                        ["bash", "-l", "-c", "env"], 
-                        capture_output=True, 
-                        text=True, 
-                        timeout=10
-                    )
-                    if result.returncode == 0:
-                        env = QProcessEnvironment()
-                        for line in result.stdout.strip().split('\n'):
-                            if '=' in line:
-                                key, value = line.split('=', 1)
-                                env.insert(key, value)
+                # Check if we're running in Flatpak
+                is_flatpak = os.path.exists("/.flatpak-info") or "/app/" in os.environ.get("PATH", "")
+
+                if is_flatpak:
+                    # Use flatpak-spawn to run on host with proper environment
+                    user_home = os.path.expanduser("~")
+                    me3_path = f"{user_home}/.local/bin/me3"
+                    
+                    # Construct command with full path to me3
+                    if command.startswith("me3 "):
+                        host_command = command.replace("me3 ", f"{me3_path} ", 1)
                     else:
+                        host_command = command
+                    
+                    full_command = f"flatpak-spawn --host bash -l -c '{host_command}'"
+                    self.process.start("bash", ["-c", full_command])
+                    self.output.append("Running command on host system via flatpak-spawn...")
+                else:
+                    # Get environment from login shell
+                    from PyQt6.QtCore import QProcessEnvironment
+                    import subprocess
+                    
+                    try:
+                        result = subprocess.run(
+                            ["bash", "-l", "-c", "env"], 
+                            capture_output=True, 
+                            text=True, 
+                            timeout=10
+                        )
+                        if result.returncode == 0:
+                            env = QProcessEnvironment()
+                            for line in result.stdout.strip().split('\n'):
+                                if '=' in line:
+                                    key, value = line.split('=', 1)
+                                    env.insert(key, value)
+                        else:
+                            env = QProcessEnvironment.systemEnvironment()
+                    except:
                         env = QProcessEnvironment.systemEnvironment()
-                except:
-                    env = QProcessEnvironment.systemEnvironment()
+                    
+                    self.process.setProcessEnvironment(env)
+                    self.process.start("bash", ["-l", "-c", command])
+        else:
+            # Handle new argument list format - direct execution, no shell needed
+            program = command[0]
+            args = command[1:] if len(command) > 1 else []
+            
+            if sys.platform != "win32":
+                # Check if we're running in Flatpak on Linux
+                is_flatpak = os.path.exists("/.flatpak-info") or "/app/" in os.environ.get("PATH", "")
                 
-                self.process.setProcessEnvironment(env)
-                self.process.start("bash", ["-l", "-c", command])
+                if is_flatpak and program == "me3":
+                    # Use flatpak-spawn for me3 commands
+                    user_home = os.path.expanduser("~")
+                    me3_path = f"{user_home}/.local/bin/me3"
+                    flatpak_args = ["flatpak-spawn", "--host", me3_path] + args
+                    self.process.start("flatpak-spawn", flatpak_args[1:])
+                    self.output.append("Running command on host system via flatpak-spawn...")
+                else:
+                    # Set up environment for non-flatpak Linux
+                    from PyQt6.QtCore import QProcessEnvironment
+                    import subprocess
+                    
+                    try:
+                        result = subprocess.run(
+                            ["bash", "-l", "-c", "env"], 
+                            capture_output=True, 
+                            text=True, 
+                            timeout=10
+                        )
+                        if result.returncode == 0:
+                            env = QProcessEnvironment()
+                            for line in result.stdout.strip().split('\n'):
+                                if '=' in line:
+                                    key, value = line.split('=', 1)
+                                    env.insert(key, value)
+                            self.process.setProcessEnvironment(env)
+                    except:
+                        pass  # Use default environment
+                    
+                    self.process.start(program, args)
+            else:
+                # Windows - direct execution
+                self.process.start(program, args)
     
     def handle_stdout(self):
         cursor = self.output.textCursor()
