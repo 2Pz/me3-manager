@@ -3,6 +3,7 @@ import re
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QApplication
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import QProcess
+import shlex
 
 class EmbeddedTerminal(QWidget):
     """Embedded terminal widget for running ME3 processes"""
