@@ -754,24 +754,28 @@ class GamePage(QWidget):
         msg_box = QMessageBox(self)
         msg_box.setWindowTitle(f"Import Profile & Mods - {self.game_name}")
         msg_box.setTextFormat(Qt.TextFormat.RichText)
-        msg_box.setText(f"You are about to import a profile and its associated mods.<br><br>"
-                        f"<b>Profile:</b> {profile_file.name}<br>"
-                        f"<b>From Folder:</b> {import_folder}<br><br>"
-                        f"Do you want to merge this with your current setup or replace it?")
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel)
+        msg_box.setText(
+            f"You are about to import a profile and its associated mods.<br><br>"
+            f"<b>Profile:</b> {profile_file.name}<br>"
+            f"<b>From Folder:</b> {import_folder}<br><br>"
+            f"Do you want to merge this with your current setup or replace it?"
+        )
+        msg_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
+        )
         merge_btn = msg_box.button(QMessageBox.StandardButton.Yes)
         merge_btn.setText("Merge (Recommended)")
         replace_btn = msg_box.button(QMessageBox.StandardButton.No)
         replace_btn.setText("Replace")
-        
+
         reply = msg_box.exec()
         if reply == QMessageBox.StandardButton.Cancel:
             return
         merge = (reply == QMessageBox.StandardButton.Yes)
-        
+
         default_name = import_folder.name
         mod_name, ok = QInputDialog.getText(
-            self, "Name Imported Mod Package", 
+            self, "Name Imported Mod Package",
             f"Enter a name for the imported package mod(s).\n\n"
             f"Importing from: {import_folder.name}",
             text=default_name
@@ -781,14 +785,167 @@ class GamePage(QWidget):
             QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
             return
         mod_name = mod_name.strip()
-        
+
         try:
             self.status_label.setText(f"Importing from {import_folder.name}...")
-            results = self.config_manager.simple_import_from_folder(
-                self.game_name, str(import_folder), str(profile_file), merge, mod_name
-            )
-            
-            if results['success']:
+
+            # Parse the profile to understand the structure
+            config_data = self.config_manager._parse_toml_config(profile_file)
+            packages = config_data.get("packages", [])
+
+            results = {
+                'success': True,
+                'profile_imported': False,
+                'package_mods_imported': 0,
+                'dll_mods_imported': 0,
+                'mods_skipped': 0,
+                'skipped_details': [],
+                'errors': []
+            }
+
+            mods_dir = self.config_manager.get_mods_dir(self.game_name)
+
+            # Import each package from the profile
+            for package in packages:
+                package_id = package.get("id", "")
+                package_path = package.get("path", "")
+                package_source = package.get("source", "")
+
+                search_name = package_path or package_source or package_id
+                if not package_id or not search_name:
+                    continue
+
+                mod_source_path = None
+                possible_paths = [
+                    import_folder / search_name,
+                    import_folder / package_id,
+                    import_folder / "Mod",
+                    import_folder / "mod",
+                ]
+                for possible_path in possible_paths:
+                    if possible_path.exists() and possible_path.is_dir():
+                        mod_source_path = possible_path
+                        break
+
+                if not mod_source_path:
+                    for item in import_folder.iterdir():
+                        if item.is_dir() and item.name != profile_file.stem and self._is_valid_mod_folder(item):
+                            mod_source_path = item
+                            break
+
+                if not mod_source_path:
+                    results['errors'].append(
+                        f"Could not find mod folder for package '{package_id}' (searched for: {search_name})"
+                    )
+                    continue
+
+                dest_mod_path = mods_dir / mod_name
+
+                if dest_mod_path.exists():
+                    if not merge:
+                        reply = QMessageBox.question(
+                            self, "Mod Exists",
+                            f"Mod folder '{mod_name}' already exists. Replace it?",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                        )
+                        if reply == QMessageBox.StandardButton.No:
+                            results['mods_skipped'] += 1
+                            results['skipped_details'].append(f"'{mod_name}' - already exists")
+                            continue
+                        else:
+                            shutil.rmtree(dest_mod_path)
+
+                try:
+                    if dest_mod_path.exists():
+                        for item in mod_source_path.iterdir():
+                            dest_item = dest_mod_path / item.name
+                            if item.is_dir():
+                                if dest_item.exists():
+                                    shutil.rmtree(dest_item)
+                                shutil.copytree(item, dest_item)
+                            else:
+                                shutil.copy2(item, dest_item)
+                    else:
+                        shutil.copytree(mod_source_path, dest_mod_path)
+
+                    self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_mod_path))
+                    self.config_manager.set_mod_enabled(self.game_name, str(dest_mod_path), True)
+                    results['package_mods_imported'] += 1
+                except Exception as e:
+                    results['errors'].append(f"Failed to copy mod '{mod_name}': {str(e)}")
+
+            # Import native DLL mods
+            natives = config_data.get("natives", [])
+            for native in natives:
+                native_path = native.get("path", "")
+                if not native_path:
+                    continue
+
+                native_path_obj = Path(native_path)
+                possible_dll_paths = []
+
+                if mod_source_path:
+                    for search_pattern in [native_path, native_path_obj.name]:
+                        potential_dll = mod_source_path / search_pattern
+                        if potential_dll.exists():
+                            possible_dll_paths.append(potential_dll)
+                            break
+
+                    dll_name = native_path_obj.name
+                    for dll_file in mod_source_path.rglob(dll_name):
+                        if dll_file.is_file():
+                            possible_dll_paths.append(dll_file)
+                            break
+
+                if possible_dll_paths:
+                    results['dll_mods_imported'] += 1
+
+            # Import the profile settings (ignoring supports completely)
+            try:
+                profile_path = self.config_manager.get_profile_path(self.game_name)
+                imported_config = self.config_manager._parse_toml_config(profile_file)
+
+                if not merge:
+                    updated_packages = []
+                    main_mods_dir = self.config_manager.games[self.game_name]["mods_dir"]
+                    updated_packages.append({
+                        "id": main_mods_dir,
+                        "path": main_mods_dir,
+                        "load_after": [],
+                        "load_before": []
+                    })
+
+                    if results['package_mods_imported'] > 0:
+                        updated_packages.append({
+                            "id": mod_name,
+                            "path": f"{main_mods_dir}/{mod_name}",
+                            "load_after": [],
+                            "load_before": []
+                        })
+
+                    updated_natives = []
+                    natives = imported_config.get("natives", [])
+                    for native in natives:
+                        native_path = native.get("path", "")
+                        if not native_path:
+                            continue
+
+                        if results['package_mods_imported'] > 0:
+                            new_native_path = f"{main_mods_dir}/{mod_name}/{native_path}"
+                            new_native = native.copy()
+                            new_native["path"] = new_native_path
+                            updated_natives.append(new_native)
+
+                    imported_config["natives"] = updated_natives
+                    self.mod_manager._write_improved_config(profile_path, imported_config, self.game_name)
+
+                results['profile_imported'] = True
+
+            except Exception as e:
+                results['errors'].append(f"Failed to import profile: {str(e)}")
+
+            # Show results
+            if results['success'] and (results['profile_imported'] or results['package_mods_imported'] > 0):
                 message_parts = ["<b>Import completed successfully!</b>"]
                 if results['profile_imported']:
                     message_parts.append("✓ Profile imported and converted")
@@ -804,7 +961,7 @@ class GamePage(QWidget):
                     error_header = f"<b>Errors encountered:</b>"
                     error_details = [f"• {error}" for error in results.get('errors', [])]
                     message_parts.append(f"{error_header}<br>" + "<br>".join(error_details))
-                
+
                 message = "<br>".join(message_parts)
                 msg_box = QMessageBox(self)
                 msg_box.setWindowTitle("Import Complete")
@@ -815,11 +972,27 @@ class GamePage(QWidget):
             else:
                 error_msg = "<b>Import failed:</b><br><br>" + "<br>".join(f"• {error}" for error in results['errors'])
                 QMessageBox.warning(self, "Import Failed", error_msg)
-                
+
         except Exception as e:
             QMessageBox.warning(self, "Import Error", f"Error during import: {str(e)}")
         finally:
             self.status_label.setText("Ready")
+
+    def _is_valid_mod_folder(self, folder: Path) -> bool:
+        """Check if a folder is a valid mod folder"""
+        # Check if folder name is in acceptable folders
+        if folder.name in self.acceptable_folders:
+            return True
+        
+        # Check if it contains acceptable subfolders
+        if any(sub.is_dir() and sub.name in self.acceptable_folders for sub in folder.iterdir()):
+            return True
+        
+        # Check if it has regulation files
+        if (folder / "regulation.bin").exists() or (folder / "regulation.bin.disabled").exists():
+            return True
+        
+        return False
     
     def install_dll_mods(self, dll_paths: List[Path]) -> bool:
         mods_dir = self.config_manager.get_mods_dir(self.game_name)

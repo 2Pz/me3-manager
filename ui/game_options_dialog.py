@@ -161,8 +161,7 @@ class GameOptionsDialog(QDialog):
         steam_layout.addWidget(self.steam_dir_widget)
         
         # Steam directory info
-        steam_info = QLabel("💡 Specify a custom Steam installation directory if ME3 cannot auto-detect it. "
-                           "This setting applies globally to all games.")
+        steam_info = QLabel("💡 Specify a custom Steam installation directory if ME3 cannot auto-detect it.")
         steam_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         steam_info.setWordWrap(True)
         steam_layout.addWidget(steam_info)
@@ -174,33 +173,48 @@ class GameOptionsDialog(QDialog):
         exe_group.setStyleSheet(self._get_group_style())
         exe_layout = QVBoxLayout(exe_group)
         exe_layout.setSpacing(12)
-        
-        # Executable path
-        exe_path_layout = QHBoxLayout()
+
+        # Custom Executable checkbox
+        self.exe_path_cb = QCheckBox("Use custom executable path")
+        self.exe_path_cb.setStyleSheet(self._get_checkbox_style())
+        self.exe_path_cb.toggled.connect(self.on_exe_path_toggled)
+        exe_layout.addWidget(self.exe_path_cb)
+
+        # Executable path selection
+        self.exe_path_layout = QHBoxLayout()
+
         self.exe_path_edit = QLineEdit()
-        self.exe_path_edit.setPlaceholderText("Path to game executable (optional)")
+        self.exe_path_edit.setPlaceholderText("Path to game executable")
         self.exe_path_edit.setStyleSheet(self._get_lineedit_style())
-        
+        self.exe_path_edit.setEnabled(False)
+
         self.browse_exe_btn = QPushButton("Browse...")
         self.browse_exe_btn.setStyleSheet(self._get_button_style())
         self.browse_exe_btn.clicked.connect(self.browse_executable)
-        
+        self.browse_exe_btn.setEnabled(False)
+
         self.clear_exe_btn = QPushButton("Clear")
         self.clear_exe_btn.setStyleSheet(self._get_button_style())
         self.clear_exe_btn.clicked.connect(self.clear_executable)
-        
-        exe_path_layout.addWidget(self.exe_path_edit)
-        exe_path_layout.addWidget(self.browse_exe_btn)
-        exe_path_layout.addWidget(self.clear_exe_btn)
-        
-        exe_layout.addLayout(exe_path_layout)
-        
+        self.clear_exe_btn.setEnabled(False)
+
+        self.exe_path_layout.addWidget(self.exe_path_edit)
+        self.exe_path_layout.addWidget(self.browse_exe_btn)
+        self.exe_path_layout.addWidget(self.clear_exe_btn)
+
+        # Create a widget to contain the exe path layout so we can hide it
+        self.exe_path_widget = QWidget()
+        self.exe_path_widget.setLayout(self.exe_path_layout)
+        self.exe_path_widget.setVisible(False)
+
+        exe_layout.addWidget(self.exe_path_widget)
+
         # Executable warning
         exe_warning = QLabel("⚠️ Only set a custom executable if ME3 cannot detect your game installation automatically.")
         exe_warning.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         exe_warning.setWordWrap(True)
         exe_layout.addWidget(exe_warning)
-        
+
         layout.addWidget(exe_group)
         
         layout.addStretch()
@@ -251,11 +265,6 @@ class GameOptionsDialog(QDialog):
             boot_boost = self.current_settings.get('boot_boost')
             self.boot_boost_cb.setChecked(bool(boot_boost) if boot_boost is not None else False)
             
-            # Set executable path
-            exe_path = self.current_settings.get('exe')
-            if exe_path:
-                self.exe_path_edit.setText(str(exe_path))
-            
             # Load Steam directory from global settings (root level)
             steam_dir = self._load_steam_dir_globally()
             
@@ -272,6 +281,16 @@ class GameOptionsDialog(QDialog):
             else:
                 self.steam_dir_cb.setChecked(False)
                 self.on_steam_dir_toggled(False)  # Hide the steam dir controls
+            
+            # Set executable path and checkbox
+            exe_path = self.current_settings.get('exe')
+            if exe_path:
+                self.exe_path_cb.setChecked(True)
+                self.exe_path_edit.setText(str(exe_path))
+                self.on_exe_path_toggled(True)  # Show the exe path controls
+            else:
+                self.exe_path_cb.setChecked(False)
+                self.on_exe_path_toggled(False)  # Hide the exe path controls
                 
         except Exception as e:
             QMessageBox.warning(self, "Load Error", f"Failed to load current settings: {str(e)}")
@@ -287,6 +306,16 @@ class GameOptionsDialog(QDialog):
         
         if not checked:
             self.steam_dir_edit.clear()
+
+    def on_exe_path_toggled(self, checked):
+        """Handle executable path checkbox toggle"""
+        self.exe_path_widget.setVisible(checked)
+        self.exe_path_edit.setEnabled(checked)
+        self.browse_exe_btn.setEnabled(checked)
+        self.clear_exe_btn.setEnabled(checked)
+        
+        if not checked:
+            self.exe_path_edit.clear()
 
     def browse_steam_directory(self):
         """Browse for Steam installation directory"""
@@ -557,16 +586,6 @@ class GameOptionsDialog(QDialog):
             game_settings['skip_logos'] = self.skip_logos_cb.isChecked()
             game_settings['boot_boost'] = self.boot_boost_cb.isChecked()
             
-            # Get executable path
-            exe_path = self.exe_path_edit.text().strip()
-            if exe_path:
-                game_settings['exe'] = exe_path
-                # Automatically set skip_steam_init when custom exe is used
-                game_settings['skip_steam_init'] = True
-            else:
-                game_settings['exe'] = None  # Remove from config
-                game_settings['skip_steam_init'] = None  # Remove from config when no custom exe
-            
             # Handle Steam directory
             steam_dir = None
             if self.steam_dir_cb.isChecked():
@@ -574,8 +593,26 @@ class GameOptionsDialog(QDialog):
                 if not steam_dir:
                     # Checkbox is checked but no path provided
                     QMessageBox.warning(self, "Steam Directory Required", 
-                                      "Please provide a Steam directory path or uncheck the option.")
+                                    "Please provide a Steam directory path or uncheck the option.")
                     return
+            
+            # Get executable path
+            exe_path = None
+            if self.exe_path_cb.isChecked():
+                exe_path = self.exe_path_edit.text().strip()
+                if not exe_path:
+                    # Checkbox is checked but no path provided
+                    QMessageBox.warning(self, "Executable Path Required", 
+                                    "Please provide an executable path or uncheck the option.")
+                    return
+            
+            if exe_path:
+                game_settings['exe'] = exe_path
+                # Automatically set skip_steam_init when custom exe is used
+                game_settings['skip_steam_init'] = True
+            else:
+                game_settings['exe'] = None  # Remove from config
+                game_settings['skip_steam_init'] = None  # Remove from config when no custom exe
             
             print(f"DEBUG: Game settings to save: {game_settings}")
             print(f"DEBUG: Steam directory to save: {steam_dir}")
@@ -588,11 +625,11 @@ class GameOptionsDialog(QDialog):
             
             if game_save_success and steam_save_success:
                 QMessageBox.information(self, "Settings Saved", 
-                                      f"Game options for {self.game_name} have been saved successfully.")
+                                    f"Game options for {self.game_name} have been saved successfully.")
                 self.accept()
             else:
                 QMessageBox.warning(self, "Save Error", 
-                                  "Failed to save some settings. Please check that ME3 is properly installed.")
+                                "Failed to save some settings. Please check that ME3 is properly installed.")
                 
         except Exception as e:
             QMessageBox.warning(self, "Save Error", f"Failed to save settings: {str(e)}")
