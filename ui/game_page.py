@@ -1532,6 +1532,29 @@ class GamePage(QWidget):
     def launch_game(self):
         """Launch the game with the configured profile and settings."""
         try:
+            # Check if ME3 is installed before attempting to launch
+            if self.window().me3_version == "Not Installed":
+                reply = QMessageBox.question(
+                    self, 
+                    "ME3 Not Installed", 
+                    "Mod Engine 3 is required to launch games with mods.\n\n"
+                    "Would you like to install ME3 now?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    # Open the installation dialog
+                    from ui.main_window import HelpAboutDialog
+                    dialog = HelpAboutDialog(self.window(), initial_setup=True)
+                    dialog.exec()
+                    # After dialog closes, check if ME3 was installed
+                    self.window().refresh_me3_status()
+                    if self.window().me3_version == "Not Installed":
+                        return  # Still not installed, abort launch
+                else:
+                    return  # User chose not to install, abort launch
+            
             # Validate profile and CLI ID
             profile_path = self.config_manager.get_profile_path(self.game_name)
             if not profile_path.exists():
