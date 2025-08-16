@@ -2,8 +2,11 @@
 node_modules/
 build/
 Backup/
-Me3_Manager.AppDir/
 dist/
+Me3_Manager-x86_64.zip
+Me3_Manager-x86_64.AppImage
+Me3_Manager
+
 # Ignore Python cache
 __pycache__/
 
