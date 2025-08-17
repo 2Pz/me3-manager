@@ -105,7 +105,7 @@ class HelpAboutDialog(QDialog):
         layout.addWidget(video_header)
         
         if sys.platform == "win32":
-            video_link = QLabel('<a href="https://www.youtube.com/watch?v=2Pz123">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide</a>')
+            video_link = QLabel('<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide</a>')
         else:
             # For Linux/macOS, use the same video link but with a different text
             # since the installation process is different.
