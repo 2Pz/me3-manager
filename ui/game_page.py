@@ -1608,13 +1608,40 @@ class GamePage(QWidget):
         terminal.process.readyReadStandardOutput.connect(terminal.handle_stdout)
         terminal.process.finished.connect(terminal.process_finished)
         
-        # Start me3 directly with argument list
-        terminal.process.start(command_args[0], command_args[1:])
+        # Use argument list for terminal execution (skip display since we already showed it)
+        terminal.run_command(command_args, skip_display=True)
 
     def _launch_direct(self, command_args):
         """Launch the game command directly via subprocess."""
-        # Use argument list directly
-        subprocess.Popen(command_args)
+        import os
+        
+        if sys.platform != "win32":
+            # Check if we're running in Flatpak
+            is_flatpak = os.path.exists("/.flatpak-info") or "/app/" in os.environ.get("PATH", "")
+            
+            if is_flatpak and command_args[0] == "me3":
+                # Use flatpak-spawn for me3 commands
+                user_home = os.path.expanduser("~")
+                me3_path = f"{user_home}/.local/bin/me3"
+                flatpak_args = ["flatpak-spawn", "--host", me3_path] + command_args[1:]
+                subprocess.Popen(flatpak_args)
+            else:
+                # Regular Linux execution with shell environment
+                user_shell = os.environ.get("SHELL", "/bin/bash")
+                if not Path(user_shell).exists():
+                    user_shell = "/bin/bash"
+                
+                # Create shell-safe command string
+                try:
+                    me3_command_str = shlex.join(command_args)
+                except AttributeError:
+                    me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
+                
+                final_command_list = [user_shell, "-l", "-c", me3_command_str]
+                subprocess.Popen(final_command_list)
+        else:
+            # Windows: use command args directly
+            subprocess.Popen(command_args)
 
     def _update_status(self, message):
         """Update status label with automatic reset."""

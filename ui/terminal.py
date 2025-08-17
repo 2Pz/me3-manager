@@ -155,26 +155,27 @@ class EmbeddedTerminal(QWidget):
             
         return html_output
     
-    def run_command(self, command, working_dir: str = None):
+    def run_command(self, command, working_dir: str = None, skip_display: bool = False):
         """Run a command in the embedded terminal
         
         Args:
             command: Either a string command or list of arguments
             working_dir: Optional working directory
+            skip_display: Skip displaying the command (already displayed elsewhere)
         """
         import os
         
         # Handle both string commands and argument lists
         if isinstance(command, str):
-            # Legacy string command - display as-is
             display_command = command
             is_legacy_string = True
         else:
-            # New argument list - display nicely quoted
             display_command = " ".join(shlex.quote(arg) for arg in command)
             is_legacy_string = False
         
-        self.output.append(f"$ {display_command}")
+        # Only display if not skipped
+        if not skip_display:
+            self.output.append(f"$ {display_command}")
         
         if self.process is not None:
             self.process.kill()
@@ -236,7 +237,7 @@ class EmbeddedTerminal(QWidget):
                     self.process.setProcessEnvironment(env)
                     self.process.start("bash", ["-l", "-c", command])
         else:
-            # Handle new argument list format - direct execution, no shell needed
+            # Handle new argument list format
             program = command[0]
             args = command[1:] if len(command) > 1 else []
             
@@ -245,14 +246,17 @@ class EmbeddedTerminal(QWidget):
                 is_flatpak = os.path.exists("/.flatpak-info") or "/app/" in os.environ.get("PATH", "")
                 
                 if is_flatpak and program == "me3":
-                    # Use flatpak-spawn for me3 commands
+                    # Use flatpak-spawn for me3 commands - need shell for proper execution
                     user_home = os.path.expanduser("~")
                     me3_path = f"{user_home}/.local/bin/me3"
-                    flatpak_args = ["flatpak-spawn", "--host", me3_path] + args
-                    self.process.start("flatpak-spawn", flatpak_args[1:])
+                    
+                    # Create shell command to ensure proper environment
+                    shell_command = " ".join([shlex.quote(me3_path)] + [shlex.quote(arg) for arg in args])
+                    full_command = f"flatpak-spawn --host bash -l -c {shlex.quote(shell_command)}"
+                    self.process.start("bash", ["-c", full_command])
                     self.output.append("Running command on host system via flatpak-spawn...")
                 else:
-                    # Set up environment for non-flatpak Linux
+                    # Set up environment for non-flatpak Linux with shell execution
                     from PyQt6.QtCore import QProcessEnvironment
                     import subprocess
                     
@@ -273,7 +277,9 @@ class EmbeddedTerminal(QWidget):
                     except:
                         pass  # Use default environment
                     
-                    self.process.start(program, args)
+                    # Use shell execution to maintain login environment
+                    shell_command = " ".join([shlex.quote(program)] + [shlex.quote(arg) for arg in args])
+                    self.process.start("bash", ["-l", "-c", shell_command])
             else:
                 # Windows - direct execution
                 self.process.start(program, args)
