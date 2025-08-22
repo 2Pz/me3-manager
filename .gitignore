@@ -6,8 +6,12 @@ dist/
 Me3_Manager-x86_64.zip
 Me3_Manager-x86_64.AppImage
 
+# Ignore AppDir contents
+Me3_Manager.AppDir/
+
 # Ignore Python cache
 __pycache__/
+
 # Ignore OS / editor junk
 .DS_Store
 *.log
