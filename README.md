@@ -3,6 +3,8 @@ Description available on Nexus Mods:
 
 # Developer Support
 <ol>
-  <li>git clone https://github.com/2Pz/me3-manager.git</li>
-  <li>pip install -r requirements.txt</li>
+  <li><p>Clon the repo</p>
+    git clone https://github.com/2Pz/me3-manager.git</li>
+  <li><p>In the commandline :-<p><br>
+    pip install -r requirements.txt</li>
 </ol>
