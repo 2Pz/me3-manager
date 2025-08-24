@@ -1,0 +1,14 @@
+# UI Framework
+PyQt6
+
+# TOML configuration file parsing (for Python < 3.11)
+tomli
+
+# TOML configuration file writing
+toml
+
+# For making web requests (e.g., checking for updates)
+requests
+
+# For getting system information (used in one of the files)
+psutil
