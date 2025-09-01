@@ -19,11 +19,13 @@ from ui.terminal import EmbeddedTerminal
 from ui.draggable_game_button import DraggableGameButton, DraggableGameContainer
 from ui.settings_dialog import SettingsDialog
 from utils.resource_path import resource_path
+from utils.translator import tr
 from version import VERSION
 
 
 class HelpAboutDialog(QDialog):
     """A custom dialog for Help, About, and maintenance actions."""
+
     def __init__(self, main_window, initial_setup=False):
         super().__init__(main_window)
         self.main_window = main_window
@@ -58,12 +60,12 @@ class HelpAboutDialog(QDialog):
         title = QLabel("Mod Engine 3 Manager")
         title.setObjectName("TitleLabel")
         layout.addWidget(title)
-        
+
         versions_text = f"Manager Version: {VERSION}  |  ME3 CLI Version: {self.main_window.me3_version}"
         version_label = QLabel(versions_text)
         version_label.setObjectName("VersionLabel")
         layout.addWidget(version_label)
-        
+
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
@@ -73,10 +75,10 @@ class HelpAboutDialog(QDialog):
 
         if initial_setup:
             self.setWindowTitle("ME3 Installation Required")
-            
+
             warning_layout = QVBoxLayout()
             warning_layout.setSpacing(5)
-            
+
             warning_label = QLabel("ME3 Not Installed")
             warning_label.setObjectName("WarningLabel")
             warning_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -87,7 +89,7 @@ class HelpAboutDialog(QDialog):
             warning_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             warning_info_label.setWordWrap(True)
             warning_layout.addWidget(warning_info_label)
-            
+
             layout.addLayout(warning_layout)
             self.close_button.setText("Install Later")
         else:
@@ -99,26 +101,28 @@ class HelpAboutDialog(QDialog):
             description.setWordWrap(True)
             layout.addWidget(description)
             self.close_button.setText("Close")
-        
+
         video_header = QLabel("Tutorial")
         video_header.setObjectName("HeaderLabel")
         layout.addWidget(video_header)
-        
+
         if sys.platform == "win32":
-            video_link = QLabel('<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide</a>')
+            video_link = QLabel(
+                '<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide</a>')
         else:
             # For Linux/macOS, use the same video link but with a different text
             # since the installation process is different.
-            video_link = QLabel('<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide for LInux</a>')
+            video_link = QLabel(
+                '<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide for LInux</a>')
         video_link.setObjectName("VideoLinkLabel")
         video_link.setOpenExternalLinks(True)
         video_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         layout.addWidget(video_link)
-        
+
         actions_header = QLabel("Actions")
         actions_header.setObjectName("HeaderLabel")
         layout.addWidget(actions_header)
-        
+
         actions_layout = QVBoxLayout()
         actions_layout.setSpacing(8)
 
@@ -129,9 +133,9 @@ class HelpAboutDialog(QDialog):
 
         layout.addLayout(actions_layout)
         layout.addStretch()
-        
+
         button_box_layout = QHBoxLayout()
-        
+
         support_button = QPushButton("Support Me on Ko-fi")
         support_button.setObjectName("KoFiButton")
         support_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -139,10 +143,10 @@ class HelpAboutDialog(QDialog):
         button_box_layout.addWidget(support_button)
 
         button_box_layout.addStretch()
-        
+
         self.close_button.clicked.connect(self.accept)
         button_box_layout.addWidget(self.close_button)
-        
+
         layout.addLayout(button_box_layout)
 
     def open_kofi_link(self):
@@ -160,13 +164,13 @@ class HelpAboutDialog(QDialog):
 
         # Get version info using the centralized version manager
         versions_info = self.version_manager.get_available_versions()
-        
+
         # Stable installer button
         btn_text = f"Download Latest Installer (Stable) (Recommended)"
         if versions_info['stable']['version']:
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
-        #self.stable_button.setObjectName("DownloadStableButton")
+        # self.stable_button.setObjectName("DownloadStableButton")
         self.stable_button.clicked.connect(lambda: self.handle_download('latest'))
         if not versions_info['stable']['available']:
             self.stable_button.setDisabled(True)
@@ -192,12 +196,12 @@ class HelpAboutDialog(QDialog):
         if not versions_info['prerelease']['available']:
             self.prerelease_button.setDisabled(True)
         layout.addWidget(self.prerelease_button)
-        
+
     def setup_linux_buttons(self, layout):
         """Creates buttons for Linux/macOS, highlighting the stable official script."""
         # Get version info using the centralized version manager
         versions_info = self.version_manager.get_available_versions()
-        
+
         # Stable installer button (Official & Recommended)
         btn_text = "Install/Update with Official Stable Script (Recommended)"
         if versions_info['stable']['version']:
@@ -208,7 +212,7 @@ class HelpAboutDialog(QDialog):
         if not versions_info['stable']['available']:
             self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
-        
+
         # Pre-release installer button
         btn_text = "Install/Update with Official Pre-release Script"
         if versions_info['prerelease']['version']:
@@ -233,7 +237,7 @@ class HelpAboutDialog(QDialog):
         """Handle Windows installer download using the version manager."""
         self.version_manager.download_windows_installer(release_type)
         self.accept()
-        
+
     def handle_linux_install(self, release_type):
         """Handle Linux ME3 installation using the version manager."""
         self.version_manager.install_linux_me3(release_type)
@@ -242,29 +246,28 @@ class HelpAboutDialog(QDialog):
 
 class ModEngine3Manager(QMainWindow):
     """Main application window"""
-    
+
     def __init__(self):
         super().__init__()
         self.config_manager = ConfigManager()
         self.me3_version = self.get_me3_version()
-        
+
         # Initialize the centralized version manager
         self.version_manager = ME3VersionManager(
-        parent_widget=self,
-        config_manager=self.config_manager,
-        refresh_callback=self.refresh_me3_status 
-    )
-        
+            parent_widget=self,
+            config_manager=self.config_manager,
+            refresh_callback=self.refresh_me3_status
+        )
+
         self.init_ui()
 
-   
         self.refresh_timer = QTimer(self)
         self.refresh_timer.setSingleShot(True)
         self.refresh_timer.timeout.connect(self.perform_global_refresh)
 
         # Connect BOTH directory and file change signals to the same refresh slot.
         self.config_manager.file_watcher.directoryChanged.connect(self.schedule_global_refresh)
-        self.config_manager.file_watcher.fileChanged.connect(self.schedule_global_refresh) 
+        self.config_manager.file_watcher.fileChanged.connect(self.schedule_global_refresh)
 
         self.check_me3_installation()
         self.auto_launch_steam_if_enabled()
@@ -294,7 +297,6 @@ class ModEngine3Manager(QMainWindow):
         if page:
             self.content_layout.removeWidget(page)
             page.deleteLater()
-
 
     def show_game_management_dialog(self):
         """Show the game management dialog"""
@@ -347,7 +349,7 @@ class ModEngine3Manager(QMainWindow):
             btn.clicked.connect(lambda checked, name=game_name: self.switch_game(name))
             self.game_container.add_game_button(game_name, btn)
             self.game_buttons[game_name] = btn
-        
+
         self.game_container.set_game_order(game_order)
 
         # 5. Rebuild the game pages in the content area
@@ -379,15 +381,15 @@ class ModEngine3Manager(QMainWindow):
         """Check for ME3 updates on startup if enabled in settings."""
         if not self.config_manager.get_check_for_updates():
             return
-            
+
         if self.me3_version == "Not Installed":
             return
-            
+
         update_info = self.version_manager.check_for_updates()
         if update_info.get('has_stable_update', False):
             stable_version = update_info.get('stable_version', 'Unknown')
             current_version = update_info.get('current_version', 'Unknown')
-            
+
             reply = QMessageBox.question(
                 self,
                 "ME3 Update Available",
@@ -398,7 +400,7 @@ class ModEngine3Manager(QMainWindow):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes
             )
-            
+
             if reply == QMessageBox.StandardButton.Yes:
                 if sys.platform == "win32":
                     self.version_manager.download_windows_installer('latest')
@@ -416,22 +418,22 @@ class ModEngine3Manager(QMainWindow):
             target_path = path if run_file else os.path.dirname(path)
             if sys.platform == "win32":
                 os.startfile(target_path)
-            else: # Linux
+            else:  # Linux
                 subprocess.run(["xdg-open", target_path], check=True)
         except Exception as e:
             QMessageBox.warning(self, "Error", f"Could not perform action: {e}")
 
     def strip_ansi_codes(self, text: str) -> str:
         return re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', text)
-    
+
     def get_me3_version(self):
         version = self.config_manager.get_me3_version()
         if version:
             return f"v{version}"
         return "Not Installed"
-    
+
     def init_ui(self):
-        self.setWindowTitle("Mod Engine 3 Manager")
+        self.setWindowTitle(tr("app_title"))
         self.setWindowIcon(QIcon(resource_path("resources/icon/icon.ico")))
         self.setGeometry(100, 100, 1200, 800)
         self.setStyleSheet("""
@@ -449,7 +451,7 @@ class ModEngine3Manager(QMainWindow):
         layout = QHBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(splitter)
-    
+
     def create_sidebar(self, parent):
         sidebar = QWidget()
         sidebar.setFixedWidth(250)
@@ -483,12 +485,12 @@ class ModEngine3Manager(QMainWindow):
         self.game_container.set_game_order(game_order)
         layout.addWidget(self.game_container)
         layout.addStretch()
-        
+
         # Manage Games button
         manage_games_button = QPushButton("Manage Games")
         manage_games_button.clicked.connect(self.show_game_management_dialog)
         layout.addWidget(manage_games_button)
-        
+
         help_button = QPushButton("Help / About")
         help_button.clicked.connect(self.show_help_dialog)
         layout.addWidget(help_button)
@@ -516,7 +518,7 @@ class ModEngine3Manager(QMainWindow):
             page.setVisible(False)
             self.content_layout.addWidget(page)
             self.game_pages[game_name] = page
-        
+
         first_game = self.config_manager.get_game_order()[0]
         self.switch_game(first_game)
         self.terminal = EmbeddedTerminal()
@@ -541,18 +543,18 @@ class ModEngine3Manager(QMainWindow):
         if old_version != self.me3_version:
             # Update footer label
             self.footer_label.setText(f"Manager v{VERSION}\nME3 CLI: {self.me3_version}\nby 2Pz")
-            
+
             # Trigger a full refresh of the application state
             self.perform_global_refresh()
-            
-           # print(f"ME3 version updated: {old_version} -> {self.me3_version}")
+
+        # print(f"ME3 version updated: {old_version} -> {self.me3_version}")
 
     def switch_game(self, game_name: str):
-        for name, button in self.game_buttons.items(): 
+        for name, button in self.game_buttons.items():
             button.setChecked(name == game_name)
-        for name, page in self.game_pages.items(): 
+        for name, page in self.game_pages.items():
             page.setVisible(name == game_name)
-    
+
     def setup_file_watcher(self):
         """
         This is a placeholder that is now handled by config_manager's own init.
@@ -568,7 +570,7 @@ class ModEngine3Manager(QMainWindow):
         This method is triggered by the QFileSystemWatcher. It starts a
         debounced timer to perform a full refresh, preventing rapid-fire updates.
         """
-        #print(f"Filesystem change detected at: {path}. Scheduling a full refresh.")
+        # print(f"Filesystem change detected at: {path}. Scheduling a full refresh.")
         self.refresh_timer.start(500)
 
     def perform_global_refresh(self):
@@ -576,7 +578,7 @@ class ModEngine3Manager(QMainWindow):
         This is the master refresh function. It cleans the config and then forces
         every single game page to completely reload its UI from that clean config.
         """
-        #print("Performing global state refresh...")
+        # print("Performing global state refresh...")
 
         # Step 1: Prune the master list of profiles from the settings file.
         # This removes profiles whose folders have been deleted.
@@ -603,8 +605,8 @@ class ModEngine3Manager(QMainWindow):
         # Step 4: Update the file watcher to only monitor directories that still exist.
         self.config_manager.setup_file_watcher()
 
-        #print("Global refresh complete.")
-    
+        # print("Global refresh complete.")
+
     def on_game_order_changed(self, new_order):
         self.config_manager.set_game_order(new_order)
 
@@ -634,13 +636,13 @@ class ModEngine3Manager(QMainWindow):
         if sys.platform == "win32":
             self.version_manager.download_windows_installer(release_type)
         else:
-            QMessageBox.information(self, "Platform Info", 
-                                  "Use the Linux installation scripts from the Help/About dialog instead.")
+            QMessageBox.information(self, "Platform Info",
+                                    "Use the Linux installation scripts from the Help/About dialog instead.")
 
     def install_me3_linux(self, release_type='latest'):
         """Install ME3 on Linux using the version manager."""
         if sys.platform != "win32":
             self.version_manager.install_linux_me3(release_type)
         else:
-            QMessageBox.information(self, "Platform Info", 
-                                  "Use the Windows installer download from the Help/About dialog instead.")
+            QMessageBox.information(self, "Platform Info",
+                                    "Use the Windows installer download from the Help/About dialog instead.")
