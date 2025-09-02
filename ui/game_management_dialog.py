@@ -152,7 +152,7 @@ class GameManagementDialog(QDialog):
                 self.parent().refresh_sidebar()
                 QMessageBox.information(self, "Success", f"'{game_name}' has been removed successfully.")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to remove game: {str(e)}")
+                QMessageBox.critical(self, tr("ERROR"), f"Failed to remove game: {str(e)}")
     
     def restore_default_game(self):
         """Restore missing default games"""
@@ -190,7 +190,7 @@ class GameManagementDialog(QDialog):
             self.parent().refresh_sidebar()
             QMessageBox.information(self, "Success", f"'{game_to_restore}' has been restored successfully.")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to restore game: {str(e)}")
+            QMessageBox.critical(self, tr("ERROR"), f"Failed to restore game: {str(e)}")
 
 
 class AddGameDialog(QDialog):
@@ -370,4 +370,4 @@ class AddGameDialog(QDialog):
             self.accept()
             
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to add game: {str(e)}")
+            QMessageBox.critical(self, tr("ERROR"), f"Failed to add game: {str(e)}")

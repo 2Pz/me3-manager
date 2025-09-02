@@ -17,8 +17,22 @@
   "update_me3_button": "Update ME3",
   "close_button": "Close",
   "help_about_title": "Help / About",
+  "help_about_label": "This application helps you manage all mods supported by Mod Engine 3.\nUse the options below to update or install ME3.",
   "me3_not_installed_tip": "ME3 is not installed, cannot update.",
   "stable_installer_button_win": "Download Latest Installer (Stable) (Recommended)",
   "custom_installer_button_win": "Custom Portable Installer (Env Fix)",
-  "pre-release_installer_button_win": "Download Pre-release Installer"
+  "custom_installer_question_title_win": "Install ME3 Custom ({version})",
+  "custom_installer_question_win": "This will download and install ME3 {version} to: \n {install_path} \n\n The installation directory will be added to your user PATH. \n\n Do you want to continue?",
+  "pre-release_installer_button_win": "Download Pre-release Installer",
+  "me3_update_available_question_title": "ME3 Update Available",
+  "me3_update_available_question": "A new version of ME3 is available! \n\n Current version: {current_version} \n New version: {stable_version} \n\n Would you like to update now?",
+  "download_failed": "Download Failed",
+  "ERROR": "Error",
+  "could_not_perform_action": "Could not perform action: {e}",
+  "manage_games": "Manage Games",
+  "settings": "Settings",
+  "footer_text": "Manager v{VERSION}\nME3 CLI: {me3_version}\nby 2Pz",
+  "platform_info": "Platform Info",
+  "platform_info_desc_linux": "Use the Linux installation scripts from the Help/About dialog instead.",
+  "platform_info_desc_win": "Use the Windows installer download from the Help/About dialog instead."
 }

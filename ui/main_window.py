@@ -61,7 +61,7 @@ class HelpAboutDialog(QDialog):
         title.setObjectName("TitleLabel")
         layout.addWidget(title)
 
-        versions_text = f"{tr('manager_version', version=VERSION)}  |  {tr('me3_cli_version',version=self.main_window.me3_version)}"
+        versions_text = f"{tr('manager_version', version=VERSION)}  |  {tr('me3_cli_version', version=self.main_window.me3_version)}"
         version_label = QLabel(versions_text)
         version_label.setObjectName("VersionLabel")
         layout.addWidget(version_label)
@@ -94,10 +94,7 @@ class HelpAboutDialog(QDialog):
             self.close_button.setText(tr("install_later"))
         else:
             self.setWindowTitle(tr("help_about_title"))
-            description = QLabel(
-                "This application helps you manage all mods supported by Mod Engine 3.\n"
-                "Use the options below to update or install ME3."
-            )
+            description = QLabel(tr("help_about_label"))
             description.setWordWrap(True)
             layout.addWidget(description)
             self.close_button.setText(tr("close_button"))
@@ -392,11 +389,8 @@ class ModEngine3Manager(QMainWindow):
 
             reply = QMessageBox.question(
                 self,
-                "ME3 Update Available",
-                f"A new version of ME3 is available!\n\n"
-                f"Current version: {current_version}\n"
-                f"New version: {stable_version}\n\n"
-                f"Would you like to update now?",
+                tr("me3_update_available_question_title"),
+                tr("me3_update_available_question", current_version=current_version, stable_version=stable_version),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes
             )
@@ -421,7 +415,7 @@ class ModEngine3Manager(QMainWindow):
             else:  # Linux
                 subprocess.run(["xdg-open", target_path], check=True)
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not perform action: {e}")
+            QMessageBox.warning(self, tr("ERROR"), tr("could_not_perform_action",e=e))
 
     def strip_ansi_codes(self, text: str) -> str:
         return re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', text)
@@ -487,17 +481,17 @@ class ModEngine3Manager(QMainWindow):
         layout.addStretch()
 
         # Manage Games button
-        manage_games_button = QPushButton("Manage Games")
+        manage_games_button = QPushButton(tr("manage_games"))
         manage_games_button.clicked.connect(self.show_game_management_dialog)
         layout.addWidget(manage_games_button)
 
-        help_button = QPushButton("Help / About")
+        help_button = QPushButton(tr("help_about_title"))
         help_button.clicked.connect(self.show_help_dialog)
         layout.addWidget(help_button)
-        settings_button = QPushButton("Settings")
+        settings_button = QPushButton(tr("settings"))
         settings_button.clicked.connect(self.show_settings_dialog)
         layout.addWidget(settings_button)
-        footer_text = f"Manager v{VERSION}\nME3 CLI: {self.me3_version}\nby 2Pz"
+        footer_text = tr("footer_text", VERSION=VERSION,me3_version=self.me3_version)
         self.footer_label = QLabel(footer_text)
         self.footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.footer_label.setStyleSheet("color: #888888; font-size: 10px; line-height: 1.4;")
@@ -542,7 +536,7 @@ class ModEngine3Manager(QMainWindow):
 
         if old_version != self.me3_version:
             # Update footer label
-            self.footer_label.setText(f"Manager v{VERSION}\nME3 CLI: {self.me3_version}\nby 2Pz")
+            self.footer_label.setText(tr("footer_text", VERSION=VERSION,me3_version=self.me3_version))
 
             # Trigger a full refresh of the application state
             self.perform_global_refresh()
@@ -636,13 +630,11 @@ class ModEngine3Manager(QMainWindow):
         if sys.platform == "win32":
             self.version_manager.download_windows_installer(release_type)
         else:
-            QMessageBox.information(self, "Platform Info",
-                                    "Use the Linux installation scripts from the Help/About dialog instead.")
+            QMessageBox.information(self, tr("platform_info"),tr("platform_info_desc_linux"))
 
     def install_me3_linux(self, release_type='latest'):
         """Install ME3 on Linux using the version manager."""
         if sys.platform != "win32":
             self.version_manager.install_linux_me3(release_type)
         else:
-            QMessageBox.information(self, "Platform Info",
-                                    "Use the Windows installer download from the Help/About dialog instead.")
+            QMessageBox.information(self, tr("platform_info"),tr("platform_info_desc_win"))
