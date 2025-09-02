@@ -1,17 +1,23 @@
 import subprocess
 import sys
-import requests
 import os
 import re
 from ui.game_management_dialog import GameManagementDialog
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel,
-    QPushButton, QMessageBox, QProgressDialog, QFileDialog, QDialog, QFrame
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QSplitter,
+    QLabel,
+    QPushButton,
+    QMessageBox,
+    QDialog,
+    QFrame,
 )
 from PyQt6.QtGui import QFont, QIcon, QDesktopServices
-from PyQt6.QtCore import Qt, QObject, pyqtSignal, QThread, QStandardPaths, QUrl, QTimer, pyqtSlot
-
+from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSlot
 from core.config_manager import ConfigManager
 from core.me3_version_manager import ME3VersionManager  # Import the new version manager
 from ui.game_page import GamePage
@@ -29,7 +35,9 @@ class HelpAboutDialog(QDialog):
     def __init__(self, main_window, initial_setup=False):
         super().__init__(main_window)
         self.main_window = main_window
-        self.version_manager = main_window.version_manager  # Use the centralized version manager
+        self.version_manager = (
+            main_window.version_manager
+        )  # Use the centralized version manager
         self.setMinimumWidth(550)
         self.setStyleSheet("""
             QDialog { background-color: #252525; color: #ffffff; }
@@ -105,15 +113,19 @@ class HelpAboutDialog(QDialog):
 
         if sys.platform == "win32":
             video_link = QLabel(
-                f'<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">{tr("win_tutorial_title")}</a>')
+                f'<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">{tr("win_tutorial_title")}</a>'
+            )
         else:
             # For Linux/macOS, use the same video link but with a different text
             # since the installation process is different.
             video_link = QLabel(
-                f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>')
+                f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>'
+            )
         video_link.setObjectName("VideoLinkLabel")
         video_link.setOpenExternalLinks(True)
-        video_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        video_link.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextBrowserInteraction
+        )
         layout.addWidget(video_link)
 
         actions_header = QLabel(tr("actions_label"))
@@ -164,33 +176,35 @@ class HelpAboutDialog(QDialog):
 
         # Stable installer button
         btn_text = f"{tr('stable_installer_button_win')}"
-        if versions_info['stable']['version']:
+        if versions_info["stable"]["version"]:
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
         # self.stable_button.setObjectName("DownloadStableButton")
-        self.stable_button.clicked.connect(lambda: self.handle_download('latest'))
-        if not versions_info['stable']['available']:
+        self.stable_button.clicked.connect(lambda: self.handle_download("latest"))
+        if not versions_info["stable"]["available"]:
             self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
 
         # Custom installer button
         custom_btn_text = f"{tr('custom_installer_button_win')}"
-        if versions_info['stable']['version']:
+        if versions_info["stable"]["version"]:
             custom_btn_text += f" ({versions_info['stable']['version']})"
         self.custom_button = QPushButton(custom_btn_text)
         self.custom_button.setObjectName("DownloadStableButton")
-        self.custom_button.clicked.connect(lambda: self.handle_custom_install('latest'))
-        if not versions_info['stable']['available']:
+        self.custom_button.clicked.connect(lambda: self.handle_custom_install("latest"))
+        if not versions_info["stable"]["available"]:
             self.custom_button.setDisabled(True)
         layout.addWidget(self.custom_button)
 
         # Pre-release installer button
         btn_text = f"{tr('pre-release_installer_button_win')}"
-        if versions_info['prerelease']['version']:
+        if versions_info["prerelease"]["version"]:
             btn_text += f" ({versions_info['prerelease']['version']})"
         self.prerelease_button = QPushButton(btn_text)
-        self.prerelease_button.clicked.connect(lambda: self.handle_download('prerelease'))
-        if not versions_info['prerelease']['available']:
+        self.prerelease_button.clicked.connect(
+            lambda: self.handle_download("prerelease")
+        )
+        if not versions_info["prerelease"]["available"]:
             self.prerelease_button.setDisabled(True)
         layout.addWidget(self.prerelease_button)
 
@@ -201,22 +215,24 @@ class HelpAboutDialog(QDialog):
 
         # Stable installer button (Official & Recommended)
         btn_text = tr("stable_installer_button_linux")
-        if versions_info['stable']['version']:
+        if versions_info["stable"]["version"]:
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
         self.stable_button.setObjectName("DownloadStableButton")
-        self.stable_button.clicked.connect(lambda: self.handle_linux_install('latest'))
-        if not versions_info['stable']['available']:
+        self.stable_button.clicked.connect(lambda: self.handle_linux_install("latest"))
+        if not versions_info["stable"]["available"]:
             self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
 
         # Pre-release installer button
         btn_text = tr("pre-release_installer_button_linux")
-        if versions_info['prerelease']['version']:
+        if versions_info["prerelease"]["version"]:
             btn_text += f" ({versions_info['prerelease']['version']})"
         self.prerelease_button = QPushButton(btn_text)
-        self.prerelease_button.clicked.connect(lambda: self.handle_linux_install('prerelease'))
-        if not versions_info['prerelease']['available']:
+        self.prerelease_button.clicked.connect(
+            lambda: self.handle_linux_install("prerelease")
+        )
+        if not versions_info["prerelease"]["available"]:
             self.prerelease_button.setDisabled(True)
         layout.addWidget(self.prerelease_button)
 
@@ -253,7 +269,7 @@ class ModEngine3Manager(QMainWindow):
         self.version_manager = ME3VersionManager(
             parent_widget=self,
             config_manager=self.config_manager,
-            refresh_callback=self.refresh_me3_status
+            refresh_callback=self.refresh_me3_status,
         )
 
         self.init_ui()
@@ -263,8 +279,12 @@ class ModEngine3Manager(QMainWindow):
         self.refresh_timer.timeout.connect(self.perform_global_refresh)
 
         # Connect BOTH directory and file change signals to the same refresh slot.
-        self.config_manager.file_watcher.directoryChanged.connect(self.schedule_global_refresh)
-        self.config_manager.file_watcher.fileChanged.connect(self.schedule_global_refresh)
+        self.config_manager.file_watcher.directoryChanged.connect(
+            self.schedule_global_refresh
+        )
+        self.config_manager.file_watcher.fileChanged.connect(
+            self.schedule_global_refresh
+        )
 
         self.check_me3_installation()
         self.auto_launch_steam_if_enabled()
@@ -351,12 +371,15 @@ class ModEngine3Manager(QMainWindow):
 
         # 5. Rebuild the game pages in the content area
         from ui.game_page import GamePage
+
         # Iterate through the ordered list to add pages sequentially
         for game_name in game_order:
             if game_name in self.config_manager.games:
                 page = GamePage(game_name, self.config_manager)
                 page.setVisible(False)
-                self.content_layout.addWidget(page)  # Add to the end of the (now empty) layout
+                self.content_layout.addWidget(
+                    page
+                )  # Add to the end of the (now empty) layout
                 self.game_pages[game_name] = page
 
         # 6. Re-attach the terminal at the very end of the layout
@@ -383,27 +406,31 @@ class ModEngine3Manager(QMainWindow):
             return
 
         update_info = self.version_manager.check_for_updates()
-        if update_info.get('has_stable_update', False):
-            stable_version = update_info.get('stable_version', 'Unknown')
-            current_version = update_info.get('current_version', 'Unknown')
+        if update_info.get("has_stable_update", False):
+            stable_version = update_info.get("stable_version", "Unknown")
+            current_version = update_info.get("current_version", "Unknown")
 
             reply = QMessageBox.question(
                 self,
                 tr("me3_update_available_question_title"),
-                tr("me3_update_available_question", current_version=current_version, stable_version=stable_version),
+                tr(
+                    "me3_update_available_question",
+                    current_version=current_version,
+                    stable_version=stable_version,
+                ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes
+                QMessageBox.StandardButton.Yes,
             )
 
             if reply == QMessageBox.StandardButton.Yes:
                 if sys.platform == "win32":
-                    self.version_manager.download_windows_installer('latest')
+                    self.version_manager.download_windows_installer("latest")
                 else:
-                    self.version_manager.install_linux_me3('latest')
+                    self.version_manager.install_linux_me3("latest")
 
     def _prepare_command(self, cmd: list) -> list:
         """Enhanced command preparation with better environment handling."""
-        if sys.platform == "linux" and os.environ.get('FLATPAK_ID'):
+        if sys.platform == "linux" and os.environ.get("FLATPAK_ID"):
             return ["flatpak-spawn", "--host"] + cmd
         return cmd
 
@@ -415,10 +442,10 @@ class ModEngine3Manager(QMainWindow):
             else:  # Linux
                 subprocess.run(["xdg-open", target_path], check=True)
         except Exception as e:
-            QMessageBox.warning(self, tr("ERROR"), tr("could_not_perform_action",e=e))
+            QMessageBox.warning(self, tr("ERROR"), tr("could_not_perform_action", e=e))
 
     def strip_ansi_codes(self, text: str) -> str:
-        return re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', text)
+        return re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])").sub("", text)
 
     def get_me3_version(self):
         version = self.config_manager.get_me3_version()
@@ -449,7 +476,9 @@ class ModEngine3Manager(QMainWindow):
     def create_sidebar(self, parent):
         sidebar = QWidget()
         sidebar.setFixedWidth(250)
-        sidebar.setStyleSheet("QWidget { background-color: #252525; border-right: 1px solid #3d3d3d; }")
+        sidebar.setStyleSheet(
+            "QWidget { background-color: #252525; border-right: 1px solid #3d3d3d; }"
+        )
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(16, 24, 16, 24)
         layout.setSpacing(8)
@@ -491,10 +520,12 @@ class ModEngine3Manager(QMainWindow):
         settings_button = QPushButton(tr("settings"))
         settings_button.clicked.connect(self.show_settings_dialog)
         layout.addWidget(settings_button)
-        footer_text = tr("footer_text", VERSION=VERSION,me3_version=self.me3_version)
+        footer_text = tr("footer_text", VERSION=VERSION, me3_version=self.me3_version)
         self.footer_label = QLabel(footer_text)
         self.footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.footer_label.setStyleSheet("color: #888888; font-size: 10px; line-height: 1.4;")
+        self.footer_label.setStyleSheet(
+            "color: #888888; font-size: 10px; line-height: 1.4;"
+        )
         layout.addWidget(self.footer_label)
         parent.addWidget(sidebar)
 
@@ -536,7 +567,9 @@ class ModEngine3Manager(QMainWindow):
 
         if old_version != self.me3_version:
             # Update footer label
-            self.footer_label.setText(tr("footer_text", VERSION=VERSION,me3_version=self.me3_version))
+            self.footer_label.setText(
+                tr("footer_text", VERSION=VERSION, me3_version=self.me3_version)
+            )
 
             # Trigger a full refresh of the application state
             self.perform_global_refresh()
@@ -625,16 +658,20 @@ class ModEngine3Manager(QMainWindow):
         """Update ME3 CLI using the version manager."""
         self.version_manager.update_me3_cli()
 
-    def download_me3_installer(self, release_type='latest'):
+    def download_me3_installer(self, release_type="latest"):
         """Download ME3 installer using the version manager."""
         if sys.platform == "win32":
             self.version_manager.download_windows_installer(release_type)
         else:
-            QMessageBox.information(self, tr("platform_info"),tr("platform_info_desc_linux"))
+            QMessageBox.information(
+                self, tr("platform_info"), tr("platform_info_desc_linux")
+            )
 
-    def install_me3_linux(self, release_type='latest'):
+    def install_me3_linux(self, release_type="latest"):
         """Install ME3 on Linux using the version manager."""
         if sys.platform != "win32":
             self.version_manager.install_linux_me3(release_type)
         else:
-            QMessageBox.information(self, tr("platform_info"),tr("platform_info_desc_win"))
+            QMessageBox.information(
+                self, tr("platform_info"), tr("platform_info_desc_win")
+            )
