@@ -93,16 +93,16 @@ class HelpAboutDialog(QDialog):
             layout.addLayout(warning_layout)
             self.close_button.setText(tr("install_later"))
         else:
-            self.setWindowTitle("Help / About")
+            self.setWindowTitle(tr("help_about_title"))
             description = QLabel(
                 "This application helps you manage all mods supported by Mod Engine 3.\n"
                 "Use the options below to update or install ME3."
             )
             description.setWordWrap(True)
             layout.addWidget(description)
-            self.close_button.setText("Close")
+            self.close_button.setText(tr("close_button"))
 
-        video_header = QLabel(tr("tutorial"))
+        video_header = QLabel(tr("tutorial_label"))
         video_header.setObjectName("HeaderLabel")
         layout.addWidget(video_header)
 
@@ -119,7 +119,7 @@ class HelpAboutDialog(QDialog):
         video_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         layout.addWidget(video_link)
 
-        actions_header = QLabel("Actions")
+        actions_header = QLabel(tr("actions_label"))
         actions_header.setObjectName("HeaderLabel")
         layout.addWidget(actions_header)
 
@@ -155,18 +155,18 @@ class HelpAboutDialog(QDialog):
 
     def setup_windows_buttons(self, layout):
         # Update ME3 button
-        self.update_cli_button = QPushButton("Update ME3")
+        self.update_cli_button = QPushButton(tr("update_me3_button"))
         self.update_cli_button.clicked.connect(self.handle_update_cli)
         if self.main_window.me3_version == tr("not_installed"):
             self.update_cli_button.setDisabled(True)
-            self.update_cli_button.setToolTip("ME3 is not installed, cannot update.")
+            self.update_cli_button.setToolTip(tr("me3_not_installed_tip"))
         layout.addWidget(self.update_cli_button)
 
         # Get version info using the centralized version manager
         versions_info = self.version_manager.get_available_versions()
 
         # Stable installer button
-        btn_text = f"Download Latest Installer (Stable) (Recommended)"
+        btn_text = f"{tr('stable_installer_button_win')}"
         if versions_info['stable']['version']:
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
@@ -177,7 +177,7 @@ class HelpAboutDialog(QDialog):
         layout.addWidget(self.stable_button)
 
         # Custom installer button
-        custom_btn_text = f"Custom Portable Installer (Env Fix)"
+        custom_btn_text = f"{tr('custom_installer_button_win')}"
         if versions_info['stable']['version']:
             custom_btn_text += f" ({versions_info['stable']['version']})"
         self.custom_button = QPushButton(custom_btn_text)
@@ -188,7 +188,7 @@ class HelpAboutDialog(QDialog):
         layout.addWidget(self.custom_button)
 
         # Pre-release installer button
-        btn_text = f"Download Pre-release Installer"
+        btn_text = f"{tr('pre-release_installer_button_win')}"
         if versions_info['prerelease']['version']:
             btn_text += f" ({versions_info['prerelease']['version']})"
         self.prerelease_button = QPushButton(btn_text)
@@ -203,7 +203,7 @@ class HelpAboutDialog(QDialog):
         versions_info = self.version_manager.get_available_versions()
 
         # Stable installer button (Official & Recommended)
-        btn_text = tr("stable_installer_button")
+        btn_text = tr("stable_installer_button_linux")
         if versions_info['stable']['version']:
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
@@ -214,7 +214,7 @@ class HelpAboutDialog(QDialog):
         layout.addWidget(self.stable_button)
 
         # Pre-release installer button
-        btn_text = tr("pre-release_installer_button")
+        btn_text = tr("pre-release_installer_button_linux")
         if versions_info['prerelease']['version']:
             btn_text += f" ({versions_info['prerelease']['version']})"
         self.prerelease_button = QPushButton(btn_text)

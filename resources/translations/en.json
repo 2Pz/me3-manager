@@ -7,10 +7,18 @@
   "manager_version": "Manager Version: {version}",
   "me3_cli_version": "ME3 CLI Version: {version}",
   "not_installed": "Not Installed",
-  "tutorial": "Tutorial",
+  "tutorial_label": "Tutorial",
+  "actions_label": "Actions",
   "win_tutorial_title": "How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide",
   "linux_tutorial_title": "How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide for Linux",
   "support_me": "Support Me on Ko-fi",
-  "stable_installer_button": "Install/Update with Official Stable Script (Recommended)",
-  "pre-release_installer_button": "Install/Update with Official Pre-release Script"
+  "stable_installer_button_linux": "Install/Update with Official Stable Script (Recommended)",
+  "pre-release_installer_button_linux": "Install/Update with Official Pre-release Script",
+  "update_me3_button": "Update ME3",
+  "close_button": "Close",
+  "help_about_title": "Help / About",
+  "me3_not_installed_tip": "ME3 is not installed, cannot update.",
+  "stable_installer_button_win": "Download Latest Installer (Stable) (Recommended)",
+  "custom_installer_button_win": "Custom Portable Installer (Env Fix)",
+  "pre-release_installer_button_win": "Download Pre-release Installer"
 }
