@@ -96,21 +96,12 @@ class Translator:
 
     def get_available_languages(self) -> Dict[str, str]:
         """Get available languages with their names"""
-        language_names = {
-            "en": "English",
-            "zh": "中文",
-            "es": "Español",
-            "fr": "Français",
-            "de": "Deutsch",
-            "ja": "日本語",
-            "ko": "한국어",
-            "ru": "Русский",
-        }
-
         result = {}
         for lang_code in self.translations.keys():
-            result[lang_code] = language_names.get(lang_code, lang_code)
-
+            # Try to get language name from the translation file itself
+            lang_name = self.translations[lang_code].get("language_name", lang_code)
+            result[lang_code] = lang_name
+        
         return result
 
 
