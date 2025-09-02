@@ -6,6 +6,9 @@ import re
 from typing import Optional, Tuple, Callable
 from pathlib import Path
 import zipfile
+
+from utils.translator import tr
+
 if sys.platform == "win32":
     import winreg
 import requests
@@ -34,11 +37,11 @@ class ME3Downloader(QObject):
             response.raise_for_status()
             total_size = int(response.headers.get('content-length', 0))
             bytes_downloaded = 0
-            
+
             with open(self.save_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if self._is_cancelled:
-                        self.download_finished.emit("Download cancelled.", "")
+                        self.download_finished.emit(tr("download_cancelled"), "")
                         return
                     if chunk:
                         bytes_downloaded += len(chunk)
@@ -46,12 +49,12 @@ class ME3Downloader(QObject):
                         if total_size > 0:
                             progress = int((bytes_downloaded / total_size) * 100)
                             self.download_progress.emit(progress)
-                            
-            self.download_finished.emit("Download complete!", self.save_path)
+
+            self.download_finished.emit(tr("download_complete"), self.save_path)
         except requests.RequestException as e:
-            self.download_finished.emit(f"Network error: {e}", "")
+            self.download_finished.emit(tr("NETWORK_ERROR", e=e), "")
         except Exception as e:
-            self.download_finished.emit(f"An error occurred: {e}", "")
+            self.download_finished.emit(tr("ERROR_OCCURRED", e=e), "")
 
     def cancel(self):
         self._is_cancelled = True
@@ -74,23 +77,23 @@ class ME3Updater(QObject):
 
             cmd = self._prepare_command(["me3", "update"])
             result = subprocess.run(
-                cmd, 
-                capture_output=True, 
-                text=True, 
+                cmd,
+                capture_output=True,
+                text=True,
                 check=False,
-                startupinfo=startupinfo, 
+                startupinfo=startupinfo,
                 timeout=120
             )
-            
+
             output = (result.stdout.strip() + "\n" + result.stderr.strip()).strip()
             self.update_finished.emit(result.returncode, output)
-            
+
         except FileNotFoundError:
-            self.update_finished.emit(-1, "'me3' command not found. Make sure it is installed and in your system's PATH.")
+            self.update_finished.emit(-1, tr("me3_command_not_found"))
         except subprocess.TimeoutExpired:
-            self.update_finished.emit(-2, "The update process timed out after 2 minutes.")
+            self.update_finished.emit(-2, tr("update_process_timeout", minutes='2'))
         except Exception as e:
-            self.update_finished.emit(-3, f"An unexpected error occurred: {e}")
+            self.update_finished.emit(-3, tr("UNEXPECTED_ERROR_OCCURRED", e=e))
 
 
 class ME3LinuxInstaller(QObject):
@@ -136,9 +139,9 @@ class ME3LinuxInstaller(QObject):
             self.install_finished.emit(result.returncode, output)
 
         except subprocess.TimeoutExpired:
-            self.install_finished.emit(-2, "The installation process timed out after 2.5 minutes.")
+            self.install_finished.emit(-2, tr("update_process_timeout", minutes='2.5'))
         except Exception as e:
-            self.install_finished.emit(-3, f"An unexpected error occurred: {e}")
+            self.install_finished.emit(-3, tr("UNEXPECTED_ERROR_OCCURRED", e=e))
 
 
 class ME3VersionManager:
@@ -198,7 +201,7 @@ class ME3VersionManager:
         """
         asset_name = 'me3_installer.exe' if sys.platform == "win32" else 'installer.sh'
         repo_api_base = "https://api.github.com/repos/garyttierney/me3/releases"
-        
+
         try:
             if release_type == 'latest':
                 api_url = f"{repo_api_base}/latest"
@@ -223,10 +226,10 @@ class ME3VersionManager:
             for asset in release_data.get('assets', []):
                 if asset.get('name') == asset_name:
                     return version_tag, asset.get('browser_download_url')
-                    
+
         except requests.RequestException:
             return None, None
-            
+
         return None, None
 
     def _open_file_or_directory(self, path: str, run_file: bool = False):
@@ -238,18 +241,17 @@ class ME3VersionManager:
             else:  # Linux/macOS
                 subprocess.run(["xdg-open", target_path], check=True)
         except Exception as e:
-            QMessageBox.warning(self.parent, "Error", f"Could not perform action: {e}")
+            QMessageBox.warning(self.parent, tr("ERROR"), tr("could_not_perform_action", e=e))
 
     def update_me3_cli(self):
         """Update ME3 CLI using 'me3 update' command."""
         current_version = self.config_manager.get_me3_version()
         if not current_version:
-            QMessageBox.warning(self.parent, "ME3 Not Installed", 
-                               "ME3 is not installed. Please install it first before trying to update.")
+            QMessageBox.warning(self.parent, tr("me3_not_installed"), tr("me3_not_installed_warning"))
             return
 
-        self.progress_dialog = QProgressDialog("Running 'me3 update'...", None, 0, 0, self.parent)
-        self.progress_dialog.setWindowTitle("Updating ME3 CLI")
+        self.progress_dialog = QProgressDialog(tr("me3_update_process"), None, 0, 0, self.parent)
+        self.progress_dialog.setWindowTitle(tr("me3_update_title"))
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.setCancelButton(None)
 
@@ -258,62 +260,59 @@ class ME3VersionManager:
         self.worker.moveToThread(self.thread)
         self.worker.update_finished.connect(self._on_update_finished)
         self.thread.started.connect(self.worker.run)
-        
+
         self.thread.start()
         self.progress_dialog.show()
 
     def _on_update_finished(self, return_code: int, output: str):
         """Handle completion of ME3 update process."""
         self._cleanup_thread()
-        
+
         clean_output = self._strip_ansi_codes(output)
-        
+
         # Refresh ME3 status and trigger app refresh
         self.refresh_callback()
-        
+
         if return_code == 0:
-            QMessageBox.information(self.parent, "Update Complete", 
-                                  f"ME3 has been updated successfully.\n\n{clean_output}")
+            QMessageBox.information(self.parent, tr("update_complete"), tr("update_complete_text", clean_output=clean_output))
         else:
-            QMessageBox.warning(self.parent, "Update Failed", 
-                              f"The update command failed:\n\n{clean_output}")
+            QMessageBox.warning(self.parent, tr("update_failed"), tr("update_failed_text", clean_output=clean_output))
 
     def download_windows_installer(self, release_type: str = 'latest'):
         """Download Windows ME3 installer."""
         if sys.platform != "win32":
-            QMessageBox.warning(self.parent, "Platform Error", 
-                              "Windows installer download is only available on Windows.")
+            QMessageBox.warning(self.parent, tr("platform_error"), tr("platform_error_text_win"))
             return
 
         version, download_url = self._fetch_github_release_info(release_type)
         if not download_url:
-            QMessageBox.warning(self.parent, "Error", 
-                              f"Could not fetch {release_type} release information from GitHub.")
+            QMessageBox.warning(self.parent, tr("ERROR"),
+                                f"Could not fetch {release_type} release information from GitHub.")
             return
 
         downloads_path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
         save_path, _ = QFileDialog.getSaveFileName(
-            self.parent, 
-            "Save ME3 Installer", 
-            os.path.join(downloads_path, "me3_installer.exe"), 
+            self.parent,
+            tr("save_me3_installer"),
+            os.path.join(downloads_path, "me3_installer.exe"),
             "Executable Files (*.exe)"
         )
-        
+
         if not save_path:
             return
 
-        self.progress_dialog = QProgressDialog("Downloading me3_installer.exe...", "Cancel", 0, 100, self.parent)
-        self.progress_dialog.setWindowTitle("Downloading")
+        self.progress_dialog = QProgressDialog(tr("downloading_me3_installer"), tr("CANCEL"), 0, 100, self.parent)
+        self.progress_dialog.setWindowTitle(tr("DOWNLOADING"))
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.canceled.connect(self._cancel_download)
-        
+
         self.thread = QThread()
         self.worker = ME3Downloader(download_url, save_path)
         self.worker.moveToThread(self.thread)
         self.worker.download_progress.connect(self.progress_dialog.setValue)
         self.worker.download_finished.connect(self._on_download_finished)
         self.thread.started.connect(self.worker.run)
-        
+
         self.thread.start()
         self.progress_dialog.show()
 
@@ -328,63 +327,62 @@ class ME3VersionManager:
         self.monitoring_installation = True
         self.installation_monitor_timer.start(2000)  # Check every 2 seconds
         print("Started monitoring ME3 installation...")
-    
+
     def _stop_installation_monitoring(self):
         """Stop monitoring for ME3 installation changes."""
         self.installation_monitor_timer.stop()
         self.monitoring_installation = False
         print("Stopped monitoring ME3 installation.")
-    
+
     def _check_installation_status(self):
         """Check if ME3 installation status has changed."""
         current_version = self.config_manager.get_me3_version()
-        
+
         if current_version != self.last_known_version:
             print(f"ME3 version changed: {self.last_known_version} -> {current_version}")
             self._stop_installation_monitoring()
             self.refresh_callback()
-            
+
             # Show success message if ME3 was newly installed
             if self.last_known_version is None and current_version is not None:
                 QMessageBox.information(
                     self.parent,
-                    "Installation Detected",
-                    f"ME3 v{current_version} has been successfully installed!\nThe application has been refreshed."
+                    tr("installation_detected"),
+                    tr("installation_detected_text", current_version=current_version)
                 )
-    
+
     def _on_download_finished(self, message: str, file_path: str):
         """Handle completion of ME3 installer download."""
         self._cleanup_thread()
-        
+
         if "complete" in message.lower() and file_path:
             reply = QMessageBox.information(
-                self.parent, 
-                "Download Complete", 
-                f"ME3 installer downloaded to:\n{file_path}\n\nWould you like to run it now?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
+                self.parent,
+                tr("download_complete"),
+                tr("download_complete_text", file_path=file_path),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes
             )
-            
+
             if reply == QMessageBox.StandardButton.Yes:
                 self._open_file_or_directory(file_path, run_file=True)
                 # Start monitoring for installation completion
                 self._start_installation_monitoring()
-                
+
         elif "cancelled" not in message.lower():
-            QMessageBox.critical(self.parent, "Download Failed", message)
+            QMessageBox.critical(self.parent, tr("download_failed"), message)
 
     def custom_install_windows_me3(self, release_type: str = 'latest'):
         """Download and install ME3 portable distribution for Windows."""
         if sys.platform != "win32":
-            QMessageBox.warning(self.parent, "Platform Error", 
-                            "Custom Windows installer is only available on Windows.")
+            QMessageBox.warning(self.parent, tr("platform_error"), tr("platform_error_text_win2"))
             return
 
         # Get the ZIP download URL
         version, zip_url = self._fetch_github_release_info_zip(release_type)
         if not zip_url:
-            QMessageBox.warning(self.parent, "Error", 
-                            f"Could not fetch {release_type} release information from GitHub.")
+            QMessageBox.warning(self.parent, tr("ERROR"),
+                                f"Could not fetch {release_type} release information from GitHub.")
             return
 
         # Show installation path to user
@@ -394,12 +392,9 @@ class ME3VersionManager:
 
         # Confirm installation
         reply = QMessageBox.question(
-            self.parent, 
-            f"Install ME3 Custom ({version})",
-            f"This will download and install ME3 {version} to:\n"
-            f"{install_path}\n\n"
-            f"The installation directory will be added to your user PATH.\n\n"
-            f"Do you want to continue?",
+            self.parent,
+            tr("custom_installer_question_title_win", version=version),
+            tr("custom_installer_question_win", version=version, install_path=install_path),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
@@ -411,18 +406,18 @@ class ME3VersionManager:
         temp_dir = tempfile.gettempdir()
         temp_path = os.path.join(temp_dir, f"me3-windows-amd64-{version}.zip")
 
-        self.progress_dialog = QProgressDialog("Installing ME3 Custom Distribution...", "Cancel", 0, 100, self.parent)
-        self.progress_dialog.setWindowTitle("Installing ME3")
+        self.progress_dialog = QProgressDialog(tr("installing_me3_custom_distribution"), tr("CANCEL"), 0, 100, self.parent)
+        self.progress_dialog.setWindowTitle(tr("installing_me3"))
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.canceled.connect(self._cancel_custom_install)
-        
+
         self.thread = QThread()
         self.worker = ME3CustomInstaller(zip_url, temp_path)
         self.worker.moveToThread(self.thread)
         self.worker.download_progress.connect(self.progress_dialog.setValue)
         self.worker.install_finished.connect(self._on_custom_install_finished)
         self.thread.started.connect(self.worker.run)
-        
+
         self.thread.start()
         self.progress_dialog.show()
 
@@ -438,7 +433,7 @@ class ME3VersionManager:
         """
         asset_name = 'me3-windows-amd64.zip'
         repo_api_base = "https://api.github.com/repos/garyttierney/me3/releases"
-        
+
         try:
             if release_type == 'latest':
                 api_url = f"{repo_api_base}/latest"
@@ -463,10 +458,10 @@ class ME3VersionManager:
             for asset in release_data.get('assets', []):
                 if asset.get('name') == asset_name:
                     return version_tag, asset.get('browser_download_url')
-                    
+
         except requests.RequestException:
             return None, None
-            
+
         return None, None
 
     def _cancel_custom_install(self):
@@ -477,20 +472,19 @@ class ME3VersionManager:
     def _on_custom_install_finished(self, return_code: int, message: str):
         """Handle completion of custom ME3 installation."""
         self._cleanup_thread()
-        
+
         # Refresh ME3 status and trigger app refresh
         self.refresh_callback()
-        
+
         if return_code == 0:
-            QMessageBox.information(self.parent, "Installation Complete", message)
+            QMessageBox.information(self.parent, tr("installation_complete"), message)
         else:
-            QMessageBox.warning(self.parent, "Installation Failed", message)
+            QMessageBox.warning(self.parent, tr("installation_failed"), message)
 
     def install_linux_me3(self, release_type: str = 'latest', custom_installer_url: str = None):
         """Install or update ME3 on Linux/macOS using installer script."""
         if sys.platform == "win32":
-            QMessageBox.warning(self.parent, "Platform Error", 
-                              "Linux installer is not available on Windows. Use the Windows installer instead.")
+            QMessageBox.warning(self.parent, tr("platform_error"), tr("platform_error_text_linux"))
             return
 
         if custom_installer_url:
@@ -499,14 +493,14 @@ class ME3VersionManager:
         else:
             version, installer_url = self._fetch_github_release_info(release_type)
             script_type = release_type
-            
+
         if not installer_url:
-            QMessageBox.warning(self.parent, "Error", 
-                              f"Could not fetch {script_type} installer URL from GitHub.")
+            QMessageBox.warning(self.parent, tr("ERROR"),
+                                f"Could not fetch {script_type} installer URL from GitHub.")
             return
 
         reply = QMessageBox.question(
-            self.parent, 
+            self.parent,
             f"Install ME3 ({script_type.title()})",
             f"This will run the {script_type} ME3 installer script.\n"
             "Do you want to continue?",
@@ -522,8 +516,8 @@ class ME3VersionManager:
         if latest_version:
             env_vars['VERSION'] = latest_version
 
-        self.progress_dialog = QProgressDialog("Running ME3 installer script...", None, 0, 0, self.parent)
-        self.progress_dialog.setWindowTitle("Installing ME3")
+        self.progress_dialog = QProgressDialog(tr("running_me3_installer"), None, 0, 0, self.parent)
+        self.progress_dialog.setWindowTitle(tr("installing_me3"))
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.setCancelButton(None)
 
@@ -532,7 +526,7 @@ class ME3VersionManager:
         self.worker.moveToThread(self.thread)
         self.worker.install_finished.connect(self._on_linux_install_finished)
         self.thread.started.connect(self.worker.run)
-        
+
         self.thread.start()
         self.progress_dialog.show()
 
@@ -541,25 +535,24 @@ class ME3VersionManager:
         self._cleanup_thread()
 
         clean_output = self._strip_ansi_codes(output)
-        
+
         # Refresh ME3 status and trigger app refresh
         self.refresh_callback()
 
         if return_code == 0:
             # Try to find the version from the script's output
             version_match = re.search(r"using latest version: (v[0-9]+\.[0-9]+\.[0-9]+)", clean_output)
-            final_message = "Installation Complete"
-            
+            final_message = tr("installation_complete")
+
             if version_match:
                 installed_version = version_match.group(1)
-                final_message += f"\n\nVersion Installed: {installed_version}"
-            
+                final_message += tr("version_installed", installed_version=installed_version)
+
             final_message += f"\n\n{clean_output}"
-            
-            QMessageBox.information(self.parent, "Installation Complete", final_message)
+
+            QMessageBox.information(self.parent, tr("installation_complete"), final_message)
         else:
-            QMessageBox.warning(self.parent, "Installation Failed", 
-                              f"The installation script failed:\n\n{clean_output}")
+            QMessageBox.warning(self.parent, tr("installation_failed"), tr("install_script_failed", clean_output=clean_output))
 
     def _cleanup_thread(self):
         """Clean up thread and progress dialog."""
@@ -567,18 +560,18 @@ class ME3VersionManager:
             self.thread.quit()
             self.thread.wait()
             self.thread = None
-            
+
         if self.progress_dialog:
             self.progress_dialog.close()
             self.progress_dialog = None
-            
+
         self.worker = None
 
     def get_available_versions(self) -> dict:
         """Get information about available ME3 versions."""
         stable_version, stable_url = self._fetch_github_release_info('latest')
         prerelease_version, prerelease_url = self._fetch_github_release_info('prerelease')
-        
+
         return {
             'stable': {
                 'version': stable_version,
@@ -597,12 +590,12 @@ class ME3VersionManager:
         current_version = self.config_manager.get_me3_version()
         if not current_version:
             return {'installed': False, 'current_version': None}
-            
+
         available_versions = self.get_available_versions()
-        
+
         # Don't add 'v' prefix since current_version already has it
         current_version_tag = current_version if current_version.startswith('v') else f"v{current_version}"
-        
+
         return {
             'installed': True,
             'current_version': current_version_tag,
@@ -611,15 +604,16 @@ class ME3VersionManager:
             'prerelease_available': available_versions['prerelease']['available'],
             'prerelease_version': available_versions['prerelease']['version'],
             'has_stable_update': (
-                available_versions['stable']['available'] and 
-                available_versions['stable']['version'] != current_version_tag
+                    available_versions['stable']['available'] and
+                    available_versions['stable']['version'] != current_version_tag
             ),
             'has_prerelease_update': (
-                available_versions['prerelease']['available'] and 
-                available_versions['prerelease']['version'] != current_version_tag
+                    available_versions['prerelease']['available'] and
+                    available_versions['prerelease']['version'] != current_version_tag
             )
         }
-    
+
+
 class ME3CustomInstaller(QObject):
     """Handles downloading and installing ME3 portable distribution for Windows."""
     download_progress = pyqtSignal(int)
@@ -642,11 +636,11 @@ class ME3CustomInstaller(QObject):
             response.raise_for_status()
             total_size = int(response.headers.get('content-length', 0))
             bytes_downloaded = 0
-            
+
             with open(self.temp_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if self._is_cancelled:
-                        self.install_finished.emit(-1, "Download cancelled.")
+                        self.install_finished.emit(-1, tr("download_cancelled"))
                         return
                     if chunk:
                         bytes_downloaded += len(chunk)
@@ -654,27 +648,27 @@ class ME3CustomInstaller(QObject):
                         if total_size > 0:
                             progress = int((bytes_downloaded / total_size) * 50)  # First 50% for download
                             self.download_progress.emit(progress)
-            
+
             # Step 2: Extract and install
             self.download_progress.emit(50)  # Download complete
-            
+
             # Create installation directory
             os.makedirs(self.install_path, exist_ok=True)
-            
+
             # Extract ZIP file
             with zipfile.ZipFile(self.temp_path, 'r') as zip_ref:
                 # First, let's see what's actually in the archive
                 all_files = zip_ref.namelist()
-                
+
                 # Look for bin folder in various possible structures
                 bin_files = []
                 bin_folder_path = None
-                
+
                 # Check different possible patterns
                 for file_path in all_files:
                     normalized_path = file_path.replace('\\', '/')
                     path_parts = normalized_path.split('/')
-                    
+
                     # Look for 'bin' folder at any level
                     if 'bin' in path_parts:
                         bin_index = path_parts.index('bin')
@@ -684,7 +678,7 @@ class ME3CustomInstaller(QObject):
                             if bin_folder_path is None:
                                 # Remember the path structure up to 'bin'
                                 bin_folder_path = '/'.join(path_parts[:bin_index + 1])
-                
+
                 # If no bin folder found, look for the target executables directly
                 if not bin_files:
                     target_files = ['me3.exe', 'me3_mod_host.dll', 'me3-launcher.exe']
@@ -692,18 +686,16 @@ class ME3CustomInstaller(QObject):
                         filename = os.path.basename(file_path)
                         if filename in target_files:
                             bin_files.append(file_path)
-                
+
                 if not bin_files:
                     # Debug: show what files we found
                     files_list = '\n'.join(all_files[:10])  # Show first 10 files
                     if len(all_files) > 10:
                         files_list += f'\n... and {len(all_files) - 10} more files'
-                    
-                    self.install_finished.emit(-2, 
-                        f"Could not find ME3 executables in the downloaded archive.\n\n"
-                        f"Archive contains {len(all_files)} files:\n{files_list}")
+
+                    self.install_finished.emit(-2, tr("could_not_find_me3_exe", file_count=len(all_files), files_list=files_list))
                     return
-                
+
                 # Extract the found files
                 extracted_count = 0
                 for file_path in bin_files:
@@ -718,76 +710,76 @@ class ME3CustomInstaller(QObject):
                     except Exception as e:
                         print(f"Warning: Failed to extract {file_path}: {e}")
                         continue
-                
+
                 if extracted_count == 0:
-                    self.install_finished.emit(-2, "Failed to extract any files from the archive.")
+                    self.install_finished.emit(-2, tr("failed_extract"))
                     return
-            
+
             self.download_progress.emit(75)  # Extraction complete
-            
+
             # Step 3: Add to user PATH (no admin required)
             if self._add_to_user_path(self.install_path):
                 self.download_progress.emit(90)  # PATH update complete
-                
+
                 # Step 4: Refresh environment variables
                 self._refresh_environment()
                 self.download_progress.emit(100)  # Complete
-                
+
                 # Clean up temp file
                 try:
                     os.remove(self.temp_path)
                 except:
                     pass
-                
-                self.install_finished.emit(0, f"ME3 has been successfully installed to:\n{self.install_path}\n\nThe installation directory has been added to your user PATH.")
+
+                self.install_finished.emit(0, tr("install_add_path",install_path=self.install_path))
             else:
-                self.install_finished.emit(-3, "Installation completed but failed to add to user PATH environment variable.")
-                
+                self.install_finished.emit(-3, tr("add_user_path_failed"))
+
         except zipfile.BadZipFile:
-            self.install_finished.emit(-2, "Downloaded file is not a valid ZIP archive.")
+            self.install_finished.emit(-2, tr("download_file_not_vaild"))
         except requests.RequestException as e:
-            self.install_finished.emit(-1, f"Network error: {e}")
+            self.install_finished.emit(-1, tr("NETWORK_ERROR", e=e))
         except Exception as e:
-            self.install_finished.emit(-3, f"An error occurred: {e}")
+            self.install_finished.emit(-3, tr("ERROR_OCCURRED", e=e))
 
     def _add_to_user_path(self, new_path: str) -> bool:
         """Add the installation path to the user PATH environment variable."""
         try:
             # Open the user Environment subkey in the registry
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, 
-                            r"Environment",
-                            0, winreg.KEY_ALL_ACCESS) as key:
-                
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                r"Environment",
+                                0, winreg.KEY_ALL_ACCESS) as key:
+
                 # Get current PATH value
                 try:
                     current_path, _ = winreg.QueryValueEx(key, "Path")
                 except FileNotFoundError:
                     current_path = ""
-                
+
                 # Split PATH into individual paths and clean them up
                 paths = [p.strip() for p in current_path.split(';') if p.strip()]
-                
+
                 # UPDATED: Remove any existing ME3 paths (both old and new patterns)
                 cleaned_paths = []
                 for path in paths:
                     # Normalize path separators and check if it ends with me3\bin or garyttierney\me3\bin
                     normalized_path = path.replace('/', '\\').rstrip('\\').lower()
-                    if not (normalized_path.endswith('\\me3\\bin') or 
-                           normalized_path.endswith('\\garyttierney\\me3\\bin')):
+                    if not (normalized_path.endswith('\\me3\\bin') or
+                            normalized_path.endswith('\\garyttierney\\me3\\bin')):
                         cleaned_paths.append(path)
                     else:
                         print(f"Removed existing ME3 path from user PATH: {path}")
-                
+
                 # Add the new path if it's not already there
                 if new_path not in cleaned_paths:
                     cleaned_paths.append(new_path)
                     print(f"Added new ME3 path to user PATH: {new_path}")
-                
+
                 # Set the new PATH value
                 new_path_value = ';'.join(cleaned_paths)
                 winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, new_path_value)
                 return True
-                    
+
         except Exception as e:
             print(f"Error updating user PATH: {e}")
             return False
@@ -798,7 +790,7 @@ class ME3CustomInstaller(QObject):
             # Broadcast WM_SETTINGCHANGE message to all windows
             HWND_BROADCAST = 0xFFFF
             WM_SETTINGCHANGE = 0x001A
-            
+
             result = ctypes.windll.user32.SendMessageTimeoutW(
                 HWND_BROADCAST,
                 WM_SETTINGCHANGE,
@@ -808,15 +800,15 @@ class ME3CustomInstaller(QObject):
                 5000,  # 5 second timeout
                 None
             )
-            
+
             if result == 0:
                 print("Warning: Failed to broadcast environment variable changes")
             else:
                 print("Successfully broadcasted environment variable changes")
-            
+
             # IMPORTANT: Also refresh the current process's environment
             self._refresh_current_process_path()
-                
+
         except Exception as e:
             print(f"Warning: Could not refresh environment variables: {e}")
 
@@ -829,32 +821,31 @@ class ME3CustomInstaller(QObject):
                     user_path, _ = winreg.QueryValueEx(key, "Path")
                 except FileNotFoundError:
                     user_path = ""
-            
+
             # Get system PATH
             system_path = os.environ.get('PATH', '')
-            
+
             # UPDATED: Clean the current process PATH of old ME3 entries (both patterns)
             current_process_paths = [p.strip() for p in system_path.split(';') if p.strip()]
             cleaned_system_paths = []
             for path in current_process_paths:
                 normalized_path = path.replace('/', '\\').rstrip('\\').lower()
-                if not (normalized_path.endswith('\\me3\\bin') or 
-                       normalized_path.endswith('\\garyttierney\\me3\\bin')):
+                if not (normalized_path.endswith('\\me3\\bin') or
+                        normalized_path.endswith('\\garyttierney\\me3\\bin')):
                     cleaned_system_paths.append(path)
-            
+
             # Combine user PATH with cleaned system PATH (user PATH takes precedence)
             if user_path:
                 new_path = user_path + ';' + ';'.join(cleaned_system_paths)
             else:
                 new_path = ';'.join(cleaned_system_paths)
-            
+
             # Update the current process's PATH
             os.environ['PATH'] = new_path
             print(f"Updated current process PATH, ME3 installation: {self.install_path}")
-            
+
         except Exception as e:
             print(f"Warning: Could not refresh current process PATH: {e}")
-
 
     def cancel(self):
         self._is_cancelled = True
