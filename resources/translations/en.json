@@ -1,3 +1,16 @@
 {
-  "app_title": "Mod Engine 3 Manager"
+  "app_title": "Mod Engine 3 Manager",
+  "me3_required_title": "ME3 Installation Required",
+  "me3_not_installed": "ME3 Not Installed",
+  "me3_not_installed_desc": "The manager needs Mod Engine 3 installed to work properly.",
+  "install_later": "Install Later",
+  "manager_version": "Manager Version: {version}",
+  "me3_cli_version": "ME3 CLI Version: {version}",
+  "not_installed": "Not Installed",
+  "tutorial": "Tutorial",
+  "win_tutorial_title": "How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide",
+  "linux_tutorial_title": "How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide for Linux",
+  "support_me": "Support Me on Ko-fi",
+  "stable_installer_button": "Install/Update with Official Stable Script (Recommended)",
+  "pre-release_installer_button": "Install/Update with Official Pre-release Script"
 }
