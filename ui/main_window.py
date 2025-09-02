@@ -57,11 +57,11 @@ class HelpAboutDialog(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(10)
 
-        title = QLabel("Mod Engine 3 Manager")
+        title = QLabel(tr("app_title"))
         title.setObjectName("TitleLabel")
         layout.addWidget(title)
 
-        versions_text = f"Manager Version: {VERSION}  |  ME3 CLI Version: {self.main_window.me3_version}"
+        versions_text = f"{tr('manager_version', version=VERSION)}  |  {tr('me3_cli_version',version=self.main_window.me3_version)}"
         version_label = QLabel(versions_text)
         version_label.setObjectName("VersionLabel")
         layout.addWidget(version_label)
@@ -74,24 +74,24 @@ class HelpAboutDialog(QDialog):
         self.close_button = QPushButton()  # Defined here for use in if/else
 
         if initial_setup:
-            self.setWindowTitle("ME3 Installation Required")
+            self.setWindowTitle(tr("me3_required_title"))
 
             warning_layout = QVBoxLayout()
             warning_layout.setSpacing(5)
 
-            warning_label = QLabel("ME3 Not Installed")
+            warning_label = QLabel(tr("me3_not_installed"))
             warning_label.setObjectName("WarningLabel")
             warning_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             warning_layout.addWidget(warning_label)
 
-            warning_info_label = QLabel("The manager needs Mod Engine 3 installed to work properly.")
+            warning_info_label = QLabel(tr("me3_not_installed_desc"))
             warning_info_label.setObjectName("WarningInfoLabel")
             warning_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             warning_info_label.setWordWrap(True)
             warning_layout.addWidget(warning_info_label)
 
             layout.addLayout(warning_layout)
-            self.close_button.setText("Install Later")
+            self.close_button.setText(tr("install_later"))
         else:
             self.setWindowTitle("Help / About")
             description = QLabel(
@@ -102,18 +102,18 @@ class HelpAboutDialog(QDialog):
             layout.addWidget(description)
             self.close_button.setText("Close")
 
-        video_header = QLabel("Tutorial")
+        video_header = QLabel(tr("tutorial"))
         video_header.setObjectName("HeaderLabel")
         layout.addWidget(video_header)
 
         if sys.platform == "win32":
             video_link = QLabel(
-                '<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide</a>')
+                f'<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">{tr("win_tutorial_title")}</a>')
         else:
             # For Linux/macOS, use the same video link but with a different text
             # since the installation process is different.
             video_link = QLabel(
-                '<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide for LInux</a>')
+                f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>')
         video_link.setObjectName("VideoLinkLabel")
         video_link.setOpenExternalLinks(True)
         video_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
@@ -136,7 +136,7 @@ class HelpAboutDialog(QDialog):
 
         button_box_layout = QHBoxLayout()
 
-        support_button = QPushButton("Support Me on Ko-fi")
+        support_button = QPushButton(tr("support_me"))
         support_button.setObjectName("KoFiButton")
         support_button.setCursor(Qt.CursorShape.PointingHandCursor)
         support_button.clicked.connect(self.open_kofi_link)
@@ -157,7 +157,7 @@ class HelpAboutDialog(QDialog):
         # Update ME3 button
         self.update_cli_button = QPushButton("Update ME3")
         self.update_cli_button.clicked.connect(self.handle_update_cli)
-        if self.main_window.me3_version == "Not Installed":
+        if self.main_window.me3_version == tr("not_installed"):
             self.update_cli_button.setDisabled(True)
             self.update_cli_button.setToolTip("ME3 is not installed, cannot update.")
         layout.addWidget(self.update_cli_button)
@@ -203,7 +203,7 @@ class HelpAboutDialog(QDialog):
         versions_info = self.version_manager.get_available_versions()
 
         # Stable installer button (Official & Recommended)
-        btn_text = "Install/Update with Official Stable Script (Recommended)"
+        btn_text = tr("stable_installer_button")
         if versions_info['stable']['version']:
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
@@ -214,7 +214,7 @@ class HelpAboutDialog(QDialog):
         layout.addWidget(self.stable_button)
 
         # Pre-release installer button
-        btn_text = "Install/Update with Official Pre-release Script"
+        btn_text = tr("pre-release_installer_button")
         if versions_info['prerelease']['version']:
             btn_text += f" ({versions_info['prerelease']['version']})"
         self.prerelease_button = QPushButton(btn_text)
@@ -382,7 +382,7 @@ class ModEngine3Manager(QMainWindow):
         if not self.config_manager.get_check_for_updates():
             return
 
-        if self.me3_version == "Not Installed":
+        if self.me3_version == tr("not_installed"):
             return
 
         update_info = self.version_manager.check_for_updates()
@@ -430,7 +430,7 @@ class ModEngine3Manager(QMainWindow):
         version = self.config_manager.get_me3_version()
         if version:
             return f"v{version}"
-        return "Not Installed"
+        return tr("not_installed")
 
     def init_ui(self):
         self.setWindowTitle(tr("app_title"))
@@ -526,7 +526,7 @@ class ModEngine3Manager(QMainWindow):
         parent.addWidget(self.content_stack)
 
     def check_me3_installation(self):
-        if self.me3_version == "Not Installed":
+        if self.me3_version == tr("not_installed"):
             self.prompt_for_me3_installation()
 
     def prompt_for_me3_installation(self):
