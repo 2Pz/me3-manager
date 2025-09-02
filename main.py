@@ -5,7 +5,7 @@ from ui.main_window import ModEngine3Manager
 from utils.translator import translator
 
 
-def main() -> sys.NoReturn:
+def main():
     if sys.platform == "linux":
         if "QT_QPA_PLATFORM" in os.environ:
             del os.environ["QT_QPA_PLATFORM"]
