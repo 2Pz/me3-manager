@@ -21,6 +21,8 @@ from ui.profile_editor import ProfileEditor
 from ui.advanced_mod_options import AdvancedModOptionsDialog
 from ui.game_options_dialog import GameOptionsDialog
 from core.mod_manager import ImprovedModManager, ModStatus, ModType
+from utils.translator import tr
+
 
 class GamePage(QWidget):
     """Widget for managing mods for a specific game"""
@@ -1533,7 +1535,7 @@ class GamePage(QWidget):
         """Launch the game with the configured profile and settings."""
         try:
             # Check if ME3 is installed before attempting to launch
-            if self.window().me3_version == "Not Installed":
+            if self.window().me3_version == tr("not_installed"):
                 reply = QMessageBox.question(
                     self, 
                     "ME3 Not Installed", 
@@ -1550,7 +1552,7 @@ class GamePage(QWidget):
                     dialog.exec()
                     # After dialog closes, check if ME3 was installed
                     self.window().refresh_me3_status()
-                    if self.window().me3_version == "Not Installed":
+                    if self.window().me3_version == tr("not_installed"):
                         return  # Still not installed, abort launch
                 else:
                     return  # User chose not to install, abort launch
