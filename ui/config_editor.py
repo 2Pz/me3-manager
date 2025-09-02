@@ -1,16 +1,23 @@
 import re
 from pathlib import Path
-from typing import Optional
-
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit,
-    QPushButton, QLabel, QFileDialog, QMessageBox,
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QTextEdit,
+    QPushButton,
+    QLabel,
+    QFileDialog,
+    QMessageBox,
 )
 from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtCore import QTimer
 
+
 class IniSyntaxHighlighter(QSyntaxHighlighter):
     """Enhanced syntax highlighter for INI files with improved visual hierarchy."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.highlighting_rules = []
@@ -25,7 +32,9 @@ class IniSyntaxHighlighter(QSyntaxHighlighter):
         key_format = QTextCharFormat()
         key_format.setForeground(QColor("#9cdcfe"))
         key_format.setFontWeight(QFont.Weight.Normal)
-        self.highlighting_rules.append((re.compile(r"^[^\s=;#]+(?=\s*=)", re.MULTILINE), key_format))
+        self.highlighting_rules.append(
+            (re.compile(r"^[^\s=;#]+(?=\s*=)", re.MULTILINE), key_format)
+        )
 
         # String values in quotes - orange for quoted strings
         quoted_string_format = QTextCharFormat()
@@ -38,18 +47,24 @@ class IniSyntaxHighlighter(QSyntaxHighlighter):
         boolean_format.setForeground(QColor("#569cd6"))
         boolean_format.setFontWeight(QFont.Weight.Bold)
         boolean_pattern = r"=\s*(true|false|yes|no|on|off)\s*(?:[;#]|$)"
-        self.highlighting_rules.append((re.compile(boolean_pattern, re.IGNORECASE | re.MULTILINE), boolean_format))
+        self.highlighting_rules.append(
+            (re.compile(boolean_pattern, re.IGNORECASE | re.MULTILINE), boolean_format)
+        )
 
         # Numeric values - highlight numbers
         number_format = QTextCharFormat()
         number_format.setForeground(QColor("#b5cea8"))  # Light green for numbers
         number_pattern = r"=\s*([-+]?(?:\d*\.?\d+)(?:[eE][-+]?\d+)?)\s*(?:[;#]|$)"
-        self.highlighting_rules.append((re.compile(number_pattern, re.MULTILINE), number_format))
+        self.highlighting_rules.append(
+            (re.compile(number_pattern, re.MULTILINE), number_format)
+        )
 
         # General values - catch remaining values after =
         value_format = QTextCharFormat()
         value_format.setForeground(QColor("#d4d4d4"))  # Light gray for other values
-        self.highlighting_rules.append((re.compile(r"=\s*([^;\r\n#]+?)(?:\s*[;#]|$)", re.MULTILINE), value_format))
+        self.highlighting_rules.append(
+            (re.compile(r"=\s*([^;\r\n#]+?)(?:\s*[;#]|$)", re.MULTILINE), value_format)
+        )
 
         # Comment format ;... or #... - comments in green italic
         comment_format = QTextCharFormat()
@@ -70,11 +85,13 @@ class IniSyntaxHighlighter(QSyntaxHighlighter):
                 if match.groups():
                     start, end = match.span(1)  # Highlight the first captured group
                 else:
-                    start, end = match.span()   # Highlight the entire match
+                    start, end = match.span()  # Highlight the entire match
                 self.setFormat(start, end - start, format)
+
 
 class ConfigEditorDialog(QDialog):
     """Dialog for editing mod INI configuration files."""
+
     def __init__(self, mod_name: str, config_path: Path, parent=None):
         super().__init__(parent)
         # *** FIX: Store the initial path to detect changes later ***
@@ -93,7 +110,9 @@ class ConfigEditorDialog(QDialog):
         path_layout = QHBoxLayout()
         self.path_edit = QLineEdit(str(self.current_path))
         self.path_edit.setReadOnly(True)
-        self.path_edit.setStyleSheet("background-color: #2d2d2d; border: 1px solid #3d3d3d; padding: 4px;")
+        self.path_edit.setStyleSheet(
+            "background-color: #2d2d2d; border: 1px solid #3d3d3d; padding: 4px;"
+        )
         path_layout.addWidget(self.path_edit)
         browse_btn = QPushButton("Browse...")
         browse_btn.clicked.connect(self.browse_for_config)
@@ -103,7 +122,9 @@ class ConfigEditorDialog(QDialog):
         # Text editor
         self.editor = QTextEdit()
         self.editor.setFont(QFont("Consolas", 12))
-        self.editor.setStyleSheet("background-color: #1e1e1e; border: 1px solid #3d3d3d; padding: 8px;")
+        self.editor.setStyleSheet(
+            "background-color: #1e1e1e; border: 1px solid #3d3d3d; padding: 8px;"
+        )
         self.highlighter = IniSyntaxHighlighter(self.editor.document())
         layout.addWidget(self.editor)
 
@@ -122,9 +143,9 @@ class ConfigEditorDialog(QDialog):
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self.finalize_and_close)
         button_layout.addWidget(close_btn)
-        
+
         layout.addLayout(button_layout)
-        
+
         if self.current_path.is_file():
             self.load_config(self.current_path)
         else:
@@ -135,33 +156,43 @@ class ConfigEditorDialog(QDialog):
 
     def load_config(self, path: Path):
         try:
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 self.editor.setText(f.read())
             self.current_path = path
             self.path_edit.setText(str(self.current_path))
             self.status_label.setText(f"Loaded: {path.name}")
         except Exception as e:
-            QMessageBox.warning(self, "Load Error", f"Could not load file:\n{path}\n\nError: {e}")
+            QMessageBox.warning(
+                self, "Load Error", f"Could not load file:\n{path}\n\nError: {e}"
+            )
 
     def save_text_only(self):
         """Saves only the text content to the current path without closing."""
         if not self.current_path:
-            QMessageBox.warning(self, "Save Error", "No config file path is set. Use 'Browse...' to select a file.")
+            QMessageBox.warning(
+                self,
+                "Save Error",
+                "No config file path is set. Use 'Browse...' to select a file.",
+            )
             return
-        
+
         try:
             self.current_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.current_path, 'w', encoding='utf-8') as f:
+            with open(self.current_path, "w", encoding="utf-8") as f:
                 f.write(self.editor.toPlainText())
             self.status_label.setText(f"Saved: {self.current_path.name}")
             # Clear the status message after 3 seconds
             QTimer.singleShot(3000, lambda: self.status_label.setText(""))
         except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Could not save file:\n{self.current_path}\n\nError: {e}")
+            QMessageBox.critical(
+                self,
+                "Save Error",
+                f"Could not save file:\n{self.current_path}\n\nError: {e}",
+            )
 
     def finalize_and_close(self):
         """
-        Closes the dialog. If the path was changed, it signals 'Accepted' 
+        Closes the dialog. If the path was changed, it signals 'Accepted'
         so the main window can save the new path permanently.
         """
         if self.current_path != self.initial_path:
@@ -170,11 +201,14 @@ class ConfigEditorDialog(QDialog):
         else:
             # The path was not changed, so just close normally.
             self.reject()
-            
+
     def browse_for_config(self):
         start_dir = str(self.current_path.parent if self.current_path else Path.cwd())
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select Mod Config File", start_dir, "INI Files (*.ini);;All Files (*)"
+            self,
+            "Select Mod Config File",
+            start_dir,
+            "INI Files (*.ini);;All Files (*)",
         )
         if file_name:
             new_path = Path(file_name)

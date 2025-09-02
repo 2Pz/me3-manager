@@ -1,6 +1,15 @@
 from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton,
-    QMessageBox, QInputDialog, QLabel, QLineEdit, QFormLayout, QListWidgetItem
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QListWidget,
+    QPushButton,
+    QMessageBox,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QFormLayout,
+    QListWidgetItem,
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -114,8 +123,8 @@ class GameManagementDialog(QDialog):
 
         # Only enable restore button for removed default games
         if has_selection:
-            selected_game = selected_items[0].text().replace(" (Default)", "")
-            is_default = selected_items[0].data(Qt.ItemDataRole.UserRole) == "default"
+            selected_items[0].text().replace(" (Default)", "")
+            selected_items[0].data(Qt.ItemDataRole.UserRole) == "default"
             self.restore_button.setEnabled(False)  # Default games are already present
         else:
             # Check if there are any default games missing
@@ -140,10 +149,11 @@ class GameManagementDialog(QDialog):
         game_name = selected_items[0].text().replace(" (Default)", "")
 
         reply = QMessageBox.question(
-            self, tr("remove_game"),
+            self,
+            tr("remove_game"),
             tr("remove_game_text", game_name=game_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
 
         if reply == QMessageBox.StandardButton.Yes:
@@ -151,9 +161,13 @@ class GameManagementDialog(QDialog):
                 self.config_manager.remove_game(game_name)
                 self.populate_games_list()
                 self.parent().refresh_sidebar()
-                QMessageBox.information(self, tr("SUCCESS"), tr("remove_game_success", game_name=game_name))
+                QMessageBox.information(
+                    self, tr("SUCCESS"), tr("remove_game_success", game_name=game_name)
+                )
             except Exception as e:
-                QMessageBox.critical(self, tr("ERROR"), tr("remove_game_failed", e=str(e)))
+                QMessageBox.critical(
+                    self, tr("ERROR"), tr("remove_game_failed", e=str(e))
+                )
 
     def restore_default_game(self):
         """Restore missing default games"""
@@ -162,7 +176,9 @@ class GameManagementDialog(QDialog):
         missing_defaults = set(default_games.keys()) - current_games
 
         if not missing_defaults:
-            QMessageBox.information(self, tr("no_missing_games"), tr("all_default_games_present"))
+            QMessageBox.information(
+                self, tr("no_missing_games"), tr("all_default_games_present")
+            )
             return
 
         # Show selection dialog if multiple missing
@@ -170,9 +186,12 @@ class GameManagementDialog(QDialog):
             game_to_restore = list(missing_defaults)[0]
         else:
             game_to_restore, ok = QInputDialog.getItem(
-                self, tr("restore_default_game"),
+                self,
+                tr("restore_default_game"),
                 tr("restore_default_game_text"),
-                sorted(missing_defaults), 0, False
+                sorted(missing_defaults),
+                0,
+                False,
             )
             if not ok:
                 return
@@ -184,12 +203,16 @@ class GameManagementDialog(QDialog):
                 mods_dir=game_config["mods_dir"],
                 profile=game_config["profile"],
                 cli_id=game_config["cli_id"],
-                executable=game_config["executable"]
+                executable=game_config["executable"],
             )
 
             self.populate_games_list()
             self.parent().refresh_sidebar()
-            QMessageBox.information(self, tr("SUCCESS"), tr("restore_game_success", game_name=game_to_restore))
+            QMessageBox.information(
+                self,
+                tr("SUCCESS"),
+                tr("restore_game_success", game_name=game_to_restore),
+            )
         except Exception as e:
             QMessageBox.critical(self, tr("ERROR"), tr("restore_game_failed", e=str(e)))
 
@@ -313,7 +336,9 @@ class AddGameDialog(QDialog):
             return
 
         name_lower = text.lower().replace(" ", "").replace(":", "").replace("'", "")
-        name_hyphenated = text.lower().replace(" ", "-").replace(":", "").replace("'", "")
+        name_hyphenated = (
+            text.lower().replace(" ", "-").replace(":", "").replace("'", "")
+        )
         clean_name = text.replace(" ", "").replace(":", "").replace("'", "")
 
         self.mods_dir_input.setText(f"{name_lower}-mods")
@@ -335,10 +360,12 @@ class AddGameDialog(QDialog):
             return
 
         if name in self.config_manager.games:
-            QMessageBox.warning(self, tr("validation_error"), tr("game_exists",game_name=name))
+            QMessageBox.warning(
+                self, tr("validation_error"), tr("game_exists", game_name=name)
+            )
             return
 
-        if not profile.endswith('.me3'):
+        if not profile.endswith(".me3"):
             QMessageBox.warning(self, tr("validation_error"), tr("profile_end_with"))
             return
 
@@ -346,13 +373,25 @@ class AddGameDialog(QDialog):
         existing_configs = self.config_manager.games.values()
         for config in existing_configs:
             if config["mods_dir"] == mods_dir:
-                QMessageBox.warning(self, tr("validation_error"), tr("mods_dir_already_used", mods_dir=mods_dir))
+                QMessageBox.warning(
+                    self,
+                    tr("validation_error"),
+                    tr("mods_dir_already_used", mods_dir=mods_dir),
+                )
                 return
             if config["profile"] == profile:
-                QMessageBox.warning(self, tr("validation_error"), tr("profile_file_already_used", profile=profile))
+                QMessageBox.warning(
+                    self,
+                    tr("validation_error"),
+                    tr("profile_file_already_used", profile=profile),
+                )
                 return
             if config["cli_id"] == cli_id:
-                QMessageBox.warning(self, tr("validation_error"), tr("cli_id_already_used", cli_id=cli_id))
+                QMessageBox.warning(
+                    self,
+                    tr("validation_error"),
+                    tr("cli_id_already_used", cli_id=cli_id),
+                )
                 return
 
         try:
@@ -361,10 +400,12 @@ class AddGameDialog(QDialog):
                 mods_dir=mods_dir,
                 profile=profile,
                 cli_id=cli_id,
-                executable=executable
+                executable=executable,
             )
 
-            QMessageBox.information(self, tr("SUCCESS"), tr("add_new_game_success", game_name=name))
+            QMessageBox.information(
+                self, tr("SUCCESS"), tr("add_new_game_success", game_name=name)
+            )
             self.accept()
 
         except Exception as e:
