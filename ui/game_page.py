@@ -1661,45 +1661,83 @@ class GamePage(QWidget):
         """Open the advanced options dialog for a mod"""
         try:
             mod_name = Path(mod_path).name
-            is_folder_mod = Path(mod_path).is_dir()
+            mod_info = self.mod_infos.get(mod_path)
+            if not mod_info:
+                raise ValueError("Mod info not found.")
 
-            # Get current advanced options for this mod
-            current_options = self.config_manager.get_mod_advanced_options(
-                self.game_name, mod_path
-            )
+            is_folder_mod = mod_info.mod_type == ModType.PACKAGE
 
-            # Get list of available mods for dependency selection based on mod type
-            if is_folder_mod:
-                # Package mods can only depend on other packages
-                available_mods = self.config_manager.get_available_mod_names(
-                    self.game_name, "packages"
-                )
-            else:
-                # Native mods can only depend on other natives
-                available_mods = self.config_manager.get_available_mod_names(
-                    self.game_name, "natives"
-                )
+            available_mod_names = [
+                info.name
+                for path, info in self.mod_infos.items()
+                if (info.mod_type == mod_info.mod_type) and (path != mod_path)
+            ]
 
-            # Create and show the dialog
             dialog = AdvancedModOptionsDialog(
                 mod_path=mod_path,
                 mod_name=mod_name,
                 is_folder_mod=is_folder_mod,
-                current_options=current_options,
-                available_mods=available_mods,
+                current_options=mod_info.advanced_options,
+                available_mods=available_mod_names,
                 parent=self,
             )
 
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                # Get the configured options
                 new_options = dialog.get_options()
 
-                # Save the options
-                self.config_manager.set_mod_advanced_options(
-                    self.game_name, mod_path, new_options
-                )
+                # 1. Read the current, full configuration from disk
+                profile_path = self.config_manager.get_profile_path(self.game_name)
+                config_data = self.config_manager._parse_toml_config(profile_path)
 
-                # Reload mods to reflect changes
+                # 2. Find the specific mod entry in the config data
+                target_entry = None
+                if is_folder_mod:
+                    packages = config_data.get("packages", [])
+                    for pkg in packages:
+                        if pkg.get("id") == mod_name:
+                            target_entry = pkg
+                            break
+                else:  # Native DLL mod
+                    mod_path_obj = Path(mod_path)
+                    mods_dir = self.config_manager.get_mods_dir(self.game_name)
+                    config_key = ""
+                    try:
+                        relative_path = mod_path_obj.relative_to(mods_dir)
+                        mods_dir_name = self.config_manager.games[self.game_name]["mods_dir"]
+                        config_key = self.mod_manager._normalize_path(f"{mods_dir_name}/{relative_path}")
+                    except ValueError: # External mod
+                        config_key = self.mod_manager._normalize_path(str(mod_path_obj.resolve()))
+                    
+                    natives = config_data.get("natives", [])
+                    for native in natives:
+                        if self.mod_manager._normalize_path(native.get("path", "")) == config_key:
+                            target_entry = native
+                            break
+                
+                if target_entry is not None:
+                    # 3. Purge all old advanced option keys from the entry
+                    keys_to_purge = ["load_before", "load_after", "optional", "initializer", "finalizer"]
+                    for key in keys_to_purge:
+                        if key in target_entry:
+                            del target_entry[key]
+                    
+                    # 4. Add the new options back, but ONLY if they are not the default value.
+                    for key, value in new_options.items():
+                        # Rule for 'optional': Only save if it's explicitly true.
+                        if key == 'optional' and value is True:
+                            target_entry[key] = True
+                        
+                        # Rule for dependency lists: Only save if the list is not empty.
+                        elif key in ['load_before', 'load_after'] and value:
+                            target_entry[key] = value
+
+                        # Rule for other text/dict settings: Only save if they have a value.
+                        elif key not in ['optional', 'load_before', 'load_after'] and value is not None:
+                            target_entry[key] = value
+
+                    # 5. Write the entire modified configuration back to disk
+                    self.mod_manager._write_improved_config(profile_path, config_data, self.game_name)
+
                 self.load_mods(reset_page=False)
 
                 self.status_label.setText(f"Updated advanced options for {mod_name}")

@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from typing import Dict, Any, List
+from utils.translator import tr
 
 
 class DependencyWidget(QWidget):
@@ -53,7 +54,7 @@ class DependencyWidget(QWidget):
         layout.addWidget(self.mod_combo)
 
         # Optional checkbox
-        self.optional_check = QCheckBox("Optional")
+        self.optional_check = QCheckBox(tr("optional"))
         if dependency_data:
             self.optional_check.setChecked(dependency_data.get("optional", False))
         layout.addWidget(self.optional_check)
@@ -149,7 +150,7 @@ class DependencyListWidget(QWidget):
         header_layout.addWidget(QLabel(title))
         header_layout.addStretch()
 
-        add_btn = QPushButton("+ Add Dependency")
+        add_btn = QPushButton(tr("add_dependency"))
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0078d4;
@@ -282,7 +283,7 @@ class AdvancedModOptionsDialog(QDialog):
             mod for mod in available_mods if mod != mod_name
         ]  # Exclude self
 
-        self.setWindowTitle(f"Advanced Options - {mod_name}")
+        self.setWindowTitle(tr("advanced_options", mod_name=mod_name))
         self.setMinimumSize(600, 500)
         self.resize(700, 680)
 
@@ -294,14 +295,14 @@ class AdvancedModOptionsDialog(QDialog):
         layout = QVBoxLayout()
 
         # Header
-        header = QLabel(f"Advanced Options - {self.mod_name}")
+        header = QLabel(tr("advanced_options", mod_name=self.mod_name))
         header.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         header.setStyleSheet("color: #ffffff; margin-bottom: 15px;")
         layout.addWidget(header)
 
         # Mod type indicator
         mod_type = "DLL Mod" if not self.is_folder_mod else "Package Mod"
-        type_label = QLabel(f"Type: {mod_type}")
+        type_label = QLabel(tr("mod_type", mod_type=mod_type))
         type_label.setStyleSheet(
             "color: #888888; font-size: 11px; margin-bottom: 10px;"
         )
@@ -323,7 +324,7 @@ class AdvancedModOptionsDialog(QDialog):
         clear_layout = QHBoxLayout()
         clear_layout.addStretch()
 
-        clear_btn = QPushButton("Clear All Advanced Options")
+        clear_btn = QPushButton(tr("clear_all"))
         clear_btn.setStyleSheet("""
             QPushButton {
                 background-color: #cc4444;
@@ -423,14 +424,14 @@ class AdvancedModOptionsDialog(QDialog):
         layout = QVBoxLayout()
 
         # Description
-        desc = QLabel("Configure which mods this mod should load before or after:")
+        desc = QLabel(tr("load_order_description"))
         desc.setWordWrap(True)
         desc.setStyleSheet("color: #cccccc; margin-bottom: 10px;")
         layout.addWidget(desc)
 
         # Load Before
         self.load_before_widget = DependencyListWidget(
-            "Load Before (this mod loads first):",
+            tr("load_before"),
             self.current_options.get("load_before", []),
             self.available_mods,
         )
@@ -438,7 +439,7 @@ class AdvancedModOptionsDialog(QDialog):
 
         # Load After
         self.load_after_widget = DependencyListWidget(
-            "Load After (this mod loads second):",
+            tr("load_after"),
             self.current_options.get("load_after", []),
             self.available_mods,
         )
@@ -449,14 +450,15 @@ class AdvancedModOptionsDialog(QDialog):
         self.load_after_widget.set_other_list_widget(self.load_before_widget)
 
         # Help text
-        help_text = QLabel("""
-<b>Load Order Configuration:</b><br>
-• <b>Load Before:</b> A list of dependencies that this mod should load before<br>
-• <b>Load After:</b> A list of dependencies that this mod should load after<br>
-• <b>Optional:</b> If false, treat missing dependency as a critical error (required field)<br>
-• <b>Note:</b> Each mod can only be selected once across both lists<br>
-• Dependencies are checked at runtime - ensure target mods exist in your profile
-        """)
+        help_text = QLabel(f"""
+<b>{tr("load_order_help_title")}:</b><br>
+• <b>{tr("load_before")}:</b> {tr("load_order_help_load_before")}<br>
+• <b>{tr("load_after")}:</b> {tr("load_order_help_load_after")}<br>
+• <b>{tr("optional")}:</b> {tr("load_order_help_optional")}<br>
+• <b>{tr("note")}:</b> {tr("load_order_help_note")}<br>
+• {tr("load_order_help_runtime")}
+""")
+
         help_text.setWordWrap(True)
         help_text.setStyleSheet("color: #888888; font-size: 11px; margin-top: 10px;")
         layout.addWidget(help_text)
@@ -470,33 +472,31 @@ class AdvancedModOptionsDialog(QDialog):
         layout = QVBoxLayout()
 
         # Optional setting group
-        optional_group = QGroupBox("Optional Setting")
+        optional_group = QGroupBox(tr("optional_setting"))
         optional_layout = QFormLayout()
 
-        self.optional_check = QCheckBox("Optional")
-        self.optional_check.setToolTip(
-            "If true, game continues if this mod fails to load"
-        )
+        self.optional_check = QCheckBox(tr("optional"))
+        self.optional_check.setToolTip(tr("optional_setting_tooltip"))
         optional_layout.addRow("Optional:", self.optional_check)
 
         optional_group.setLayout(optional_layout)
         layout.addWidget(optional_group)
 
         # Initializer group
-        init_group = QGroupBox("Initializer")
+        init_group = QGroupBox(tr("initializer"))
         init_layout = QVBoxLayout()
 
         # Initializer type
         self.init_type_combo = QComboBox()
         self.init_type_combo.addItems(["None", "Function Call", "Delay"])
         self.init_type_combo.currentTextChanged.connect(self.on_init_type_changed)
-        init_layout.addWidget(QLabel("Initialization Type:"))
+        init_layout.addWidget(QLabel(tr("initializer_type")))
         init_layout.addWidget(self.init_type_combo)
 
         # Function name input
         self.init_function_edit = QLineEdit()
-        self.init_function_edit.setPlaceholderText("e.g., Initialize")
-        self.init_function_label = QLabel("Function Name:")
+        self.init_function_edit.setPlaceholderText(tr("function_name_placeholder"))
+        self.init_function_label = QLabel(tr("function_name_label"))
         init_layout.addWidget(self.init_function_label)
         init_layout.addWidget(self.init_function_edit)
 
@@ -505,7 +505,7 @@ class AdvancedModOptionsDialog(QDialog):
         self.init_delay_spin.setRange(0, 60000)
         self.init_delay_spin.setSuffix(" ms")
         self.init_delay_spin.setValue(1000)
-        self.init_delay_label = QLabel("Delay (milliseconds):")
+        self.init_delay_label = QLabel(tr("delay_ms_label"))
         init_layout.addWidget(self.init_delay_label)
         init_layout.addWidget(self.init_delay_spin)
 
@@ -513,13 +513,13 @@ class AdvancedModOptionsDialog(QDialog):
         layout.addWidget(init_group)
 
         # Finalizer group
-        final_group = QGroupBox("Finalizer")
+        final_group = QGroupBox(tr("finalizer"))
         final_layout = QFormLayout()
 
         self.finalizer_edit = QLineEdit()
-        self.finalizer_edit.setPlaceholderText("e.g., Cleanup (leave empty for none)")
-        self.finalizer_edit.setToolTip("Function to call when mod is unloaded")
-        final_layout.addRow("Cleanup Function:", self.finalizer_edit)
+        self.finalizer_edit.setPlaceholderText(tr("finalizer_placeholder"))
+        self.finalizer_edit.setToolTip(tr("finalizer_tooltip"))
+        final_layout.addRow(tr("cleanup_function"), self.finalizer_edit)
 
         final_group.setLayout(final_layout)
         layout.addWidget(final_group)
@@ -606,34 +606,37 @@ class AdvancedModOptionsDialog(QDialog):
         """Get the configured options (excluding enabled field)"""
         options = {}
 
-        # Optional checkbox (DLL only)
-        if not self.is_folder_mod and hasattr(self, "optional_check"):
-            if self.optional_check.isChecked():
-                options["optional"] = True
-
-        # Load order
-        load_before = self.load_before_widget.get_dependencies()
-        if load_before:
-            options["load_before"] = load_before
-
-        load_after = self.load_after_widget.get_dependencies()
-        if load_after:
-            options["load_after"] = load_after
+        # Load order - always return a list
+        options["load_before"] = self.load_before_widget.get_dependencies()
+        options["load_after"] = self.load_after_widget.get_dependencies()
 
         # Advanced options (DLL only)
-        if not self.is_folder_mod and hasattr(self, "init_type_combo"):
-            init_type = self.init_type_combo.currentText()
-            if init_type == "Function Call":
-                function_name = self.init_function_edit.text().strip()
-                if function_name:
-                    options["initializer"] = {"function": function_name}
-            elif init_type == "Delay":
-                delay_ms = self.init_delay_spin.value()
-                if delay_ms > 0:
-                    options["initializer"] = {"delay": {"ms": delay_ms}}
+        if not self.is_folder_mod:
+            # Always return the boolean state for 'optional'
+            if hasattr(self, "optional_check"):
+                options["optional"] = self.optional_check.isChecked()
 
-            finalizer = self.finalizer_edit.text().strip()
-            if finalizer:
-                options["finalizer"] = finalizer
+            if hasattr(self, "init_type_combo"):
+                init_type = self.init_type_combo.currentText()
+                if init_type == "Function Call":
+                    function_name = self.init_function_edit.text().strip()
+                    if function_name:
+                        options["initializer"] = {"function": function_name}
+                    else:
+                        options["initializer"] = None  # Explicitly cleared
+                elif init_type == "Delay":
+                    delay_ms = self.init_delay_spin.value()
+                    if delay_ms > 0:
+                        options["initializer"] = {"delay": {"ms": delay_ms}}
+                    else:
+                        options["initializer"] = None  # Explicitly cleared
+                else:  # "None"
+                    options["initializer"] = None  # Explicitly cleared
+
+                finalizer = self.finalizer_edit.text().strip()
+                if finalizer:
+                    options["finalizer"] = finalizer
+                else:
+                    options["finalizer"] = None  # Explicitly cleared
 
         return options
