@@ -1,3 +1,16 @@
 {
-  "app_title": "Mod引擎3管理器"
+  "app_title": "Mod引擎3管理器",
+  "me3_required_title": "需要安装me3",
+  "me3_not_installed": "me3未安装",
+  "me3_not_installed_desc": "管理器需要安装Mod引擎3(me3)才能正常工作。",
+  "install_later": "稍后安装",
+  "manager_version": "管理器版本: {version}",
+  "me3_cli_version": "me3命令行版本: {version}",
+  "not_installed": "未安装",
+  "tutorial": "教程",
+  "win_tutorial_title": "如何使用Mod引擎3管理器 |完整设置和Mod安装指南",
+  "linux_tutorial_title": "如何使用Mod引擎3管理器 |完整设置和Mod安装指南(Linux系统)",
+  "support_me": "在Ko-fi上支持我",
+  "stable_installer_button": "安装/更新官方稳定脚本（推荐）",
+  "pre-release_installer_button": "安装/更新官方预发布脚本"
 }
