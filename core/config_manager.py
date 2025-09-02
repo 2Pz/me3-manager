@@ -41,8 +41,23 @@ class ConfigManager:
 
         settings = self._load_settings()
 
-        # Load games configuration from settings with fallback
-        self.games = settings.get("games", self._get_default_games())
+        # Get the games defined in the code as the source of truth for what's available.
+        default_games = self._get_default_games()
+        # Get the games saved in the user's settings file.
+        saved_games = settings.get("games", {})
+
+        # Use the default games as the base, ensuring new games are always included.
+        # Then, update with any customizations the user has saved for existing games.
+        # This robustly adds new games from code updates to the user's config.
+        merged_games = {}
+        for game_key, default_info in default_games.items():
+            # Start with the default configuration for the game
+            merged_games[game_key] = default_info.copy()
+            if game_key in saved_games:
+                # If the user has saved data for this game, update the defaults with it.
+                # This preserves user customizations.
+                merged_games[game_key].update(saved_games[game_key])
+        self.games = merged_games
 
         self.game_exe_paths = settings.get("game_exe_paths", {})
         self.tracked_external_mods = settings.get("tracked_external_mods", {})
@@ -232,6 +247,12 @@ class ConfigManager:
                 "profile": "sekiro-default.me3",
                 "cli_id": "sekiro",
                 "executable": "sekiro.exe",
+            },
+            "Dark Souls 3": {
+                "mods_dir": "darksouls3-mods",
+                "profile": "darksouls3-default.me3",
+                "cli_id": "ds3",
+                "executable": "darksouls3.exe",
             },
             "Armoredcore6": {
                 "mods_dir": "armoredcore6-mods",
@@ -528,13 +549,15 @@ class ConfigManager:
         """Create necessary directories and validate profile formats on startup."""
         self.config_root.mkdir(parents=True, exist_ok=True)
 
-        for game_info in self.games.values():
+        # Iterate with game_key to pass it to the profile creation function
+        for game_key, game_info in self.games.items():
             mods_dir = self.config_root / game_info["mods_dir"]
             mods_dir.mkdir(exist_ok=True)
 
             profile_path = self.config_root / game_info["profile"]
             if not profile_path.exists():
-                self.create_default_profile(profile_path)
+                # Call the new, dynamic function instead of the old one
+                self._create_default_profile_for_game(game_key, profile_path)
             else:
                 # On startup, check for old format and reformat if needed.
                 self.check_and_reformat_profile(profile_path)
@@ -564,30 +587,17 @@ class ConfigManager:
         except IOError as e:
             print(f"Error checking profile format for {profile_path.name}: {e}")
 
-    def create_default_profile(self, profile_path: Path):
-        """Create a default ME3 profile with proper structure"""
-        # Determine game name and mods directory from profile filename
-        profile_name = profile_path.name.lower()
-        game_name = "eldenring"  # default
-        game_key = "Elden Ring"  # default
+    def _create_default_profile_for_game(self, game_key: str, profile_path: Path):
+        """Creates a default ME3 profile using data from the game's configuration."""
+        game_info = self.games.get(game_key)
+        if not game_info:
+            print(f"Error: Could not find configuration for game '{game_key}' when creating profile.")
+            return
 
-        # Map profile names to game info
-        if "nightreign" in profile_name:
-            game_name = "nightreign"
-            game_key = "Nightreign"
-        elif "sekiro" in profile_name:
-            game_name = "sekiro"
-            game_key = "Sekiro"
-        elif "eldenring" in profile_name:
-            game_name = "eldenring"
-            game_key = "Elden Ring"
-        elif "armoredcore6" in profile_name:
-            game_name = "armoredcore6"
-            game_key = "Armoredcore6"
+        mods_dir = game_info.get("mods_dir", "")
+        cli_id = game_info.get("cli_id", "")
 
-        mods_dir = self.games.get(game_key, {}).get("mods_dir", "")
-
-        # Create proper TOML structure
+        # Create proper TOML structure using the dynamic data
         config_data = {
             "profileVersion": "v1",
             "natives": [],
@@ -599,7 +609,7 @@ class ConfigManager:
                     "load_before": [],
                 }
             ],
-            "supports": [{"game": game_name}],
+            "supports": [{"game": cli_id}],
         }
 
         self._write_toml_config(profile_path, config_data)
