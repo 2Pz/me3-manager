@@ -6,6 +6,9 @@ import re
 from typing import Optional, Tuple, Callable
 from pathlib import Path
 import zipfile
+
+from utils.translator import tr
+
 if sys.platform == "win32":
     import winreg
 import requests
@@ -238,7 +241,7 @@ class ME3VersionManager:
             else:  # Linux/macOS
                 subprocess.run(["xdg-open", target_path], check=True)
         except Exception as e:
-            QMessageBox.warning(self.parent, "Error", f"Could not perform action: {e}")
+            QMessageBox.warning(self.parent, tr("ERROR"), f"Could not perform action: {e}")
 
     def update_me3_cli(self):
         """Update ME3 CLI using 'me3 update' command."""
@@ -287,7 +290,7 @@ class ME3VersionManager:
 
         version, download_url = self._fetch_github_release_info(release_type)
         if not download_url:
-            QMessageBox.warning(self.parent, "Error", 
+            QMessageBox.warning(self.parent, tr("ERROR"),
                               f"Could not fetch {release_type} release information from GitHub.")
             return
 
@@ -371,7 +374,7 @@ class ME3VersionManager:
                 self._start_installation_monitoring()
                 
         elif "cancelled" not in message.lower():
-            QMessageBox.critical(self.parent, "Download Failed", message)
+            QMessageBox.critical(self.parent, tr("download_failed"), message)
 
     def custom_install_windows_me3(self, release_type: str = 'latest'):
         """Download and install ME3 portable distribution for Windows."""
@@ -383,7 +386,7 @@ class ME3VersionManager:
         # Get the ZIP download URL
         version, zip_url = self._fetch_github_release_info_zip(release_type)
         if not zip_url:
-            QMessageBox.warning(self.parent, "Error", 
+            QMessageBox.warning(self.parent, tr("ERROR"),
                             f"Could not fetch {release_type} release information from GitHub.")
             return
 
@@ -394,12 +397,9 @@ class ME3VersionManager:
 
         # Confirm installation
         reply = QMessageBox.question(
-            self.parent, 
-            f"Install ME3 Custom ({version})",
-            f"This will download and install ME3 {version} to:\n"
-            f"{install_path}\n\n"
-            f"The installation directory will be added to your user PATH.\n\n"
-            f"Do you want to continue?",
+            self.parent,
+            tr("custom_installer_question_title_win",version=version),
+            tr("custom_installer_question_win", version=version,install_path=install_path),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
@@ -501,7 +501,7 @@ class ME3VersionManager:
             script_type = release_type
             
         if not installer_url:
-            QMessageBox.warning(self.parent, "Error", 
+            QMessageBox.warning(self.parent, tr("ERROR"),
                               f"Could not fetch {script_type} installer URL from GitHub.")
             return
 
