@@ -8,7 +8,7 @@ import zipfile
 from utils.translator import tr
 
 if sys.platform == "win32":
-    import winreg
+    import winreg  
 import ctypes
 from PyQt6.QtCore import QObject, pyqtSignal, QThread, QStandardPaths
 from PyQt6.QtWidgets import QProgressDialog, QMessageBox, QFileDialog
@@ -556,9 +556,8 @@ class ME3VersionManager:
 
         reply = QMessageBox.question(
             self.parent,
-            f"Install ME3 ({script_type.title()})",
-            f"This will run the {script_type} ME3 installer script.\n"
-            "Do you want to continue?",
+            tr("linux_installer_question_title", script_type=script_type),
+            tr("linux_installer_question_linux", script_type=script_type),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 

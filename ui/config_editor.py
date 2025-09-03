@@ -99,7 +99,7 @@ class ConfigEditorDialog(QDialog):
         self.initial_path = config_path
         self.current_path = config_path
 
-        self.setWindowTitle(tr("edit_config_title", mod=mod_name))
+        self.setWindowTitle(tr("edit_config_title", mod_name=mod_name))
         self.setMinimumSize(700, 500)
         self.resize(1400, 750)
         self.setStyleSheet("background-color: #252525; color: #ffffff;")

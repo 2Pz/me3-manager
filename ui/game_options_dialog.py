@@ -69,7 +69,7 @@ class GameOptionsDialog(QDialog):
         layout.setContentsMargins(24, 24, 24, 24)
 
         # Title
-        title = QLabel(f"{self.game_name} Options")
+        title = QLabel(tr("game_options_title", game_name=self.game_name))
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         title.setStyleSheet("color: #ffffff; margin-bottom: 16px;")
         layout.addWidget(title)
@@ -227,7 +227,7 @@ class GameOptionsDialog(QDialog):
 
         # Executable warning
         exe_warning = QLabel(
-            "⚠️ Only set a custom executable if ME3 cannot detect your game installation automatically."
+            tr("custom_executable_info", game_name=self.game_name)
         )
         exe_warning.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         exe_warning.setWordWrap(True)

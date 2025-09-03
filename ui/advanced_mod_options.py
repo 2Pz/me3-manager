@@ -464,7 +464,7 @@ class AdvancedModOptionsDialog(QDialog):
         layout.addWidget(help_text)
 
         tab.setLayout(layout)
-        self.tabs.addTab(tab, "Load Order")
+        self.tabs.addTab(tab, tr("load_order"))
 
     def setup_advanced_tab(self):
         """Setup the advanced tab (DLL mods only)"""
@@ -525,21 +525,21 @@ class AdvancedModOptionsDialog(QDialog):
         layout.addWidget(final_group)
 
         # Help text
-        help_text = QLabel("""
-<b>Native Module Configuration:</b><br>
-• <b>Optional:</b> If false and this native fails to load, treat as critical error (default: false)<br>
-• <b>Initializer:</b> Optional symbol called after this native successfully loads<br>
-  - <b>Function:</b> Call a specific symbol/function in the DLL<br>
-  - <b>Delay:</b> Wait specified milliseconds before calling initializer<br>
-• <b>Finalizer:</b> Optional symbol called when this native is queued for unload
-        """)
+        help_text = QLabel(f"""
+<b>{tr("native_module_help_title")}:</b><br>
+• <b>{tr("native_module_help_optional_title")}</b> {tr("native_module_help_optional_description")}<br>
+• <b>{tr("native_module_help_initializer_title")}</b> {tr("native_module_help_initializer_description")}<br>
+  - <b>{tr("native_module_help_function_title")}</b> {tr("native_module_help_function_description")}<br>
+  - <b>{tr("native_module_help_delay_title")}</b> {tr("native_module_help_delay_description")}<br>
+• <b>{tr("native_module_help_finalizer_title")}</b> {tr("native_module_help_finalizer_description")}
+""")
         help_text.setWordWrap(True)
         help_text.setStyleSheet("color: #888888; font-size: 11px; margin-top: 10px;")
         layout.addWidget(help_text)
 
         layout.addStretch()
         tab.setLayout(layout)
-        self.tabs.addTab(tab, "Advanced")
+        self.tabs.addTab(tab, tr("advanced"))
 
         # Initially hide function/delay inputs
         self.on_init_type_changed("None")
