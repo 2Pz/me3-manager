@@ -1074,7 +1074,7 @@ class GamePage(QWidget):
             if results["success"] and (
                 results["profile_imported"] or results["package_mods_imported"] > 0
             ):
-                message_parts = [tr("import_complete_success_header")]
+                message_parts = [f"<b>{tr('import_complete_success_header')}</b>"]
                 if results["profile_imported"]:
                     message_parts.append(tr("import_profile_success"))
                 if results["package_mods_imported"] > 0:
@@ -1092,9 +1092,7 @@ class GamePage(QWidget):
                         )
                     )
                 if results["mods_skipped"] > 0:
-                    skipped_header = tr(
-                        "import_mods_skipped_header", count=results["mods_skipped"]
-                    )
+                    skipped_header = f"<b>{tr('import_mods_skipped_header', count=results['mods_skipped'])}</b>"
                     skipped_details = [
                         f"• <i>{detail}</i>"
                         for detail in results.get("skipped_details", [])
@@ -1103,7 +1101,7 @@ class GamePage(QWidget):
                         f"{skipped_header}<br>" + "<br>".join(skipped_details)
                     )
                 if results["errors"]:
-                    error_header = tr("import_errors_header")
+                    error_header = f"<b>{tr('import_errors_header')}</b>"
                     error_details = [
                         f"• {error}" for error in results.get("errors", [])
                     ]
@@ -1119,7 +1117,7 @@ class GamePage(QWidget):
                 msg_box.exec()
                 self.load_mods()
             else:
-                error_msg = tr("import_failed_header") + "<br>".join(
+                error_msg = f"<b>{tr('import_failed_header')}</b><br>".join(
                     f"• {error}" for error in results["errors"]
                 )
                 QMessageBox.warning(self, tr("import_failed_title"), error_msg)
@@ -1186,7 +1184,6 @@ class GamePage(QWidget):
                 )
 
         if installed_count > 0:
-            s_char = "s" if installed_count > 1 else ""
             self.status_label.setText(
                 tr("dll_install_success_status", count=installed_count)
             )
