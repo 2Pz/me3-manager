@@ -1,0 +1,19 @@
+[project]
+name = "me3-manager"
+version = "1.1.2"
+description = "GUI application for Mod engine 3"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+
+authors = [
+  { name = "2Pz" }
+]
+
+dependencies = [
+  "PyQt6",
+  "tomli; python_version < '3.11'",
+  "toml",
+  "requests",
+  "psutil",
+]
