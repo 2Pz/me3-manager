@@ -319,7 +319,7 @@ class AddGameDialog(QDialog):
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch()
 
-        cancel_button = QPushButton(tr("CANCEL"))
+        cancel_button = QPushButton(tr("cancel_button"))
         cancel_button.clicked.connect(self.reject)
         buttons_layout.addWidget(cancel_button)
 
