@@ -61,7 +61,7 @@ class Translator:
         system_locale = QLocale.system().name()
         language_code = system_locale.split("_")[0]  # Extract language part (e.g., "zh" from "zh_CN")
 
-        language_code = "ar" # For testing purposes
+        #language_code = "ar" # For testing purposes
         # Try to set the language, fallback to English if not available
         if language_code in self.translations:
             self.current_language = language_code
@@ -77,16 +77,19 @@ class Translator:
 
     def tr(self, key: str, **kwargs) -> str:
         """Translate a string using the current language"""
+        # Get translation for current language, fallback to English, then to key
         translation = self.translations.get(self.current_language, {}).get(
             key, self.translations.get("en", {}).get(key, key)
         )
 
+        # Format with provided arguments
         if kwargs:
             try:
-                # Convert kwargs to positional args for {} placeholders
-                translation = translation.format(*kwargs.values())
-            except (KeyError, IndexError) as e:
-                print(f"Error formatting translation for key '{key}': {e}")
+                translation = translation.format(**kwargs)
+            except KeyError as e:
+                print(
+                    f"Error formatting translation for key '{key}': missing argument {e}"
+                )
 
         return translation
 
