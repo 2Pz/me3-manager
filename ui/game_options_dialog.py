@@ -461,7 +461,7 @@ class GameOptionsDialog(QDialog):
                 )
         except Exception as e:
             QMessageBox.warning(
-                self, tr("open_folder_error"), tr("open_folder_error_msg", str_e=str(e))
+                self, tr("open_folder_error"), tr("open_folder_error_msg", e=str(e))
             )
 
     def browse_config_file(self):
