@@ -1,8 +1,14 @@
 import re
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QPlainTextEdit, QDialogButtonBox
+from PyQt6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QPlainTextEdit,
+    QDialogButtonBox,
+    QMessageBox,
+)
 from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor
-
 from core.config_manager import ConfigManager
+from utils.translator import tr
 
 
 class TomlHighlighter(QSyntaxHighlighter):
@@ -107,7 +113,10 @@ class ProfileEditor(QDialog):
         self.config_manager = config_manager
 
         self.setWindowTitle(
-            f"Edit Profile: {self.config_manager.get_profile_path(game_name).name}"
+            tr(
+                "edit_profile_title",
+                profile_name=self.config_manager.get_profile_path(game_name).name,
+            )
         )
         self.setMinimumSize(900, 650)
         self.resize(1400, 750)
@@ -180,7 +189,7 @@ class ProfileEditor(QDialog):
             formatted_content = self.format_toml_content(content)
             self.editor.setPlainText(formatted_content)
         except Exception as e:
-            self.editor.setPlainText(f"# Failed to load profile:\n# {e}")
+            self.editor.setPlainText(tr("profile_load_failed_comment", error=str(e)))
 
     def format_toml_content(self, content):
         """Format TOML content for better readability with proper structure."""
@@ -610,6 +619,9 @@ class ProfileEditor(QDialog):
             self.config_manager.save_profile_content(self.game_name, content)
             self.accept()
         except Exception as e:
-            print(f"Failed to save profile: {e}")
-            # Optionally show a QMessageBox to the user here
+            QMessageBox.warning(
+                self,
+                tr("profile_save_failed_title"),
+                tr("profile_save_failed_msg", error=str(e)),
+            )
             self.reject()
