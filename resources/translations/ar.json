@@ -164,7 +164,7 @@
   "ini_files_filter": "ملفات INI (*.ini);;كل الملفات (*)",
   "game_options_title": "خيارات اللعبة  {game_name}",
   "open_path_error": "خطأ في فتح المسار",
-  "open_path_error_msg": "فشل فتح المسار:\n{path}\n\nالخطأ: {str(e)}",
+  "open_path_error_msg": "فشل فتح المسار:\n{path}\n\nالخطأ: {e}",
   "game_options_description": "ضبط خيارات لعبة ME3. هذي الإعدادات بتنحفظ في ملف إعدادات ME3.",
   "me3_config_file_group": "ملف إعدادات ME3",
   "loading_config_path": "جاري التحميل...",

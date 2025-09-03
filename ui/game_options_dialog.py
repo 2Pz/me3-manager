@@ -59,7 +59,7 @@ class GameOptionsDialog(QDialog):
             QMessageBox.warning(
                 self,
                 tr("open_path_error"),
-                tr("open_path_error_msg", path=path, str_e=str(e)),
+                tr("open_path_error_msg", path=path, e=str(e)),
             )
 
     def init_ui(self):

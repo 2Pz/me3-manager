@@ -164,7 +164,7 @@
   "ini_files_filter": "INI Files (*.ini);;All Files (*)",
   "game_options_title": "Game Options  {game_name}",
   "open_path_error": "Open Path Error",
-  "open_path_error_msg": "Failed to open path:\n{path}\n\nError: {str(e)}",
+  "open_path_error_msg": "Failed to open path:\n{path}\n\nError: {e}",
   "game_options_description": "Configure ME3 game options. These settings will be saved to the ME3 configuration file.",
   "me3_config_file_group": "ME3 Configuration File",
   "loading_config_path": "Loading...",
