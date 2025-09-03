@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QFont, QDesktopServices
+from utils.translator import tr
 
 
 class GameOptionsDialog(QDialog):
@@ -30,7 +31,7 @@ class GameOptionsDialog(QDialog):
         self.config_manager = config_manager
         self.current_settings = {}
 
-        self.setWindowTitle(f"Game Options - {game_name}")
+        self.setWindowTitle(tr("game_options_title", game_name=game_name))
         self.setModal(True)
         self.resize(850, 700)
 
@@ -57,8 +58,8 @@ class GameOptionsDialog(QDialog):
         except Exception as e:
             QMessageBox.warning(
                 self,
-                "Open Path Error",
-                f"Failed to open path:\n{path}\n\nError: {str(e)}",
+                tr("open_path_error"),
+                tr("open_path_error_msg", path=path, str_e=str(e)),
             )
 
     def init_ui(self):
@@ -74,37 +75,33 @@ class GameOptionsDialog(QDialog):
         layout.addWidget(title)
 
         # Description
-        desc = QLabel(
-            "Configure ME3 game options. These settings will be saved to the ME3 configuration file."
-        )
+        desc = QLabel(tr("game_options_description", game_name=self.game_name))
         desc.setStyleSheet("color: #cccccc; margin-bottom: 16px;")
         desc.setWordWrap(True)
         layout.addWidget(desc)
 
         # ME3 Config File group
-        config_group = QGroupBox("ME3 Configuration File")
+        config_group = QGroupBox(tr("me3_config_file_group"))
         config_group.setStyleSheet(self._get_group_style())
         config_layout = QVBoxLayout(config_group)
         config_layout.setSpacing(12)
 
         # Config file path display and browse
         config_path_layout = QHBoxLayout()
-        self.config_path_label = QLabel("Loading...")
+        self.config_path_label = QLabel(tr("loading_config_path"))
         self.config_path_label.setStyleSheet(
             "color: #cccccc; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;"
         )
         self.config_path_label.setWordWrap(True)
 
-        self.open_config_btn = QPushButton("Open Folder")
+        self.open_config_btn = QPushButton(tr("open_config_folder_button"))
         self.open_config_btn.setStyleSheet(self._get_button_style())
         self.open_config_btn.clicked.connect(self.open_config_folder)
 
-        self.browse_config_btn = QPushButton("Change Location...")
+        self.browse_config_btn = QPushButton(tr("change_location_button"))
         self.browse_config_btn.setStyleSheet(self._get_button_style())
         self.browse_config_btn.clicked.connect(self.browse_config_file)
-        self.browse_config_btn.setToolTip(
-            "Choose from available ME3 config locations to prevent multiple config files"
-        )
+        self.browse_config_btn.setToolTip(tr("change_location_tooltip"))
 
         config_path_layout.addWidget(self.config_path_label, 1)
         config_path_layout.addWidget(self.open_config_btn)
@@ -113,10 +110,7 @@ class GameOptionsDialog(QDialog):
         config_layout.addLayout(config_path_layout)
 
         # Config file info
-        config_info = QLabel(
-            "💡 The manager searches all ME3 config paths and uses the first found config file. "
-            "Use 'Change Location...' to choose from available writable locations."
-        )
+        config_info = QLabel(tr("me3_config_file_info", game_name=self.game_name))
         config_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         config_info.setWordWrap(True)
         config_layout.addWidget(config_info)
@@ -124,31 +118,31 @@ class GameOptionsDialog(QDialog):
         layout.addWidget(config_group)
 
         # Game Options group
-        options_group = QGroupBox("Game Options")
+        options_group = QGroupBox(tr("game_options_title", game_name=self.game_name))
         options_group.setStyleSheet(self._get_group_style())
         options_layout = QFormLayout(options_group)
         options_layout.setSpacing(12)
 
         # Skip Logos checkbox
-        self.skip_logos_cb = QCheckBox("Skip game logos on startup")
+        self.skip_logos_cb = QCheckBox(tr("skip_logos_checkbox"))
         self.skip_logos_cb.setStyleSheet(self._get_checkbox_style())
-        options_layout.addRow("Skip Logos:", self.skip_logos_cb)
+        options_layout.addRow(tr("skip_logos_label"), self.skip_logos_cb)
 
         # Boot Boost checkbox
-        self.boot_boost_cb = QCheckBox("Enable boot boost for faster startup")
+        self.boot_boost_cb = QCheckBox(tr("boot_boost_checkbox"))
         self.boot_boost_cb.setStyleSheet(self._get_checkbox_style())
-        options_layout.addRow("Boot Boost:", self.boot_boost_cb)
+        options_layout.addRow(tr("boot_boost_label"), self.boot_boost_cb)
 
         layout.addWidget(options_group)
 
         # Steam Directory group
-        steam_group = QGroupBox("Steam Directory")
+        steam_group = QGroupBox(tr("steam_directory_title"))
         steam_group.setStyleSheet(self._get_group_style())
         steam_layout = QVBoxLayout(steam_group)
         steam_layout.setSpacing(12)
 
         # Steam Directory checkbox
-        self.steam_dir_cb = QCheckBox("Use custom Steam directory")
+        self.steam_dir_cb = QCheckBox(tr("steam_directory_checkbox"))
         self.steam_dir_cb.setStyleSheet(self._get_checkbox_style())
         self.steam_dir_cb.toggled.connect(self.on_steam_dir_toggled)
         steam_layout.addWidget(self.steam_dir_cb)
@@ -157,16 +151,16 @@ class GameOptionsDialog(QDialog):
         self.steam_dir_path_layout = QHBoxLayout()
 
         self.steam_dir_edit = QLineEdit()
-        self.steam_dir_edit.setPlaceholderText("Path to Steam installation directory")
+        self.steam_dir_edit.setPlaceholderText(tr("steam_directory_placeholder"))
         self.steam_dir_edit.setStyleSheet(self._get_lineedit_style())
         self.steam_dir_edit.setEnabled(False)
 
-        self.browse_steam_btn = QPushButton("Browse...")
+        self.browse_steam_btn = QPushButton(tr("browse_button"))
         self.browse_steam_btn.setStyleSheet(self._get_button_style())
         self.browse_steam_btn.clicked.connect(self.browse_steam_directory)
         self.browse_steam_btn.setEnabled(False)
 
-        self.clear_steam_btn = QPushButton("Clear")
+        self.clear_steam_btn = QPushButton(tr("clear_button"))
         self.clear_steam_btn.setStyleSheet(self._get_button_style())
         self.clear_steam_btn.clicked.connect(self.clear_steam_directory)
         self.clear_steam_btn.setEnabled(False)
@@ -183,9 +177,7 @@ class GameOptionsDialog(QDialog):
         steam_layout.addWidget(self.steam_dir_widget)
 
         # Steam directory info
-        steam_info = QLabel(
-            "💡 Specify a custom Steam installation directory if ME3 cannot auto-detect it."
-        )
+        steam_info = QLabel(tr("steam_directory_info"))
         steam_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         steam_info.setWordWrap(True)
         steam_layout.addWidget(steam_info)
@@ -193,13 +185,13 @@ class GameOptionsDialog(QDialog):
         layout.addWidget(steam_group)
 
         # Executable path group
-        exe_group = QGroupBox("Custom Executable")
+        exe_group = QGroupBox(tr("custom_executable_title"))
         exe_group.setStyleSheet(self._get_group_style())
         exe_layout = QVBoxLayout(exe_group)
         exe_layout.setSpacing(12)
 
         # Custom Executable checkbox
-        self.exe_path_cb = QCheckBox("Use custom executable path")
+        self.exe_path_cb = QCheckBox(tr("custom_executable_checkbox"))
         self.exe_path_cb.setStyleSheet(self._get_checkbox_style())
         self.exe_path_cb.toggled.connect(self.on_exe_path_toggled)
         exe_layout.addWidget(self.exe_path_cb)
@@ -208,16 +200,16 @@ class GameOptionsDialog(QDialog):
         self.exe_path_layout = QHBoxLayout()
 
         self.exe_path_edit = QLineEdit()
-        self.exe_path_edit.setPlaceholderText("Path to game executable")
+        self.exe_path_edit.setPlaceholderText(tr("executable_path_placeholder"))
         self.exe_path_edit.setStyleSheet(self._get_lineedit_style())
         self.exe_path_edit.setEnabled(False)
 
-        self.browse_exe_btn = QPushButton("Browse...")
+        self.browse_exe_btn = QPushButton(tr("browse_button"))
         self.browse_exe_btn.setStyleSheet(self._get_button_style())
         self.browse_exe_btn.clicked.connect(self.browse_executable)
         self.browse_exe_btn.setEnabled(False)
 
-        self.clear_exe_btn = QPushButton("Clear")
+        self.clear_exe_btn = QPushButton(tr("clear_button"))
         self.clear_exe_btn.setStyleSheet(self._get_button_style())
         self.clear_exe_btn.clicked.connect(self.clear_executable)
         self.clear_exe_btn.setEnabled(False)
@@ -249,11 +241,11 @@ class GameOptionsDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton(tr("cancel_button"))
         self.cancel_btn.setStyleSheet(self._get_cancel_button_style())
         self.cancel_btn.clicked.connect(self.reject)
 
-        self.save_btn = QPushButton("Save")
+        self.save_btn = QPushButton(tr("save_button"))
         self.save_btn.setStyleSheet(self._get_save_button_style())
         self.save_btn.clicked.connect(self.save_settings)
 
@@ -282,7 +274,9 @@ class GameOptionsDialog(QDialog):
                         "color: #81C784; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;"
                     )
                 else:
-                    self.config_path_label.setText(f"{config_path} (will be created)")
+                    self.config_path_label.setText(
+                        tr("config_path_not_exist", path=config_path)
+                    )
                     self.config_path_label.setStyleSheet(
                         "color: #FFB347; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;"
                     )
@@ -334,9 +328,11 @@ class GameOptionsDialog(QDialog):
 
         except Exception as e:
             QMessageBox.warning(
-                self, "Load Error", f"Failed to load current settings: {str(e)}"
+                self, tr("load_error"), tr("load_error_msg", path="ME3 config", error=e)
             )
-            self.config_path_label.setText(f"Error loading config: {str(e)}")
+            self.config_path_label.setText(
+                tr("load_error_msg", path="ME3 config", error=e)
+            )
             self.config_path_label.setStyleSheet("color: #FF6B6B; font-size: 12px;")
 
     def on_steam_dir_toggled(self, checked):
@@ -406,10 +402,8 @@ class GameOptionsDialog(QDialog):
             if not (has_steam_exe or has_steamapps):
                 reply = QMessageBox.question(
                     self,
-                    "Steam Directory Validation",
-                    f"The selected directory doesn't appear to contain Steam:\n{steam_path}\n\n"
-                    f"Expected to find 'steam.exe' (or 'steam') and/or 'steamapps' folder.\n\n"
-                    f"Do you want to use this directory anyway?",
+                    tr("steam_validation_title"),
+                    tr("steam_validation_message", steam_path=steam_path),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
 
@@ -438,9 +432,8 @@ class GameOptionsDialog(QDialog):
                     # Config file doesn't exist but we know where it should be
                     reply = QMessageBox.question(
                         self,
-                        "Config File Not Found",
-                        f"ME3 configuration file doesn't exist yet:\n{config_path}\n\n"
-                        f"Would you like to create it and open the folder?",
+                        tr("config_not_found_title"),
+                        tr("config_not_found_message", config_path=config_path),
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     )
                     if reply == QMessageBox.StandardButton.Yes:
@@ -454,9 +447,7 @@ class GameOptionsDialog(QDialog):
                                 self.load_current_settings()  # Refresh the display
                             else:
                                 QMessageBox.warning(
-                                    self,
-                                    "Create Error",
-                                    "Failed to create default config file.",
+                                    self, tr("create_error"), tr("create_error_msg")
                                 )
                         else:
                             # Fallback: create the directory and try to open it
@@ -465,12 +456,12 @@ class GameOptionsDialog(QDialog):
             else:
                 QMessageBox.warning(
                     self,
-                    "Config Not Found",
-                    "ME3 configuration file location not available. Use 'Browse...' to locate it manually.",
+                    tr("config_not_found_title"),
+                    tr("config_not_found_message"),
                 )
         except Exception as e:
             QMessageBox.warning(
-                self, "Open Folder Error", f"Failed to open config folder: {str(e)}"
+                self, tr("open_folder_error"), tr("open_folder_error_msg", str_e=str(e))
             )
 
     def browse_config_file(self):
@@ -489,8 +480,8 @@ class GameOptionsDialog(QDialog):
             if not available_paths:
                 QMessageBox.warning(
                     self,
-                    "No Available Paths",
-                    "No writable ME3 configuration paths are available.",
+                    tr("no_writable_paths_title"),
+                    tr("no_writable_paths_msg"),
                 )
                 return
 
@@ -505,16 +496,14 @@ class GameOptionsDialog(QDialog):
             )
 
             dialog = QDialog(self)
-            dialog.setWindowTitle("Choose ME3 Config Location")
+            dialog.setWindowTitle(tr("choose_config_location"))
             dialog.setModal(True)
             dialog.resize(600, 400)
 
             layout = QVBoxLayout(dialog)
 
             # Description
-            desc = QLabel(
-                "Choose where to create or use the ME3 configuration file (me3.toml):"
-            )
+            desc = QLabel(tr("choose_config_location_desc"))
             desc.setWordWrap(True)
             desc.setStyleSheet("color: #cccccc; margin-bottom: 16px;")
             layout.addWidget(desc)
@@ -543,7 +532,7 @@ class GameOptionsDialog(QDialog):
             """)
 
             for i, config_path in enumerate(available_paths):
-                status = "✓ Exists" if config_path.exists() else "○ Will be created"
+                status = tr("exists") if config_path.exists() else tr("will_create")
                 path_list.addItem(f"{status} - {config_path}")
 
             if path_list.count() > 0:
@@ -552,10 +541,7 @@ class GameOptionsDialog(QDialog):
             layout.addWidget(path_list)
 
             # Info label
-            info = QLabel(
-                "💡 Select a location where the me3.toml file exists or can be created. "
-                "This prevents having multiple config files in different locations."
-            )
+            info = QLabel(tr("choose_config_location_info"))
             info.setStyleSheet("color: #888888; font-size: 11px; margin-top: 8px;")
             info.setWordWrap(True)
             layout.addWidget(info)
@@ -564,11 +550,11 @@ class GameOptionsDialog(QDialog):
             button_layout = QHBoxLayout()
             button_layout.addStretch()
 
-            cancel_btn = QPushButton("Cancel")
+            cancel_btn = QPushButton(tr("cancel_button"))
             cancel_btn.setStyleSheet(self._get_cancel_button_style())
             cancel_btn.clicked.connect(dialog.reject)
 
-            select_btn = QPushButton("Select")
+            select_btn = QPushButton(tr("select_button"))
             select_btn.setStyleSheet(self._get_save_button_style())
             select_btn.clicked.connect(dialog.accept)
 
@@ -603,33 +589,38 @@ class GameOptionsDialog(QDialog):
 
                                 QMessageBox.information(
                                     self,
-                                    "Config Location Updated",
-                                    f"ME3 configuration location updated to:\n{selected_config_path}\n\n"
-                                    f"Any duplicate config files in other locations have been removed.",
+                                    tr("config_updated_title"),
+                                    tr(
+                                        "config_updated_message",
+                                        selected_config_path=selected_config_path,
+                                    ),
                                 )
+
                             else:
                                 QMessageBox.warning(
                                     self,
-                                    "Config Setup Error",
-                                    "Failed to set up the config file at the selected location.",
+                                    tr("config_setup_error_title"),
+                                    tr("config_setup_error_message"),
                                 )
                         else:
                             QMessageBox.warning(
                                 self,
-                                "Feature Not Available",
-                                "ME3 info manager is not available.",
+                                tr("feature_not_available_title"),
+                                tr("feature_not_available_message"),
                             )
 
                     except Exception as e:
                         QMessageBox.warning(
                             self,
-                            "Config Location Error",
-                            f"Failed to set config location: {str(e)}",
+                            tr("config_location_error_title"),
+                            tr("config_location_error_message", error=str(e)),
                         )
 
         except Exception as e:
             QMessageBox.warning(
-                self, "Browse Error", f"Failed to browse for config location: {str(e)}"
+                self,
+                tr("browse_error_title"),
+                tr("browse_error_message", error=str(e)),
             )
 
     def browse_executable(self):
@@ -638,8 +629,8 @@ class GameOptionsDialog(QDialog):
         if not expected_exe_name:
             QMessageBox.critical(
                 self,
-                "Configuration Error",
-                f"Expected executable name for '{self.game_name}' is not defined.",
+                tr("configuration_error_title"),
+                tr("configuration_error_message", game_name=self.game_name),
             )
             return
 
@@ -654,15 +645,15 @@ class GameOptionsDialog(QDialog):
             selected_path = Path(file_name)
             if selected_path.name.lower() != expected_exe_name.lower():
                 msg = QMessageBox(self)
-                msg.setWindowTitle("Incorrect Executable Selected")
+                msg.setWindowTitle(tr("incorrect_executable_title"))
                 msg.setTextFormat(Qt.TextFormat.RichText)
                 msg.setIcon(QMessageBox.Icon.Warning)
                 msg.setText(
-                    f"<h3>Executable Mismatch</h3>"
-                    f"<p>The selected file does not match the required executable for <b>{self.game_name}</b>.</p>"
-                    f"<b>Expected:</b> {expected_exe_name}<br>"
-                    f"<b>Selected:</b> {selected_path.name}<br>"
-                    f"<p>Please choose the correct file named <b>{expected_exe_name}</b>.</p>"
+                    f"<h3>{tr('executable_mismatch_title')}</h3>"
+                    f"<p>{tr('executable_mismatch_message', game_name=self.game_name)}</p>"
+                    f"<b>{tr('expected_executable')}</b>: {expected_exe_name}<br>"
+                    f"<b>{tr('selected_executable')}</b>: {selected_path.name}<br>"
+                    f"<p>{tr('executable_mismatch_suggestion', expected_exe_name=expected_exe_name)}</p>"
                 )
                 msg.exec()
                 return
@@ -691,8 +682,8 @@ class GameOptionsDialog(QDialog):
                     # Checkbox is checked but no path provided
                     QMessageBox.warning(
                         self,
-                        "Steam Directory Required",
-                        "Please provide a Steam directory path or uncheck the option.",
+                        tr("steam_directory_required_title"),
+                        tr("steam_directory_required_message"),
                     )
                     return
 
@@ -704,8 +695,8 @@ class GameOptionsDialog(QDialog):
                     # Checkbox is checked but no path provided
                     QMessageBox.warning(
                         self,
-                        "Executable Path Required",
-                        "Please provide an executable path or uncheck the option.",
+                        tr("executable_path_required_title"),
+                        tr("executable_path_required_message"),
                     )
                     return
 
@@ -733,20 +724,22 @@ class GameOptionsDialog(QDialog):
             if game_save_success and steam_save_success:
                 QMessageBox.information(
                     self,
-                    "Settings Saved",
-                    f"Game options for {self.game_name} have been saved successfully.",
+                    tr("save_success"),
+                    tr("save_success_message", game_name=self.game_name),
                 )
                 self.accept()
             else:
                 QMessageBox.warning(
                     self,
-                    "Save Error",
-                    "Failed to save some settings. Please check that ME3 is properly installed.",
+                    tr("save_error"),
+                    tr("save_error_message", game_name=self.game_name),
                 )
 
         except Exception as e:
             QMessageBox.warning(
-                self, "Save Error", f"Failed to save settings: {str(e)}"
+                self,
+                tr("save_error"),
+                tr("save_error_message", game_name=self.game_name, error=e),
             )
 
     def _save_steam_dir_globally(self, steam_dir):

@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtCore import QTimer
+from utils.translator import tr
 
 
 class IniSyntaxHighlighter(QSyntaxHighlighter):
@@ -98,7 +99,7 @@ class ConfigEditorDialog(QDialog):
         self.initial_path = config_path
         self.current_path = config_path
 
-        self.setWindowTitle(f"Config Editor - {mod_name}")
+        self.setWindowTitle(tr("edit_config_title", mod=mod_name))
         self.setMinimumSize(700, 500)
         self.resize(1400, 750)
         self.setStyleSheet("background-color: #252525; color: #ffffff;")
@@ -114,7 +115,7 @@ class ConfigEditorDialog(QDialog):
             "background-color: #2d2d2d; border: 1px solid #3d3d3d; padding: 4px;"
         )
         path_layout.addWidget(self.path_edit)
-        browse_btn = QPushButton("Browse...")
+        browse_btn = QPushButton(tr("browse_button"))
         browse_btn.clicked.connect(self.browse_for_config)
         path_layout.addWidget(browse_btn)
         layout.addLayout(path_layout)
@@ -135,12 +136,12 @@ class ConfigEditorDialog(QDialog):
         button_layout.addStretch()
 
         # A "Save" button that does NOT close the dialog
-        save_btn = QPushButton("Save")
+        save_btn = QPushButton(tr("save_button"))
         save_btn.clicked.connect(self.save_text_only)
         button_layout.addWidget(save_btn)
 
         # A "Close" button that intelligently accepts or rejects
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(tr("close_button"))
         close_btn.clicked.connect(self.finalize_and_close)
         button_layout.addWidget(close_btn)
 
@@ -150,8 +151,7 @@ class ConfigEditorDialog(QDialog):
             self.load_config(self.current_path)
         else:
             self.editor.setPlaceholderText(
-                f"Config file not found at default location:\n{self.current_path}\n\n"
-                "Use 'Save' to create a new file at this path, or 'Browse...' to locate it."
+                tr("edit_config_placeholder", path=self.current_path)
             )
 
     def load_config(self, path: Path):
@@ -160,10 +160,10 @@ class ConfigEditorDialog(QDialog):
                 self.editor.setText(f.read())
             self.current_path = path
             self.path_edit.setText(str(self.current_path))
-            self.status_label.setText(f"Loaded: {path.name}")
+            self.status_label.setText(tr("config_loaded", path=path))
         except Exception as e:
             QMessageBox.warning(
-                self, "Load Error", f"Could not load file:\n{path}\n\nError: {e}"
+                self, tr("load_error"), tr("load_error_msg", path=path, error=e)
             )
 
     def save_text_only(self):
@@ -171,8 +171,8 @@ class ConfigEditorDialog(QDialog):
         if not self.current_path:
             QMessageBox.warning(
                 self,
-                "Save Error",
-                "No config file path is set. Use 'Browse...' to select a file.",
+                tr("save_error"),
+                tr("save_error_msg"),
             )
             return
 
@@ -180,14 +180,14 @@ class ConfigEditorDialog(QDialog):
             self.current_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.current_path, "w", encoding="utf-8") as f:
                 f.write(self.editor.toPlainText())
-            self.status_label.setText(f"Saved: {self.current_path.name}")
+            self.status_label.setText(tr("config_saved", path=self.current_path))
             # Clear the status message after 3 seconds
             QTimer.singleShot(3000, lambda: self.status_label.setText(""))
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "Save Error",
-                f"Could not save file:\n{self.current_path}\n\nError: {e}",
+                tr("save_error"),
+                tr("could_not_save_msg", path=self.current_path, error=e),
             )
 
     def finalize_and_close(self):
@@ -206,9 +206,9 @@ class ConfigEditorDialog(QDialog):
         start_dir = str(self.current_path.parent if self.current_path else Path.cwd())
         file_name, _ = QFileDialog.getOpenFileName(
             self,
-            "Select Mod Config File",
+            tr("select_config_file"),
             start_dir,
-            "INI Files (*.ini);;All Files (*)",
+            tr("ini_files_filter"),
         )
         if file_name:
             new_path = Path(file_name)
