@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 from PyQt6.QtGui import QFont, QIcon, QPixmap, QPainter
 from PyQt6.QtCore import pyqtSignal, Qt, QSize
 from utils.resource_path import resource_path
+from utils.translator import tr
 
 
 class ModItem(QWidget):
@@ -220,7 +221,7 @@ class ModItem(QWidget):
             external_icon = self._create_status_icon("E", "#ff8c00")
             external_label = QLabel()
             external_label.setPixmap(external_icon.pixmap(QSize(20, 20)))
-            external_label.setToolTip("External Mod")
+            external_label.setToolTip(tr("external_mod_tooltip"))
             external_label.setStyleSheet("""
                 QLabel {
                     padding: 2px;
@@ -231,23 +232,6 @@ class ModItem(QWidget):
                 }
             """)
             layout.addWidget(external_label)
-
-        # Children indicator for parent mods
-        '''if self.has_children and not self.is_nested:
-            children_icon = self._create_status_icon("▣", "#0078d4")
-            children_label = QLabel()
-            children_label.setPixmap(children_icon.pixmap(QSize(16, 16)))
-            children_label.setToolTip("Contains nested mods")
-            children_label.setStyleSheet("""
-                QLabel {
-                    padding: 1px;
-                    border-radius: 8px;
-                }
-                QLabel:hover {
-                    background-color: rgba(0, 120, 212, 0.2);
-                }
-            """)
-            layout.addWidget(children_label)'''
 
     def _add_action_buttons(self, layout, has_advanced_options):
         """Add action buttons to the right side"""
@@ -264,7 +248,7 @@ class ModItem(QWidget):
         if not self.is_folder_mod and not self.is_regulation:
             config_btn = QPushButton("⚙️")
             config_btn.setFixedSize(button_size, button_size)
-            config_btn.setToolTip("Edit mod configuration (.ini)")
+            config_btn.setToolTip(tr("edit_config_tooltip_ini"))
             config_btn.setStyleSheet(self._get_action_button_style())
             config_btn.clicked.connect(
                 lambda: self.edit_config_requested.emit(self.mod_path)
@@ -275,7 +259,7 @@ class ModItem(QWidget):
         if self.is_external:
             open_btn = QPushButton("📂")
             open_btn.setFixedSize(button_size, button_size)
-            open_btn.setToolTip("Open containing folder")
+            open_btn.setToolTip(tr("open_containing_folder_tooltip"))
             open_btn.setStyleSheet(self._get_action_button_style())
             open_btn.clicked.connect(
                 lambda: self.open_folder_requested.emit(self.mod_path)
@@ -285,7 +269,7 @@ class ModItem(QWidget):
         # Advanced options button
         advanced_btn = QPushButton("🔧")
         advanced_btn.setFixedSize(button_size, button_size)
-        advanced_btn.setToolTip("Advanced options (load order, initializers, etc.)")
+        advanced_btn.setToolTip(tr("advanced_options_tooltip"))
 
         if has_advanced_options:
             advanced_btn.setStyleSheet(self._get_active_advanced_button_style())
@@ -301,7 +285,7 @@ class ModItem(QWidget):
         if not self.is_nested:
             delete_btn = QPushButton("🗑")
             delete_btn.setFixedSize(button_size, button_size)
-            delete_btn.setToolTip("Delete mod")
+            delete_btn.setToolTip(tr("delete_mod_tooltip"))
             delete_btn.setStyleSheet(self._get_delete_button_style())
             delete_btn.clicked.connect(
                 lambda: self.delete_requested.emit(self.mod_path)
@@ -314,16 +298,14 @@ class ModItem(QWidget):
             self.activate_regulation_btn.setFixedSize(button_size, button_size)
 
             if self.is_regulation_active:
-                self.activate_regulation_btn.setToolTip(
-                    "This regulation file is currently active"
-                )
+                self.activate_regulation_btn.setToolTip(tr("regulation_active_tooltip"))
                 self.activate_regulation_btn.setEnabled(False)
                 self.activate_regulation_btn.setStyleSheet(
                     self._get_active_regulation_button_style()
                 )
             else:
                 self.activate_regulation_btn.setToolTip(
-                    "Click to make this the active regulation file"
+                    tr("regulation_inactive_tooltip")
                 )
                 self.activate_regulation_btn.setStyleSheet(
                     self._get_action_button_style()
@@ -437,12 +419,19 @@ class ModItem(QWidget):
         """Setup tooltip based on mod type"""
         if self.is_nested:
             self.setToolTip(
-                f"Nested DLL: {self.mod_name}\nPath: {self.mod_path}\n\nThis mod is part of a parent package."
+                tr(
+                    "nested_mod_full_tooltip",
+                    mod_name=self.mod_name,
+                    mod_path=self.mod_path,
+                )
             )
         else:
-            tooltip_parts = [f"Type: {self.mod_type}", f"Path: {self.mod_path}"]
+            tooltip_parts = [
+                tr("mod_type_tooltip", mod_type=self.mod_type),
+                tr("mod_path_tooltip", mod_path=self.mod_path),
+            ]
             if self.has_children:
-                tooltip_parts.append("Click ▶ to expand nested mods")
+                tooltip_parts.append(tr("expand_mod_tooltip"))
             self.setToolTip("\n".join(tooltip_parts))
 
     def update_toggle_button_ui(self):
@@ -450,7 +439,7 @@ class ModItem(QWidget):
         radius = 12 if not self.is_nested else 10
 
         if self.is_enabled:
-            self.toggle_btn.setToolTip("Click to disable")
+            self.toggle_btn.setToolTip(tr("click_to_disable_tooltip"))
             style = f"""
                 QPushButton {{
                     background-color: #28a745;
@@ -466,7 +455,7 @@ class ModItem(QWidget):
                 }}
             """
         else:
-            self.toggle_btn.setToolTip("Click to enable")
+            self.toggle_btn.setToolTip(tr("click_to_enable_tooltip"))
             style = f"""
                 QPushButton {{
                     background-color: #dc3545;

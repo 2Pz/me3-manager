@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QFont
 import sys
+from utils.translator import tr
 
 
 class SettingsDialog(QDialog):
@@ -21,7 +22,7 @@ class SettingsDialog(QDialog):
 
     def init_ui(self):
         """Initialize the settings dialog UI"""
-        self.setWindowTitle("Settings")
+        self.setWindowTitle(tr("settings_title"))
         self.setMinimumWidth(450)
         self.setMinimumHeight(350)
         self.apply_styles()
@@ -31,7 +32,7 @@ class SettingsDialog(QDialog):
         layout.setSpacing(20)
 
         # Title
-        title = QLabel("Settings")
+        title = QLabel(tr("settings_title"))
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         layout.addWidget(title)
 
@@ -53,19 +54,17 @@ class SettingsDialog(QDialog):
     def create_steam_section(self, parent_layout):
         """Create Steam integration settings section"""
         # Section header
-        steam_header = QLabel("Steam Integration")
+        steam_header = QLabel(tr("steam_integration_header"))
         steam_header.setObjectName("SectionHeader")
         parent_layout.addWidget(steam_header)
 
         # Auto-launch Steam checkbox
         if sys.platform == "win32":
-            self.auto_launch_steam_checkbox = QCheckBox(
-                "Auto-launch Steam silently on app startup"
-            )
+            checkbox_text = tr("auto_launch_steam_win_checkbox")
         else:
-            self.auto_launch_steam_checkbox = QCheckBox(
-                "Auto-launch Steam silently on app startup (via flatpak-spawn)"
-            )
+            checkbox_text = tr("auto_launch_steam_linux_checkbox")
+
+        self.auto_launch_steam_checkbox = QCheckBox(checkbox_text)
         self.auto_launch_steam_checkbox.setChecked(
             self.config_manager.get_auto_launch_steam()
         )
@@ -77,14 +76,14 @@ class SettingsDialog(QDialog):
         # Steam status info
         steam_path = self.config_manager.get_steam_path()
         if steam_path and steam_path.exists():
-            steam_status = QLabel(f"Steam found at: {steam_path}")
+            steam_status = QLabel(tr("steam_found_status", steam_path=steam_path))
             steam_status.setObjectName("StatusSuccess")
         else:
-            steam_status = QLabel("Steam not found or ME3 not installed")
+            steam_status = QLabel(tr("steam_not_found_status"))
             steam_status.setObjectName("StatusError")
             self.auto_launch_steam_checkbox.setEnabled(False)
             self.auto_launch_steam_checkbox.setToolTip(
-                "Steam path not available - requires ME3 to be installed"
+                tr("steam_path_unavailable_tooltip")
             )
 
         parent_layout.addWidget(steam_status)
@@ -94,7 +93,7 @@ class SettingsDialog(QDialog):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        close_button = QPushButton("Close")
+        close_button = QPushButton(tr("close_button"))
         close_button.clicked.connect(self.accept)
         button_layout.addWidget(close_button)
 
@@ -103,12 +102,12 @@ class SettingsDialog(QDialog):
     def create_update_section(self, parent_layout):
         """Create update checking settings section"""
         # Section header
-        update_header = QLabel("Mod Engine 3 Updates")
+        update_header = QLabel(tr("me3_updates_header"))
         update_header.setObjectName("SectionHeader")
         parent_layout.addWidget(update_header)
 
         # Check for updates checkbox
-        self.check_updates_checkbox = QCheckBox("Check for ME3 updates on app startup")
+        self.check_updates_checkbox = QCheckBox(tr("check_for_updates_checkbox"))
         self.check_updates_checkbox.setChecked(
             self.config_manager.get_check_for_updates()
         )

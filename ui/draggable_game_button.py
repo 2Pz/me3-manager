@@ -179,7 +179,6 @@ class DraggableGameContainer(QWidget):
         new_target_index = new_order.index(target_game)
 
         # If dragging from top to bottom, insert after the target
-        # If dragging from bottom to top, insert before the target
         if dragged_index < target_index:
             # Dragging downward - insert after target
             new_order.insert(new_target_index + 1, dragged_game)

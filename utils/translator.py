@@ -101,7 +101,7 @@ class Translator:
             # Try to get language name from the translation file itself
             lang_name = self.translations[lang_code].get("language_name", lang_code)
             result[lang_code] = lang_name
-        
+
         return result
 
 

@@ -10,8 +10,9 @@ from PyQt6.QtWidgets import (
     QApplication,
 )
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import QProcess
+from PyQt6.QtCore import QProcess, QTimer
 import shlex
+from utils.translator import tr
 
 
 class EmbeddedTerminal(QWidget):
@@ -27,7 +28,7 @@ class EmbeddedTerminal(QWidget):
 
         # Terminal header
         header = QHBoxLayout()
-        title = QLabel("🖥 Terminal")
+        title = QLabel(tr("terminal_title"))
         title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         title.setStyleSheet("color: #ffffff; margin: 4px;")
         header.addWidget(title)
@@ -35,7 +36,7 @@ class EmbeddedTerminal(QWidget):
         header.addStretch()
 
         # Copy button
-        copy_btn = QPushButton("Copy")
+        copy_btn = QPushButton(tr("copy_button"))
         copy_btn.setFixedSize(60, 25)
         copy_btn.setStyleSheet("""
             QPushButton {
@@ -53,7 +54,7 @@ class EmbeddedTerminal(QWidget):
         header.addWidget(copy_btn)
 
         # Clear button
-        clear_btn = QPushButton("Clear")
+        clear_btn = QPushButton(tr("clear_button"))
         clear_btn.setFixedSize(60, 25)
         clear_btn.setStyleSheet("""
             QPushButton {
@@ -100,11 +101,9 @@ class EmbeddedTerminal(QWidget):
         # Visual feedback - temporarily change button text
         copy_btn = self.sender()
         original_text = copy_btn.text()
-        copy_btn.setText("Copied!")
+        copy_btn.setText(tr("copied_feedback"))
 
         # Reset button text after 1 second
-        from PyQt6.QtCore import QTimer
-
         QTimer.singleShot(1000, lambda: copy_btn.setText(original_text))
 
     def parse_ansi_to_html(self, text: str) -> str:
@@ -229,9 +228,7 @@ class EmbeddedTerminal(QWidget):
 
                     full_command = f"flatpak-spawn --host bash -l -c '{host_command}'"
                     self.process.start("bash", ["-c", full_command])
-                    self.output.append(
-                        "Running command on host system via flatpak-spawn..."
-                    )
+                    self.output.append(tr("running_on_host_status"))
                 else:
                     # Get environment from login shell
                     from PyQt6.QtCore import QProcessEnvironment
@@ -286,9 +283,7 @@ class EmbeddedTerminal(QWidget):
                         f"flatpak-spawn --host bash -l -c {shlex.quote(shell_command)}"
                     )
                     self.process.start("bash", ["-c", full_command])
-                    self.output.append(
-                        "Running command on host system via flatpak-spawn..."
-                    )
+                    self.output.append(tr("running_on_host_status"))
                 else:
                     # Set up environment for non-flatpak Linux with shell execution
                     from PyQt6.QtCore import QProcessEnvironment
@@ -342,9 +337,11 @@ class EmbeddedTerminal(QWidget):
 
     def process_finished(self, exit_code, exit_status):
         if exit_code == 0:
-            self.output.append("Process completed successfully.")
+            self.output.append(tr("process_success_status"))
         else:
-            self.output.append(f"Process finished with exit code: {exit_code}")
+            self.output.append(
+                tr("process_finished_with_code_status", exit_code=exit_code)
+            )
 
     def clear_output(self):
         self.output.clear()

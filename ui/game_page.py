@@ -132,7 +132,7 @@ class GamePage(QWidget):
 
     def _create_title_label(self):
         """Create and style the main title label."""
-        title = QLabel(f"{self.game_name} Mods")
+        title = QLabel(tr("game_mods_title", game_name=self.game_name))
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         title.setStyleSheet("color: #ffffff; margin-bottom: 8px;")
         return title
@@ -150,13 +150,13 @@ class GamePage(QWidget):
         container_layout.setSpacing(0)
 
         # Enhanced profile label with icon
-        profile_label = QLabel("Profile")
+        profile_label = QLabel(tr("profile_label"))
         profile_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         profile_label.setFixedWidth(90)
         profile_label.setStyleSheet(self._get_enhanced_profile_label_style())
 
         # Enhanced dropdown button
-        self.profile_menu_button = QPushButton("Select Profile")
+        self.profile_menu_button = QPushButton(tr("select_profile_button"))
         self.profile_menu_button.setFixedHeight(44)
         self.profile_menu_button.setMinimumWidth(130)
         self.profile_menu_button.setStyleSheet(
@@ -182,7 +182,9 @@ class GamePage(QWidget):
         buttons = []
 
         # Launch button
-        self.launch_btn = QPushButton(f"Launch {self.game_name}")
+        self.launch_btn = QPushButton(
+            tr("launch_game_button", game_name=self.game_name)
+        )
         self.launch_btn.setFixedHeight(40)
         self.launch_btn.setStyleSheet(self._get_launch_button_style())
         self.launch_btn.clicked.connect(self.launch_game)
@@ -193,25 +195,25 @@ class GamePage(QWidget):
             {
                 "attr": "game_options_btn",
                 "icon": "settings.png",
-                "tooltip": "Configure game options (skip_logos, boot_boost, skip_steam_init, exe)",
+                "tooltip": tr("configure_game_options_tooltip"),
                 "callback": self.open_game_options,
             },
             {
                 "attr": "open_mods_folder_btn",
                 "icon": "folder.png",
-                "tooltip": "Open game's mods folder",
+                "tooltip": tr("open_mods_folder_tooltip"),
                 "callback": self.open_mods_folder,
             },
             {
                 "attr": "add_external_mod_btn",
                 "icon": "dll.png",
-                "tooltip": "Add an external mod (.dll) from any location",
+                "tooltip": tr("add_external_mod_tooltip"),
                 "callback": self.add_external_mod,
             },
             {
                 "attr": "edit_profile_btn",
                 "icon": "note.png",
-                "tooltip": "Edit game's profile (.me3) file",
+                "tooltip": tr("edit_profile_tooltip"),
                 "callback": self.open_profile_editor,
             },
         ]
@@ -238,7 +240,7 @@ class GamePage(QWidget):
     def _create_search_section(self):
         """Create the search bar."""
         self.search_bar = QLineEdit()
-        self.search_bar.setPlaceholderText("🔍 Search mods...")
+        self.search_bar.setPlaceholderText(tr("search_mods_placeholder"))
         self.search_bar.setStyleSheet(self._get_search_bar_style())
         self.search_bar.textChanged.connect(self.apply_filters)
         self.main_layout.addWidget(self.search_bar)
@@ -271,9 +273,7 @@ class GamePage(QWidget):
 
     def _create_drop_zone(self):
         """Create the drag and drop zone."""
-        self.drop_zone = QLabel(
-            "📁 Drag & Drop mods with option to drop .me3 profiles here!"
-        )
+        self.drop_zone = QLabel(tr("drag_drop_zone_text"))
         self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone.setStyleSheet(self._get_drop_zone_style())
         self.drop_zone.setFixedHeight(80)
@@ -299,7 +299,7 @@ class GamePage(QWidget):
         """Create the items per page selector."""
         layout = QHBoxLayout()
 
-        label = QLabel("Items per page:")
+        label = QLabel(tr("items_per_page_label"))
         layout.addWidget(label)
 
         self.items_per_page_spinbox = QSpinBox()
@@ -317,18 +317,18 @@ class GamePage(QWidget):
         widgets = []
 
         # Previous button
-        self.prev_btn = QPushButton("◀ Previous")
+        self.prev_btn = QPushButton(tr("previous_page_button"))
         self.prev_btn.setStyleSheet(self._get_pagination_button_style())
         self.prev_btn.clicked.connect(self.prev_page)
         widgets.append(self.prev_btn)
 
         # Page label
-        self.page_label = QLabel("Page 1 of 1")
+        self.page_label = QLabel(tr("page_label_text", current_page=1, total_pages=1))
         self.page_label.setStyleSheet("color: #ffffff; padding: 0px 12px;")
         widgets.append(self.page_label)
 
         # Next button
-        self.next_btn = QPushButton("Next ▶")
+        self.next_btn = QPushButton(tr("next_page_button"))
         self.next_btn.setStyleSheet(self._get_pagination_button_style())
         self.next_btn.clicked.connect(self.next_page)
         widgets.append(self.next_btn)
@@ -346,7 +346,7 @@ class GamePage(QWidget):
 
     def _create_status_section(self):
         """Create the status bar."""
-        self.status_label = QLabel("Ready")
+        self.status_label = QLabel(tr("status_ready"))
         self.status_label.setStyleSheet("color: #888888; font-size: 11px;")
         self.main_layout.addWidget(self.status_label)
 
@@ -362,9 +362,9 @@ class GamePage(QWidget):
         return """
             QLabel {
                 background-color: #2c2c2c;
-                color: #ffffff; 
-                font-size: 14px; 
-                font-weight: 500; 
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 500;
                 padding: 12px 16px;
                 border: none;
                 border-top-left-radius: 8px;
@@ -379,16 +379,16 @@ class GamePage(QWidget):
         return f"""
             QPushButton {{
                 background-color: #404040;
-                border: none; 
-                color: #ffffff; 
+                border: none;
+                color: #ffffff;
                 border-top-right-radius: 8px;
                 border-bottom-right-radius: 8px;
-                font-size: 14px; 
-                font-weight: 500; 
+                font-size: 14px;
+                font-weight: 500;
                 padding: 12px 36px 12px 16px;
                 text-align: center;
             }}
-            QPushButton:hover {{ 
+            QPushButton:hover {{
                 background-color: #0078d4;
             }}
             QPushButton:pressed {{
@@ -439,37 +439,37 @@ class GamePage(QWidget):
         """Return CSS style for launch button."""
         return """
             QPushButton {
-                background-color: #0078d4; 
-                color: white; 
-                border: none; 
+                background-color: #0078d4;
+                color: white;
+                border: none;
                 border-radius: 8px;
-                font-size: 14px; 
-                font-weight: bold; 
+                font-size: 14px;
+                font-weight: bold;
                 padding: 8px 16px;
             }
-            QPushButton:hover { 
-                background-color: #106ebe; 
+            QPushButton:hover {
+                background-color: #106ebe;
             }
-            QPushButton:pressed { 
-                background-color: #005a9e; 
+            QPushButton:pressed {
+                background-color: #005a9e;
             }
         """
 
     def _get_icon_button_style(self):
         """Return CSS style for icon buttons."""
         return """
-            QPushButton { 
-                background-color: #4d4d4d; 
-                color: white; 
-                border: none; 
-                border-radius: 8px; 
-                font-size: 16px; 
+            QPushButton {
+                background-color: #4d4d4d;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
             }
-            QPushButton:hover { 
-                background-color: #5d5d5d; 
+            QPushButton:hover {
+                background-color: #5d5d5d;
             }
-            QPushButton:pressed { 
-                background-color: #3d3d3d; 
+            QPushButton:pressed {
+                background-color: #3d3d3d;
             }
         """
 
@@ -477,15 +477,15 @@ class GamePage(QWidget):
         """Return CSS style for search bar."""
         return """
             QLineEdit {
-                background-color: #2d2d2d; 
-                border: 2px solid #3d3d3d; 
+                background-color: #2d2d2d;
+                border: 2px solid #3d3d3d;
                 border-radius: 8px;
-                padding: 8px 12px; 
-                font-size: 12px; 
+                padding: 8px 12px;
+                font-size: 12px;
                 color: #ffffff;
             }
-            QLineEdit:focus { 
-                border-color: #0078d4; 
+            QLineEdit:focus {
+                border-color: #0078d4;
             }
         """
 
@@ -493,12 +493,12 @@ class GamePage(QWidget):
         """Return CSS style for drop zone."""
         return """
             QLabel {
-                background-color: #1e1e1e; 
-                border: 2px dashed #3d3d3d; 
+                background-color: #1e1e1e;
+                border: 2px dashed #3d3d3d;
                 border-radius: 12px;
-                padding: 20px; 
-                font-size: 14px; 
-                color: #888888; 
+                padding: 20px;
+                font-size: 14px;
+                color: #888888;
                 margin: 8px 0px;
             }
         """
@@ -507,11 +507,11 @@ class GamePage(QWidget):
         """Return CSS style for spinbox."""
         return """
             QSpinBox {
-                background-color: #2d2d2d; 
-                border: 1px solid #3d3d3d; 
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
                 border-radius: 4px;
-                padding: 4px; 
-                color: #ffffff; 
+                padding: 4px;
+                color: #ffffff;
                 min-width: 60px;
             }
         """
@@ -520,19 +520,19 @@ class GamePage(QWidget):
         """Return CSS style for pagination buttons."""
         return """
             QPushButton {
-                background-color: #3d3d3d; 
-                color: white; 
-                border: none; 
+                background-color: #3d3d3d;
+                color: white;
+                border: none;
                 border-radius: 4px;
-                padding: 6px 12px; 
+                padding: 6px 12px;
                 font-size: 12px;
             }
-            QPushButton:hover { 
-                background-color: #4d4d4d; 
+            QPushButton:hover {
+                background-color: #4d4d4d;
             }
-            QPushButton:disabled { 
-                background-color: #2d2d2d; 
-                color: #666666; 
+            QPushButton:disabled {
+                background-color: #2d2d2d;
+                color: #666666;
             }
         """
 
@@ -540,8 +540,8 @@ class GamePage(QWidget):
         """Return CSS style for mods widget."""
         return """
             QWidget {
-                background-color: #1e1e1e; 
-                border: 1px solid #3d3d3d; 
+                background-color: #1e1e1e;
+                border: 1px solid #3d3d3d;
                 border-radius: 8px;
                 padding: 8px;
             }
@@ -550,16 +550,16 @@ class GamePage(QWidget):
     def _get_filter_definitions(self):
         """Return filter button definitions."""
         return {
-            "all": ("All", "Show all mods"),
-            "enabled": ("Enabled", "Show all enabled mods (DLLs and Folders)"),
-            "disabled": ("Disabled", "Show all disabled mods"),
+            "all": (tr("filter_all"), tr("filter_all_tooltip")),
+            "enabled": (tr("filter_enabled"), tr("filter_enabled_tooltip")),
+            "disabled": (tr("filter_disabled"), tr("filter_disabled_tooltip")),
             "with_regulation": (
-                "Enabled with Regulation",
-                "Show enabled FOLDER mods with regulation.bin",
+                tr("filter_with_regulation"),
+                tr("filter_with_regulation_tooltip"),
             ),
             "without_regulation": (
-                "Enabled without Regulation",
-                "Show enabled FOLDER mods without regulation.bin",
+                tr("filter_without_regulation"),
+                tr("filter_without_regulation_tooltip"),
             ),
         }
 
@@ -589,7 +589,7 @@ class GamePage(QWidget):
 
         manage_action = QAction(
             QIcon(resource_path("resources/icon/profiles.png")),
-            "Manage Profiles...",
+            tr("manage_profiles"),
             self,
         )
         manage_action.triggered.connect(self.open_profile_manager)
@@ -626,8 +626,8 @@ class GamePage(QWidget):
         except Exception as e:
             QMessageBox.warning(
                 self,
-                "Open Folder Error",
-                f"Failed to open folder:\n{path}\n\nError: {str(e)}",
+                tr("open_folder_error"),
+                tr("open_folder_error_msg", path=path, e=str(e)),
             )
 
     def set_filter(self, filter_name: str):
@@ -670,10 +670,12 @@ class GamePage(QWidget):
         editor_dialog = ProfileEditor(self.game_name, self.config_manager, self)
         if editor_dialog.exec() == QDialog.DialogCode.Accepted:
             self.status_label.setText(
-                f"Profile saved for {self.game_name}. Reloading mod list..."
+                tr("profile_saved_status", game_name=self.game_name)
             )
             self.load_mods()
-            QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
+            QTimer.singleShot(
+                2000, lambda: self.status_label.setText(tr("status_ready"))
+            )
 
     def is_valid_drop(self, paths: List[Path]) -> bool:
         paths_to_check = deque(paths)
@@ -733,8 +735,8 @@ class GamePage(QWidget):
             if len(me3_files) > 1:
                 QMessageBox.warning(
                     self,
-                    "Import Error",
-                    "Please import only one .me3 profile at a time.",
+                    tr("import_error"),
+                    tr("import_one_profile_warning"),
                 )
                 return
             profile_to_import = me3_files[0]
@@ -784,7 +786,9 @@ class GamePage(QWidget):
 
         if installed_something:
             self.load_mods(reset_page=False)
-            QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+            QTimer.singleShot(
+                3000, lambda: self.status_label.setText(tr("status_ready"))
+            )
 
     def install_linked_mods(self, items_to_install: List[Path]) -> bool:
         """
@@ -795,13 +799,12 @@ class GamePage(QWidget):
         conflicts = [p for p in items_to_install if (mods_dir / p.name).exists()]
 
         if conflicts:
-            conflict_msg = (
-                "The following files/folders already exist in the mods folder. Overwrite?\n\n"
-                + "\n".join(f"- {p.name}" for p in conflicts)
+            conflict_msg = tr("overwrite_confirm_text") + "\n".join(
+                f"- {p.name}" for p in conflicts
             )
             reply = QMessageBox.question(
                 self,
-                "Confirm Overwrite",
+                tr("confirm_overwrite_title"),
                 conflict_msg,
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
@@ -812,9 +815,7 @@ class GamePage(QWidget):
                 ]
 
         if not items_to_install:
-            self.status_label.setText(
-                "Installation cancelled or no new items to install."
-            )
+            self.status_label.setText(tr("install_cancelled_status"))
             return False
 
         installed_count = 0
@@ -833,24 +834,26 @@ class GamePage(QWidget):
                 errors.append(f"Failed to copy {item_path.name}: {e}")
 
         if errors:
-            QMessageBox.warning(self, "Install Error", "\n".join(errors))
+            QMessageBox.warning(self, tr("install_error_title"), "\n".join(errors))
 
         if installed_count > 0:
             self.status_label.setText(
-                f"Successfully installed {installed_count} item{'s' if installed_count > 1 else ''}."
+                tr("install_success_status", count=installed_count)
             )
             return True
         return False
 
     def handle_profile_import(self, import_folder: Path, profile_file: Path):
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(f"Import Profile & Mods - {self.game_name}")
+        msg_box.setWindowTitle(
+            tr("import_profile_mods_title", game_name=self.game_name)
+        )
         msg_box.setTextFormat(Qt.TextFormat.RichText)
         msg_box.setText(
-            f"You are about to import a profile and its associated mods.<br><br>"
-            f"<b>Profile:</b> {profile_file.name}<br>"
-            f"<b>From Folder:</b> {import_folder}<br><br>"
-            f"Do you want to merge this with your current setup or replace it?"
+            f"""{tr("import_profile_mods_desc")}<br><br>
+            <b>{tr("profile_label")}:</b> {profile_file.name}<br>
+            <b>{tr("from_folder_label")}:</b> {import_folder}<br><br>
+            {tr("import_merge_or_replace_question")}"""
         )
         msg_box.setStandardButtons(
             QMessageBox.StandardButton.Yes
@@ -858,9 +861,9 @@ class GamePage(QWidget):
             | QMessageBox.StandardButton.Cancel
         )
         merge_btn = msg_box.button(QMessageBox.StandardButton.Yes)
-        merge_btn.setText("Merge (Recommended)")
+        merge_btn.setText(tr("merge_button_recommended"))
         replace_btn = msg_box.button(QMessageBox.StandardButton.No)
-        replace_btn.setText("Replace")
+        replace_btn.setText(tr("replace_button"))
 
         reply = msg_box.exec()
         if reply == QMessageBox.StandardButton.Cancel:
@@ -870,19 +873,23 @@ class GamePage(QWidget):
         default_name = import_folder.name
         mod_name, ok = QInputDialog.getText(
             self,
-            "Name Imported Mod Package",
-            f"Enter a name for the imported package mod(s).\n\n"
-            f"Importing from: {import_folder.name}",
+            tr("name_imported_package_title"),
+            tr("name_imported_package_desc")
+            + tr("importing_from_label", folder=import_folder.name),
             text=default_name,
         )
         if not ok or not mod_name.strip():
-            self.status_label.setText("Import cancelled.")
-            QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
+            self.status_label.setText(tr("import_cancelled_status"))
+            QTimer.singleShot(
+                2000, lambda: self.status_label.setText(tr("status_ready"))
+            )
             return
         mod_name = mod_name.strip()
 
         try:
-            self.status_label.setText(f"Importing from {import_folder.name}...")
+            self.status_label.setText(
+                tr("importing_from_status", folder=import_folder.name)
+            )
 
             # Parse the profile to understand the structure
             config_data = self.config_manager._parse_toml_config(profile_file)
@@ -944,15 +951,15 @@ class GamePage(QWidget):
                     if not merge:
                         reply = QMessageBox.question(
                             self,
-                            "Mod Exists",
-                            f"Mod folder '{mod_name}' already exists. Replace it?",
+                            tr("mod_exists_title"),
+                            tr("mod_folder_exists_replace_question", mod_name=mod_name),
                             QMessageBox.StandardButton.Yes
                             | QMessageBox.StandardButton.No,
                         )
                         if reply == QMessageBox.StandardButton.No:
                             results["mods_skipped"] += 1
                             results["skipped_details"].append(
-                                f"'{mod_name}' - already exists"
+                                tr("skipped_reason_exists", name=mod_name)
                             )
                             continue
                         else:
@@ -1067,20 +1074,26 @@ class GamePage(QWidget):
             if results["success"] and (
                 results["profile_imported"] or results["package_mods_imported"] > 0
             ):
-                message_parts = ["<b>Import completed successfully!</b>"]
+                message_parts = [tr("import_complete_success_header")]
                 if results["profile_imported"]:
-                    message_parts.append("✓ Profile imported and converted")
+                    message_parts.append(tr("import_profile_success"))
                 if results["package_mods_imported"] > 0:
                     message_parts.append(
-                        f"✓ {results['package_mods_imported']} package mod(s) imported"
+                        tr(
+                            "import_package_mods_success",
+                            count=results["package_mods_imported"],
+                        )
                     )
                 if results["dll_mods_imported"] > 0:
                     message_parts.append(
-                        f"✓ {results['dll_mods_imported']} DLL mod(s) imported"
+                        tr(
+                            "import_dll_mods_success",
+                            count=results["dll_mods_imported"],
+                        )
                     )
                 if results["mods_skipped"] > 0:
-                    skipped_header = (
-                        f"<b>⚠ {results['mods_skipped']} mod(s) skipped:</b>"
+                    skipped_header = tr(
+                        "import_mods_skipped_header", count=results["mods_skipped"]
                     )
                     skipped_details = [
                         f"• <i>{detail}</i>"
@@ -1090,7 +1103,7 @@ class GamePage(QWidget):
                         f"{skipped_header}<br>" + "<br>".join(skipped_details)
                     )
                 if results["errors"]:
-                    error_header = "<b>Errors encountered:</b>"
+                    error_header = tr("import_errors_header")
                     error_details = [
                         f"• {error}" for error in results.get("errors", [])
                     ]
@@ -1100,21 +1113,23 @@ class GamePage(QWidget):
 
                 message = "<br>".join(message_parts)
                 msg_box = QMessageBox(self)
-                msg_box.setWindowTitle("Import Complete")
+                msg_box.setWindowTitle(tr("import_complete_title"))
                 msg_box.setTextFormat(Qt.TextFormat.RichText)
                 msg_box.setText(message)
                 msg_box.exec()
                 self.load_mods()
             else:
-                error_msg = "<b>Import failed:</b><br><br>" + "<br>".join(
+                error_msg = tr("import_failed_header") + "<br>".join(
                     f"• {error}" for error in results["errors"]
                 )
-                QMessageBox.warning(self, "Import Failed", error_msg)
+                QMessageBox.warning(self, tr("import_failed_title"), error_msg)
 
         except Exception as e:
-            QMessageBox.warning(self, "Import Error", f"Error during import: {str(e)}")
+            QMessageBox.warning(
+                self, tr("import_error_title"), tr("import_error_msg", error=str(e))
+            )
         finally:
-            self.status_label.setText("Ready")
+            self.status_label.setText(tr("status_ready"))
 
     def _is_valid_mod_folder(self, folder: Path) -> bool:
         """Check if a folder is a valid mod folder"""
@@ -1141,13 +1156,12 @@ class GamePage(QWidget):
         mods_dir = self.config_manager.get_mods_dir(self.game_name)
         conflicts = [p for p in dll_paths if (mods_dir / p.name).exists()]
         if conflicts:
-            conflict_msg = (
-                "The following DLLs already exist in the mods folder. Overwrite?\n\n"
-                + "\n".join(f"- {p.name}" for p in conflicts)
+            conflict_msg = tr("overwrite_dll_confirm_text") + "\n".join(
+                f"- {p.name}" for p in conflicts
             )
             reply = QMessageBox.question(
                 self,
-                "Confirm Overwrite",
+                tr("confirm_overwrite_title"),
                 conflict_msg,
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
@@ -1156,9 +1170,7 @@ class GamePage(QWidget):
                 dll_paths = [p for p in dll_paths if p.name not in conflict_names]
 
         if not dll_paths:
-            self.status_label.setText(
-                "DLL installation cancelled or no new DLLs to install."
-            )
+            self.status_label.setText(tr("dll_install_cancelled_status"))
             return False
 
         installed_count = 0
@@ -1168,12 +1180,15 @@ class GamePage(QWidget):
                 installed_count += 1
             except Exception as e:
                 QMessageBox.warning(
-                    self, "Install Error", f"Failed to copy DLL {dll_path.name}: {e}"
+                    self,
+                    tr("install_error_title"),
+                    tr("dll_copy_failed_msg", name=dll_path.name, error=e),
                 )
 
         if installed_count > 0:
+            s_char = "s" if installed_count > 1 else ""
             self.status_label.setText(
-                f"Successfully installed {installed_count} DLL mod{'s' if installed_count > 1 else ''}."
+                tr("dll_install_success_status", count=installed_count)
             )
             return True
         return False
@@ -1181,9 +1196,8 @@ class GamePage(QWidget):
     def install_root_mod_package(self, root_path: Path):
         mod_name, ok = QInputDialog.getText(
             self,
-            "Name Mod Package",
-            "Enter a name for this mod package.\n"
-            "All content will be grouped under this name.",
+            tr("name_mod_package_title"),
+            tr("name_mod_package_desc"),
             text=root_path.name,
         )
         if not ok or not mod_name.strip():
@@ -1195,8 +1209,8 @@ class GamePage(QWidget):
         if dest_folder_path.exists():
             reply = QMessageBox.question(
                 self,
-                "Confirm Overwrite",
-                f"Mod folder '{mod_name}' already exists. Overwrite?",
+                tr("confirm_overwrite_title"),
+                tr("mod_folder_exists_overwrite_question", mod_name=mod_name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
@@ -1212,11 +1226,13 @@ class GamePage(QWidget):
                 self.game_name, str(dest_folder_path), True
             )
             self.status_label.setText(
-                f"Successfully installed mod package '{mod_name}'."
+                tr("install_package_success_status", mod_name=mod_name)
             )
         except Exception as e:
             QMessageBox.warning(
-                self, "Install Error", f"Failed to create folder mod '{mod_name}': {e}"
+                self,
+                tr("install_error_title"),
+                tr("create_folder_mod_failed_msg", mod_name=mod_name, error=e),
             )
             if dest_folder_path.exists():
                 shutil.rmtree(dest_folder_path)
@@ -1226,8 +1242,8 @@ class GamePage(QWidget):
             return
         mod_name, ok = QInputDialog.getText(
             self,
-            "New Mod Name",
-            f"Enter a name for the new mod containing these {len(items_to_install)} items:",
+            tr("new_mod_name_title"),
+            tr("new_mod_name_desc", count=len(items_to_install)),
             text="new_bundled_mod",
         )
         if not ok or not mod_name.strip():
@@ -1239,8 +1255,8 @@ class GamePage(QWidget):
         if dest_path.exists():
             reply = QMessageBox.question(
                 self,
-                "Mod Exists",
-                f"Mod folder '{mod_name}' already exists. Replace it?",
+                tr("mod_exists_title"),
+                tr("mod_folder_exists_replace_question", mod_name=mod_name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
@@ -1256,12 +1272,14 @@ class GamePage(QWidget):
                     shutil.copy2(item, dest_path / item.name)
             self.config_manager.add_folder_mod(self.game_name, mod_name, str(dest_path))
             self.config_manager.set_mod_enabled(self.game_name, str(dest_path), True)
-            self.status_label.setText(f"Installed bundled mod: {mod_name}")
+            self.status_label.setText(
+                tr("install_bundled_mod_success_status", mod_name=mod_name)
+            )
         except Exception as e:
             QMessageBox.warning(
                 self,
-                "Install Error",
-                f"Failed to bundle items into mod '{mod_name}': {e}",
+                tr("install_error_title"),
+                tr("bundle_items_failed_msg", mod_name=mod_name, error=e),
             )
             if dest_path.exists():
                 shutil.rmtree(dest_path)
@@ -1288,7 +1306,13 @@ class GamePage(QWidget):
         self.total_pages = max(1, math.ceil(total_mods / self.mods_per_page))
         if self.current_page > self.total_pages:
             self.current_page = self.total_pages
-        self.page_label.setText(f"Page {self.current_page} of {self.total_pages}")
+        self.page_label.setText(
+            tr(
+                "page_label_text",
+                current_page=self.current_page,
+                total_pages=self.total_pages,
+            )
+        )
         self.prev_btn.setEnabled(self.current_page > 1)
         self.next_btn.setEnabled(self.current_page < self.total_pages)
 
@@ -1339,7 +1363,13 @@ class GamePage(QWidget):
         showing_start = start_idx + 1 if total_mods_filtered > 0 else 0
         showing_end = min(end_idx, total_mods_filtered)
         self.status_label.setText(
-            f"Showing {showing_start}-{showing_end} of {total_mods_filtered} mods ({enabled_mods_filtered} enabled)"
+            tr(
+                "showing_mods_status",
+                start=showing_start,
+                end=showing_end,
+                total=total_mods_filtered,
+                enabled=enabled_mods_filtered,
+            )
         )
 
     def _group_mods_for_tree_display(self, mod_items):
@@ -1418,33 +1448,33 @@ class GamePage(QWidget):
         if hasattr(self, "mod_infos") and mod_path in self.mod_infos:
             mod_info = self.mod_infos[mod_path]
             if mod_info.mod_type.value == "nested":
-                mod_type = "Nested DLL"
+                mod_type = tr("mod_type_nested_dll")
                 type_icon = QIcon(resource_path("resources/icon/dll.png"))
             elif regulation_active:
-                mod_type = "Active Regulation Package"
+                mod_type = tr("mod_type_active_regulation")
                 type_icon = QIcon(resource_path("resources/icon/regulation_active.png"))
             elif has_regulation:
-                mod_type = "Package with Regulation"
+                mod_type = tr("mod_type_package_with_regulation")
                 type_icon = QIcon(resource_path("resources/icon/folder.png"))
             elif is_folder_mod:
-                mod_type = "Mod Package"
+                mod_type = tr("mod_type_package")
                 type_icon = QIcon(resource_path("resources/icon/folder.png"))
             else:
-                mod_type = "DLL Mod"
+                mod_type = tr("mod_type_dll")
                 type_icon = QIcon(resource_path("resources/icon/dll.png"))
         else:
             # Fallback
             if regulation_active:
-                mod_type = "Active Regulation Package"
+                mod_type = tr("mod_type_active_regulation")
                 type_icon = QIcon(resource_path("resources/icon/regulation_active.png"))
             elif has_regulation:
-                mod_type = "Package with Regulation"
+                mod_type = tr("mod_type_package_with_regulation")
                 type_icon = QIcon(resource_path("resources/icon/folder.png"))
             elif is_folder_mod:
-                mod_type = "Mod Package"
+                mod_type = tr("mod_type_package")
                 type_icon = QIcon(resource_path("resources/icon/folder.png"))
             else:
-                mod_type = "DLL Mod"
+                mod_type = tr("mod_type_dll")
                 type_icon = QIcon(resource_path("resources/icon/dll.png"))
 
         # Check advanced options
@@ -1504,9 +1534,7 @@ class GamePage(QWidget):
         if not mods_dir or not mods_dir.is_dir():
             self.apply_filters(reset_page=True, source_mods={})
             self.update_profile_dropdown()
-            self.status_label.setText(
-                "Warning: Mods directory for active profile not found."
-            )
+            self.status_label.setText(tr("mods_dir_not_found_warning"))
             return
 
         # 2. Get mods using the new ModManager
@@ -1537,9 +1565,11 @@ class GamePage(QWidget):
         if success:
             self.load_mods(reset_page=False)
             self.status_label.setText(message)
-            QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+            QTimer.singleShot(
+                3000, lambda: self.status_label.setText(tr("status_ready"))
+            )
         else:
-            QMessageBox.warning(self, "Regulation Error", message)
+            QMessageBox.warning(self, tr("regulation_error_title"), message)
 
     def apply_filters(
         self, reset_page: bool = True, source_mods: Optional[Dict[str, Any]] = None
@@ -1592,16 +1622,18 @@ class GamePage(QWidget):
         if success:
             self.load_mods(reset_page=False)
             self.status_label.setText(message)
-            QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
+            QTimer.singleShot(
+                2000, lambda: self.status_label.setText(tr("status_ready"))
+            )
         else:
-            QMessageBox.warning(self, "Toggle Mod Error", message)
+            QMessageBox.warning(self, tr("toggle_mod_error_title"), message)
 
     def delete_mod(self, mod_path: str):
         mod_name = Path(mod_path).name
         reply = QMessageBox.question(
             self,
-            "Delete Mod",
-            f"Are you sure you want to delete '{mod_name}'?",
+            tr("delete_mod_title"),
+            tr("delete_mod_confirm_question", mod_name=mod_name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
@@ -1611,13 +1643,18 @@ class GamePage(QWidget):
             if success:
                 self.load_mods(reset_page=False)
                 self.status_label.setText(message)
-                QTimer.singleShot(2000, lambda: self.status_label.setText("Ready"))
+                QTimer.singleShot(
+                    2000, lambda: self.status_label.setText(tr("status_ready"))
+                )
             else:
-                QMessageBox.warning(self, "Delete Error", message)
+                QMessageBox.warning(self, tr("delete_error_title"), message)
 
     def add_external_mod(self):
         file_name, _ = QFileDialog.getOpenFileName(
-            self, "Select External Mod DLL", str(Path.home()), "DLL Files (*.dll)"
+            self,
+            tr("select_external_mod_title"),
+            str(Path.home()),
+            tr("dll_files_filter"),
         )
         if file_name:
             success, message = self.mod_manager.add_external_mod(
@@ -1627,9 +1664,11 @@ class GamePage(QWidget):
             if success:
                 self.status_label.setText(message)
                 self.load_mods(reset_page=False)
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText(tr("status_ready"))
+                )
             else:
-                QMessageBox.warning(self, "Add External Mod Error", message)
+                QMessageBox.warning(self, tr("add_external_mod_error_title"), message)
 
     def open_mod_folder(self, mod_path: str):
         folder_path = Path(mod_path).parent
@@ -1654,8 +1693,12 @@ class GamePage(QWidget):
                 self.config_manager.set_mod_config_path(
                     self.game_name, mod_path, str(final_path)
                 )
-                self.status_label.setText(f"Saved new config path for {mod_name}")
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                self.status_label.setText(
+                    tr("config_path_saved_status", mod_name=mod_name)
+                )
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText(tr("status_ready"))
+                )
 
     def open_advanced_options(self, mod_path: str):
         """Open the advanced options dialog for a mod"""
@@ -1663,7 +1706,7 @@ class GamePage(QWidget):
             mod_name = Path(mod_path).name
             mod_info = self.mod_infos.get(mod_path)
             if not mod_info:
-                raise ValueError("Mod info not found.")
+                raise ValueError(tr("mod_info_not_found_error"))
 
             is_folder_mod = mod_info.mod_type == ModType.PACKAGE
 
@@ -1703,51 +1746,75 @@ class GamePage(QWidget):
                     config_key = ""
                     try:
                         relative_path = mod_path_obj.relative_to(mods_dir)
-                        mods_dir_name = self.config_manager.games[self.game_name]["mods_dir"]
-                        config_key = self.mod_manager._normalize_path(f"{mods_dir_name}/{relative_path}")
-                    except ValueError: # External mod
-                        config_key = self.mod_manager._normalize_path(str(mod_path_obj.resolve()))
-                    
+                        mods_dir_name = self.config_manager.games[self.game_name][
+                            "mods_dir"
+                        ]
+                        config_key = self.mod_manager._normalize_path(
+                            f"{mods_dir_name}/{relative_path}"
+                        )
+                    except ValueError:  # External mod
+                        config_key = self.mod_manager._normalize_path(
+                            str(mod_path_obj.resolve())
+                        )
+
                     natives = config_data.get("natives", [])
                     for native in natives:
-                        if self.mod_manager._normalize_path(native.get("path", "")) == config_key:
+                        if (
+                            self.mod_manager._normalize_path(native.get("path", ""))
+                            == config_key
+                        ):
                             target_entry = native
                             break
-                
+
                 if target_entry is not None:
                     # 3. Purge all old advanced option keys from the entry
-                    keys_to_purge = ["load_before", "load_after", "optional", "initializer", "finalizer"]
+                    keys_to_purge = [
+                        "load_before",
+                        "load_after",
+                        "optional",
+                        "initializer",
+                        "finalizer",
+                    ]
                     for key in keys_to_purge:
                         if key in target_entry:
                             del target_entry[key]
-                    
+
                     # 4. Add the new options back, but ONLY if they are not the default value.
                     for key, value in new_options.items():
                         # Rule for 'optional': Only save if it's explicitly true.
-                        if key == 'optional' and value is True:
+                        if key == "optional" and value is True:
                             target_entry[key] = True
-                        
+
                         # Rule for dependency lists: Only save if the list is not empty.
-                        elif key in ['load_before', 'load_after'] and value:
+                        elif key in ["load_before", "load_after"] and value:
                             target_entry[key] = value
 
                         # Rule for other text/dict settings: Only save if they have a value.
-                        elif key not in ['optional', 'load_before', 'load_after'] and value is not None:
+                        elif (
+                            key not in ["optional", "load_before", "load_after"]
+                            and value is not None
+                        ):
                             target_entry[key] = value
 
                     # 5. Write the entire modified configuration back to disk
-                    self.mod_manager._write_improved_config(profile_path, config_data, self.game_name)
+                    self.mod_manager._write_improved_config(
+                        profile_path, config_data, self.game_name
+                    )
 
                 self.load_mods(reset_page=False)
 
-                self.status_label.setText(f"Updated advanced options for {mod_name}")
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                self.status_label.setText(
+                    tr("advanced_options_updated_status", mod_name=mod_name)
+                )
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText(tr("status_ready"))
+                )
 
         except Exception as e:
             QMessageBox.warning(
                 self,
-                "Advanced Options Error",
-                f"Failed to open advanced options: {str(e)}",
+                tr("advanced_options_error_title"),
+                tr("advanced_options_open_failed_msg", error=str(e)),
             )
 
     def open_game_options(self):
@@ -1757,7 +1824,9 @@ class GamePage(QWidget):
             dialog.exec()
         except Exception as e:
             QMessageBox.warning(
-                self, "Game Options Error", f"Failed to open game options: {str(e)}"
+                self,
+                tr("game_options_error_title"),
+                tr("game_options_open_failed_msg", error=str(e)),
             )
 
     def open_mods_folder(self):
@@ -1765,8 +1834,8 @@ class GamePage(QWidget):
         if not mods_dir.exists():
             QMessageBox.warning(
                 self,
-                "Folder Not Found",
-                f"The mods directory does not exist yet:\n{mods_dir}",
+                tr("folder_not_found_title"),
+                tr("mods_dir_not_exist_msg", mods_dir=mods_dir),
             )
             return
         self._open_path(mods_dir)
@@ -1794,7 +1863,9 @@ class GamePage(QWidget):
                 self.status_label.setText(
                     f"Cleared custom executable path for {self.game_name}"
                 )
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText(tr("status_ready"))
+                )
                 return
 
         expected_exe_name = self.config_manager.get_game_executable_name(self.game_name)
@@ -1829,7 +1900,9 @@ class GamePage(QWidget):
                 self.status_label.setText(
                     f"Set custom executable path for {self.game_name}"
                 )
-                QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText(tr("status_ready"))
+                )
             except Exception as e:
                 QMessageBox.warning(
                     self,
@@ -1871,9 +1944,8 @@ class GamePage(QWidget):
             if self.window().me3_version == tr("not_installed"):
                 reply = QMessageBox.question(
                     self,
-                    "ME3 Not Installed",
-                    "Mod Engine 3 is required to launch games with mods.\n\n"
-                    "Would you like to install ME3 now?",
+                    tr("me3_not_installed_title"),
+                    tr("me3_required_for_launch_msg"),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.Yes,
                 )
@@ -1895,7 +1967,9 @@ class GamePage(QWidget):
             profile_path = self.config_manager.get_profile_path(self.game_name)
             if not profile_path.exists():
                 QMessageBox.warning(
-                    self, "Launch Error", f"Profile file not found:\n{profile_path}"
+                    self,
+                    tr("launch_error_title"),
+                    tr("profile_not_found_msg", path=profile_path),
                 )
                 return
 
@@ -1903,8 +1977,8 @@ class GamePage(QWidget):
             if not cli_id:
                 QMessageBox.warning(
                     self,
-                    "Launch Error",
-                    f"Could not determine CLI ID for {self.game_name}",
+                    tr("launch_error_title"),
+                    tr("cli_id_not_found_msg", game_name=self.game_name),
                 )
                 return
 
@@ -1915,17 +1989,23 @@ class GamePage(QWidget):
             if custom_exe_path:
                 if hasattr(main_window, "terminal"):
                     self.run_me3_with_custom_exe(
-                        custom_exe_path, cli_id, str(profile_path), main_window.terminal
+                        custom_exe_path,
+                        cli_id,
+                        str(profile_path),
+                        main_window.terminal,
                     )
                     self._update_status(
-                        f"Launching {self.game_name} with custom executable..."
+                        tr(
+                            "launching_with_custom_exe_status",
+                            game_name=self.game_name,
+                        )
                     )
                     return
                 else:
                     QMessageBox.information(
                         self,
-                        "Launch Info",
-                        "Custom executable launch requires the terminal. This setting will be ignored.",
+                        tr("launch_error_title"),
+                        tr("custom_exe_requires_terminal_info"),
                     )
 
             # Prepare base command
@@ -1937,11 +2017,13 @@ class GamePage(QWidget):
             else:
                 self._launch_direct(command_args)
 
-            self._update_status(f"Launching {self.game_name}...")
+            self._update_status(tr("launching_game_status", game_name=self.game_name))
 
         except Exception as e:
             QMessageBox.warning(
-                self, "Launch Error", f"Failed to launch game: {str(e)}"
+                self,
+                tr("launch_error_title"),
+                tr("launch_game_failed_msg", error=str(e)),
             )
 
     def _launch_in_terminal(self, command_args, terminal):
@@ -2001,11 +2083,11 @@ class GamePage(QWidget):
     def _update_status(self, message):
         """Update status label with automatic reset."""
         self.status_label.setText(message)
-        QTimer.singleShot(3000, lambda: self.status_label.setText("Ready"))
+        QTimer.singleShot(3000, lambda: self.status_label.setText(tr("status_ready")))
 
     def open_profile_manager(self):
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"Manage Profiles - {self.game_name}")
+        dialog.setWindowTitle(tr("manage_profiles_title", game_name=self.game_name))
         dialog.setModal(True)
         dialog.resize(600, 400)
         # dialog.setStyleSheet("QDialog { background-color: #2d2d2d; }")
@@ -2015,7 +2097,7 @@ class GamePage(QWidget):
 
         left_layout = QVBoxLayout()
         search_bar = QLineEdit()
-        search_bar.setPlaceholderText("🔍 Search profiles...")
+        search_bar.setPlaceholderText(tr("search_profiles_placeholder"))
         search_bar.setStyleSheet("""
             QLineEdit {
                 background-color: #252525; border: 1px solid #3d3d3d; border-radius: 6px;
@@ -2042,7 +2124,7 @@ class GamePage(QWidget):
         button_layout.setSpacing(10)
         button_style = """
             QPushButton {
-                background-color: #3d3d3d; color: white; border: none; border-radius: 6px; 
+                background-color: #3d3d3d; color: white; border: none; border-radius: 6px;
                 padding: 10px; text-align: left; font-size: 13px;
             }
             QPushButton:hover { background-color: #4d4d4d; }
@@ -2051,16 +2133,16 @@ class GamePage(QWidget):
         """
 
         activate_btn = QPushButton(
-            QIcon(resource_path("resources/icon/play.png")), " Activate"
+            QIcon(resource_path("resources/icon/play.png")), tr("activate_button")
         )
         add_btn = QPushButton(
-            QIcon(resource_path("resources/icon/add.png")), " Add New..."
+            QIcon(resource_path("resources/icon/add.png")), tr("add_new_button")
         )
         rename_btn = QPushButton(
-            QIcon(resource_path("resources/icon/edit.png")), " Rename..."
+            QIcon(resource_path("resources/icon/edit.png")), tr("rename_button")
         )
         delete_btn = QPushButton(
-            QIcon(resource_path("resources/icon/delete.png")), " Delete"
+            QIcon(resource_path("resources/icon/delete.png")), tr("delete_button")
         )
 
         for btn in [activate_btn, add_btn, rename_btn, delete_btn]:
@@ -2118,7 +2200,7 @@ class GamePage(QWidget):
 
         def on_add():
             name, ok = QInputDialog.getText(
-                dialog, "New Profile Name", "Enter a name for the new profile:"
+                dialog, tr("new_profile_name_title"), tr("new_profile_name_desc")
             )
             if ok and name.strip():
                 # Get the default profiles directory from an existing profile path
@@ -2132,7 +2214,7 @@ class GamePage(QWidget):
                 # Updated hint text to match actual behavior
                 profile_dir = QFileDialog.getExistingDirectory(
                     dialog,
-                    "Select a Folder for the New Profile",
+                    tr("select_folder_for_profile_title"),
                     str(default_profiles_dir),
                 )
 
@@ -2163,7 +2245,10 @@ class GamePage(QWidget):
                 if p["id"] == selected_item.data(Qt.ItemDataRole.UserRole)
             )
             new_name, ok = QInputDialog.getText(
-                dialog, "Rename Profile", "Enter new name:", text=profile["name"]
+                dialog,
+                tr("rename_profile_title"),
+                tr("enter_new_name_desc"),
+                text=profile["name"],
             )
             if ok and new_name.strip():
                 self.config_manager.update_profile(
@@ -2178,8 +2263,11 @@ class GamePage(QWidget):
                 return
             reply = QMessageBox.question(
                 dialog,
-                "Confirm Delete",
-                f"Are you sure you want to delete profile '{selected_item.text()}'?\n\nThis will NOT delete the actual mod files.",
+                tr("confirm_delete_title"),
+                tr(
+                    "delete_profile_confirm_question",
+                    profile_name=selected_item.text(),
+                ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:
