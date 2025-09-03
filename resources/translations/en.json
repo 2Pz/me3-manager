@@ -193,7 +193,7 @@
   "create_error": "Create Error",
   "create_error_msg": "Failed to create default config file",
   "open_folder_error": "Open Folder Error",
-  "open_folder_error_msg": "Failed to open config folder: {str(e)}",
+  "open_folder_error_msg": "Failed to open config folder: {e}",
   "no_writable_paths_title": "No Available Paths",
   "no_writable_paths_msg": "No writable ME3 configuration paths are available.",
   "choose_config_location": "Choose ME3 Config Location",

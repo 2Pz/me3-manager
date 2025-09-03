@@ -193,7 +193,7 @@
   "create_error": "خطأ في الإنشاء",
   "create_error_msg": "فشل إنشاء ملف الإعدادات الافتراضي",
   "open_folder_error": "خطأ في فتح المجلد",
-  "open_folder_error_msg": "فشل فتح مجلد الإعدادات: {str(e)}",
+  "open_folder_error_msg": "فشل فتح مجلد الإعدادات: {e}",
   "no_writable_paths_title": "لا توجد مسارات متاحة",
   "no_writable_paths_msg": "ما فيه أي مسارات متاحة للكتابة لإعدادات ME3.",
   "choose_config_location": "اختر مكان إعدادات ME3",
