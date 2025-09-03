@@ -19,3 +19,5 @@ __pycache__/
 *.bak
 .env
 change.txt
+
+.idea
