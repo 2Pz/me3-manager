@@ -5,6 +5,7 @@ import os
 from typing import Optional, Dict, List
 from pathlib import Path
 
+
 class ME3InfoManager:
     """
     Manages ME3 installation information and paths using 'me3 info' command.
@@ -21,18 +22,18 @@ class ME3InfoManager:
         Uses the same approach as the UI terminal for maximum compatibility.
         """
         if sys.platform == "linux":
-            if os.environ.get('FLATPAK_ID'):
+            if os.environ.get("FLATPAK_ID"):
                 return ["flatpak-spawn", "--host"] + cmd
 
             # Use the same shell detection logic as the UI terminal
             user_shell = os.environ.get("SHELL", "/bin/bash")
             if not Path(user_shell).exists():
                 user_shell = "/bin/bash"
-            
+
             # If bash doesn't exist, fall back to sh
             if not Path(user_shell).exists():
                 user_shell = "/bin/sh"
-            
+
             # Final fallback to just 'sh' (should be in PATH)
             if not Path(user_shell).exists():
                 user_shell = "sh"
@@ -61,8 +62,8 @@ class ME3InfoManager:
                 check=False,
                 startupinfo=startupinfo,
                 timeout=10,
-                encoding='utf-8',
-                errors='replace'
+                encoding="utf-8",
+                errors="replace",
             )
 
             if result.returncode == 0 and result.stdout:
@@ -97,12 +98,14 @@ class ME3InfoManager:
                 check=False,
                 startupinfo=startupinfo,
                 timeout=15,
-                encoding='utf-8',
-                errors='replace'
+                encoding="utf-8",
+                errors="replace",
             )
 
             if result.returncode != 0 or not result.stdout:
-                print(f"Failed to get 'me3 info'. Exit code: {result.returncode}, Stderr: {result.stderr}")
+                print(
+                    f"Failed to get 'me3 info'. Exit code: {result.returncode}, Stderr: {result.stderr}"
+                )
                 return None
 
             info = self._parse_me3_info(result.stdout)
@@ -125,70 +128,75 @@ class ME3InfoManager:
         # For older me3 versions (XML-like format)
         version_match = re.search(r'version="([^"]+)"', output)
         if version_match:
-            info['version'] = version_match.group(1)
+            info["version"] = version_match.group(1)
 
         commit_match = re.search(r'commit_id="([^"]+)"', output)
         if commit_match:
-            info['commit_id'] = commit_match.group(1)
+            info["commit_id"] = commit_match.group(1)
 
         # For newer format with bullet points and indentation
         # Profile directory: handles both direct format and indented format
         profile_dir_patterns = [
-            r'^\s*Profile directory:\s*(.+)',  # Original pattern
-            r'Profile directory:\s*(.+)',      # Direct after bullet
+            r"^\s*Profile directory:\s*(.+)",  # Original pattern
+            r"Profile directory:\s*(.+)",  # Direct after bullet
         ]
         for pattern in profile_dir_patterns:
             profile_dir_match = re.search(pattern, output, re.MULTILINE)
             if profile_dir_match:
-                info['profile_directory'] = profile_dir_match.group(1).strip()
+                info["profile_directory"] = profile_dir_match.group(1).strip()
                 break
 
         # Logs directory: handles both formats
         logs_dir_patterns = [
-            r'^\s*Logs directory:\s*(.+)',     # Original pattern
-            r'Logs directory:\s*(.+)',         # Direct after spaces/indentation
+            r"^\s*Logs directory:\s*(.+)",  # Original pattern
+            r"Logs directory:\s*(.+)",  # Direct after spaces/indentation
         ]
         for pattern in logs_dir_patterns:
             logs_dir_match = re.search(pattern, output, re.MULTILINE)
             if logs_dir_match:
-                info['logs_directory'] = logs_dir_match.group(1).strip()
+                info["logs_directory"] = logs_dir_match.group(1).strip()
                 break
 
         # Installation prefix: handles both formats
         install_prefix_patterns = [
-            r'^\s*Installation prefix:\s*(.+)',  # Original pattern
-            r'Installation prefix:\s*(.+)',       # Direct format
+            r"^\s*Installation prefix:\s*(.+)",  # Original pattern
+            r"Installation prefix:\s*(.+)",  # Direct format
         ]
         for pattern in install_prefix_patterns:
             install_prefix_match = re.search(pattern, output, re.MULTILINE)
             if install_prefix_match:
-                info['installation_prefix'] = install_prefix_match.group(1).strip()
+                info["installation_prefix"] = install_prefix_match.group(1).strip()
                 break
 
         # Steam status: Updated to handle the new format
         # Look for "● Steam" section followed by "Status: ..."
-        steam_section_match = re.search(r'● Steam\s*\n\s*Status:\s*(.+)', output, re.MULTILINE)
+        steam_section_match = re.search(
+            r"● Steam\s*\n\s*Status:\s*(.+)", output, re.MULTILINE
+        )
         if steam_section_match:
-            info['steam_status'] = steam_section_match.group(1).strip()
+            info["steam_status"] = steam_section_match.group(1).strip()
         else:
             # Fallback to old format
-            steam_status_match = re.search(r'Steam.*?Status:\s*(.+)', output, re.DOTALL)
+            steam_status_match = re.search(r"Steam.*?Status:\s*(.+)", output, re.DOTALL)
             if steam_status_match:
-                info['steam_status'] = steam_status_match.group(1).strip()
+                info["steam_status"] = steam_status_match.group(1).strip()
 
         # Steam path: Try to find it in the old format (may not exist in new format)
-        steam_path_match = re.search(r'Steam.*?Path:\s*(.+)', output, re.DOTALL)
+        steam_path_match = re.search(r"Steam.*?Path:\s*(.+)", output, re.DOTALL)
         if steam_path_match:
-            info['steam_path'] = steam_path_match.group(1).strip()
+            info["steam_path"] = steam_path_match.group(1).strip()
 
         # Installation status: New field in the bullet format
-        install_status_match = re.search(r'Status:\s*(.+)', output)
+        install_status_match = re.search(r"Status:\s*(.+)", output)
         if install_status_match:
             # Only capture if it's in the Installation section, not Steam section
-            lines = output.split('\n')
+            lines = output.split("\n")
             for i, line in enumerate(lines):
-                if 'Status:' in line and any('Installation' in prev_line for prev_line in lines[max(0, i-3):i]):
-                    info['installation_status'] = install_status_match.group(1).strip()
+                if "Status:" in line and any(
+                    "Installation" in prev_line
+                    for prev_line in lines[max(0, i - 3) : i]
+                ):
+                    info["installation_status"] = install_status_match.group(1).strip()
                     break
 
         return info
@@ -196,36 +204,36 @@ class ME3InfoManager:
     def get_profile_directory(self) -> Optional[Path]:
         """Get the ME3 profile directory path."""
         info = self.get_me3_info()
-        if info and 'profile_directory' in info:
-            return Path(info['profile_directory'])
+        if info and "profile_directory" in info:
+            return Path(info["profile_directory"])
         return None
 
     def get_logs_directory(self) -> Optional[Path]:
         """Get the ME3 logs directory path."""
         info = self.get_me3_info()
-        if info and 'logs_directory' in info:
-            return Path(info['logs_directory'])
+        if info and "logs_directory" in info:
+            return Path(info["logs_directory"])
         return None
 
     def get_steam_path(self) -> Optional[Path]:
         """Get the Steam installation path if provided."""
         info = self.get_me3_info()
-        if info and 'steam_path' in info and info['steam_path'] != '<none>':
-            return Path(info['steam_path'])
+        if info and "steam_path" in info and info["steam_path"] != "<none>":
+            return Path(info["steam_path"])
         return None
 
     def get_installation_prefix(self) -> Optional[Path]:
         """Get the ME3 installation prefix path."""
         info = self.get_me3_info()
-        if info and 'installation_prefix' in info:
-            return Path(info['installation_prefix'])
+        if info and "installation_prefix" in info:
+            return Path(info["installation_prefix"])
         return None
 
     def get_version(self) -> Optional[str]:
         """Get the ME3 version, using 'me3 info' with a fallback to '--version'."""
         info = self.get_me3_info()
-        if info and 'version' in info:
-            return info['version']
+        if info and "version" in info:
+            return info["version"]
 
         try:
             startupinfo = None
@@ -241,15 +249,15 @@ class ME3InfoManager:
                 check=False,
                 startupinfo=startupinfo,
                 timeout=10,
-                encoding='utf-8',
-                errors='replace'
+                encoding="utf-8",
+                errors="replace",
             )
 
             if result.stdout:
-                version_match = re.search(r'(\d+\.\d+\.\d+)', result.stdout)
+                version_match = re.search(r"(\d+\.\d+\.\d+)", result.stdout)
                 if version_match:
                     return version_match.group(1)
-                return result.stdout.strip().split('\n')[0]
+                return result.stdout.strip().split("\n")[0]
 
         except Exception as e:
             print(f"Error getting version from --version command: {e}")
@@ -261,30 +269,30 @@ class ME3InfoManager:
         info = self.get_me3_info()
         if not info:
             return False
-        
-        steam_status = info.get('steam_status', '').lower()
-        return steam_status in ['found', 'detected', 'available']
+
+        steam_status = info.get("steam_status", "").lower()
+        return steam_status in ["found", "detected", "available"]
 
     def is_steam_not_found(self) -> bool:
         """Check if Steam is explicitly not found by ME3."""
         info = self.get_me3_info()
         if not info:
             return True
-            
-        steam_status = info.get('steam_status', '').lower()
-        return steam_status in ['not found', 'missing', 'unavailable']
+
+        steam_status = info.get("steam_status", "").lower()
+        return steam_status in ["not found", "missing", "unavailable"]
 
     def get_installation_status(self) -> Optional[str]:
         """Get the installation status."""
         info = self.get_me3_info()
-        return info.get('installation_status') if info else None
+        return info.get("installation_status") if info else None
 
     def get_me3_config_paths(self) -> List[Path]:
         """Get ME3 configuration search paths from 'me3 info' output."""
         info = self.get_me3_info()
         if not info:
             return []
-        
+
         try:
             startupinfo = None
             if sys.platform == "win32":
@@ -299,8 +307,8 @@ class ME3InfoManager:
                 check=False,
                 startupinfo=startupinfo,
                 timeout=15,
-                encoding='utf-8',
-                errors='replace'
+                encoding="utf-8",
+                errors="replace",
             )
 
             if result.returncode != 0 or not result.stdout:
@@ -308,23 +316,23 @@ class ME3InfoManager:
 
             # Parse configuration search paths
             config_paths = []
-            lines = result.stdout.split('\n')
+            lines = result.stdout.split("\n")
             in_config_section = False
-            
+
             for line in lines:
-                if '● Configuration search paths' in line:
+                if "● Configuration search paths" in line:
                     in_config_section = True
                     continue
-                elif line.startswith('●') and in_config_section:
+                elif line.startswith("●") and in_config_section:
                     # New section started, stop parsing
                     break
-                elif in_config_section and ':' in line:
+                elif in_config_section and ":" in line:
                     # Extract path after the number and colon
-                    path_match = re.search(r'\d+:\s*(.+)', line.strip())
+                    path_match = re.search(r"\d+:\s*(.+)", line.strip())
                     if path_match:
                         path_str = path_match.group(1).strip()
                         config_paths.append(Path(path_str))
-            
+
             return config_paths
 
         except Exception as e:
@@ -339,22 +347,24 @@ class ME3InfoManager:
         paths = self.get_me3_config_paths()
         if not paths:
             return None
-        
+
         for config_path in paths:
             try:
                 if config_path.exists() and config_path.is_file():
                     # Try to read the file to ensure we have permission
                     try:
-                        with open(config_path, 'r', encoding='utf-8') as f:
+                        with open(config_path, "r", encoding="utf-8") as f:
                             f.read(1)  # Just read one character to test access
                         return config_path
                     except (PermissionError, OSError) as e:
-                        print(f"Found config at {config_path} but cannot access it: {e}")
+                        print(
+                            f"Found config at {config_path} but cannot access it: {e}"
+                        )
                         continue
             except (PermissionError, OSError) as e:
                 print(f"Cannot access path {config_path}: {e}")
                 continue
-        
+
         return None
 
     def get_primary_config_path(self) -> Optional[Path]:
@@ -366,12 +376,12 @@ class ME3InfoManager:
         existing_config = self.find_existing_config()
         if existing_config:
             return existing_config
-        
+
         # If no existing config, return the first accessible path for creation
         paths = self.get_me3_config_paths()
         if not paths:
             return None
-        
+
         for config_path in paths:
             try:
                 # Test if we can create a file in this directory
@@ -379,7 +389,7 @@ class ME3InfoManager:
                 # Test write permission by creating a temporary file
                 test_file = config_path.parent / ".me3_test_write"
                 try:
-                    with open(test_file, 'w') as f:
+                    with open(test_file, "w") as f:
                         f.write("test")
                     test_file.unlink()  # Remove test file
                     return config_path
@@ -389,7 +399,7 @@ class ME3InfoManager:
             except (PermissionError, OSError) as e:
                 print(f"Cannot access directory {config_path.parent}: {e}")
                 continue
-        
+
         # Fallback to first path if all else fails
         return paths[0] if paths else None
 
@@ -400,16 +410,16 @@ class ME3InfoManager:
         """
         paths = self.get_me3_config_paths()
         available_paths = []
-        
+
         for config_path in paths:
             try:
                 # Ensure parent directory exists or can be created
                 config_path.parent.mkdir(parents=True, exist_ok=True)
-                
+
                 # Test write permission
                 test_file = config_path.parent / ".me3_test_write"
                 try:
-                    with open(test_file, 'w') as f:
+                    with open(test_file, "w") as f:
                         f.write("test")
                     test_file.unlink()
                     available_paths.append(config_path)
@@ -417,7 +427,7 @@ class ME3InfoManager:
                     continue
             except (PermissionError, OSError):
                 continue
-        
+
         return available_paths
 
     def cleanup_other_configs(self, keep_config_path: Path) -> List[Path]:
@@ -427,7 +437,7 @@ class ME3InfoManager:
         """
         deleted_paths = []
         all_paths = self.get_me3_config_paths()
-        
+
         for config_path in all_paths:
             if config_path != keep_config_path and config_path.exists():
                 try:
@@ -437,7 +447,7 @@ class ME3InfoManager:
                     print(f"Deleted existing config file: {config_path}")
                 except (PermissionError, OSError) as e:
                     print(f"Could not delete config file {config_path}: {e}")
-        
+
         return deleted_paths
 
     def ensure_single_config(self, preferred_config_path: Path) -> bool:
@@ -451,33 +461,36 @@ class ME3InfoManager:
             if not preferred_config_path.exists():
                 # First, check if there's an existing config to copy from
                 existing_config = self.find_existing_config()
-                
+
                 # Ensure directory exists
                 preferred_config_path.parent.mkdir(parents=True, exist_ok=True)
-                
+
                 if existing_config and existing_config != preferred_config_path:
                     # Copy existing config to new location
                     import shutil
+
                     shutil.copy2(existing_config, preferred_config_path)
-                    print(f"Copied config from {existing_config} to {preferred_config_path}")
+                    print(
+                        f"Copied config from {existing_config} to {preferred_config_path}"
+                    )
                 else:
                     # Create default config
                     default_config = """# ME3 Configuration File
 # This file was created by ME3 Manager
 
 """
-                    with open(preferred_config_path, 'w', encoding='utf-8') as f:
+                    with open(preferred_config_path, "w", encoding="utf-8") as f:
                         f.write(default_config)
                     print(f"Created new config file: {preferred_config_path}")
-            
+
             # Now delete all other config files
             deleted_paths = self.cleanup_other_configs(preferred_config_path)
-            
+
             if deleted_paths:
                 print(f"Cleaned up {len(deleted_paths)} duplicate config files")
-            
+
             return True
-            
+
         except Exception as e:
             print(f"Error ensuring single config: {e}")
             return False
@@ -490,11 +503,11 @@ class ME3InfoManager:
         config_path = self.get_config_creation_path()
         if not config_path:
             return False
-        
+
         try:
             # Ensure the directory exists
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Create default config content
             default_config = """# ME3 Configuration File
 # This file was automatically created
@@ -502,13 +515,13 @@ class ME3InfoManager:
 [general]
 # Add your configuration options here
 """
-            
+
             # Write the config file
-            with open(config_path, 'w', encoding='utf-8') as f:
+            with open(config_path, "w", encoding="utf-8") as f:
                 f.write(default_config)
-            
+
             return True
-            
+
         except Exception as e:
             print(f"Error creating config file at {config_path}: {e}")
             return False

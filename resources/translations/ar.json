@@ -1,0 +1,381 @@
+{
+  "language_name": "العربية (سعودي)",
+  "app_title": "مدير مودات Mod Engine 3",
+  "me3_required_title": "مطلوب تثبيت ME3",
+  "me3_not_installed": "ME3 مو مثبت",
+  "me3_not_installed_desc": "المدير يحتاج يكون Mod Engine 3 مثبت عشان يشتغل صح.",
+  "install_later": "بثبته بعدين",
+  "manager_version": "إصدار المدير: {version}",
+  "me3_cli_version": "إصدار ME3 CLI: {version}",
+  "not_installed": "مو مثبت",
+  "tutorial_label": "شرح",
+  "actions_label": "إجراءات",
+  "win_tutorial_title": "كيف تستخدم مدير مودات ME3 | شرح الإعداد الكامل وتركيب المودات",
+  "linux_tutorial_title": "كيف تستخدم مدير مودات ME3 | شرح الإعداد الكامل وتركيب المودات لنظام لينكس",
+  "support_me": "ادعمني على Ko-fi",
+  "stable_installer_button_linux": "تثبيت/تحديث بالسكريبت الرسمي المستقر (مُوصى به)",
+  "pre-release_installer_button_linux": "تثبيت/تحديث بالسكريبت الرسمي التجريبي",
+  "update_me3_button": "تحديث ME3",
+  "close_button": "إغلاق",
+  "help_about_title": "مساعدة / عن البرنامج",
+  "help_about_label": "هذا التطبيق يساعدك تدير كل المودات اللي يدعمها Mod Engine 3.\nاستخدم الخيارات تحت لتحديث أو تثبيت ME3.",
+  "me3_not_installed_tip": "ME3 مو مثبت، ما يمدي أحدثه.",
+  "me3_not_installed_warning": "ME3 مو مثبت. لو سمحت ثبته أول قبل لا تحاول تحدثه.",
+  "me3_update_process": "جاري تشغيل 'me3 update'...",
+  "me3_update_title": "جاري تحديث ME3 CLI",
+  "stable_installer_button_win": "تحميل آخر مثبت (مستقر) (مُوصى به)",
+  "custom_installer_button_win": "مثبت محمول مخصص (لحل مشاكل البيئة)",
+  "custom_installer_question_title_win": "تثبيت ME3 المخصص ({version})",
+  "custom_installer_question_win": "سيتم تحميل وتثبيت ME3 {version} في المسار:\n{install_path}\n\nمجلد التثبيت راح ينضاف لمسار المستخدم PATH.\n\nتبي تكمل؟",
+  "linux_installer_question_title": "تثبيت ME3 ({script_type})",
+  "linux_installer_question_linux": "هذا الإجراء سيشغل سكريبت التثبيت {script_type} الخاص بـ ME3.\n\nتبي تكمل؟",
+  "pre-release_installer_button_win": "تحميل المثبت التجريبي",
+  "me3_update_available_question_title": "فيه تحديث جديد لـ ME3",
+  "me3_update_available_question": "فيه نسخة جديدة من ME3 متوفرة!\n\nالنسخة الحالية: {current_version}\nالنسخة الجديدة: {stable_version}\n\nودك تحدث الحين؟",
+  "download_failed": "فشل التحميل",
+  "ERROR": "خطأ",
+  "could_not_perform_action": "ما قدرت أسوي الإجراء: {e}",
+  "manage_games": "إدارة الألعاب",
+  "add_game": "إضافة لعبة",
+  "add_new_game": "إضافة لعبة جديدة",
+  "add_new_game_desc": "استخدم هذي النافذة عشان تضيف لعبة يدعمها ME3 بشكل يدوي.\nهذي الميزة للتحديثات الجاية اللي ممكن تدعم ألعاب جديدة.",
+  "add_new_game_failed": "فشلت إضافة اللعبة: {e}",
+  "add_new_game_success": "تمت إضافة لعبة '{game_name}' بنجاح.",
+  "game_name_form": "اسم اللعبة:",
+  "game_mods_form": "مجلد المودات:",
+  "game_profile_form": "ملف البروفايل:",
+  "game_cli_form": "معرّف CLI:",
+  "game_exe_form": "الملف التنفيذي:",
+  "game_name_example_label": "الاسم اللي بيظهر للعبتك",
+  "game_mods_example_label": "اسم المجلد اللي بتتخزن فيه المودات (بدون مسافات، ويفضل حروف صغيرة)",
+  "game_profile_example_label": "اسم ملف بروفايل ME3 (لازم ينتهي بـ .me3)",
+  "game_cli_example_label": "معرّف سطر الأوامر لـ ME3 (حروف صغيرة، استخدم شرطات بدل المسافات)",
+  "game_exe_example_label": "اسم الملف التنفيذي للعبة",
+  "validation_error": "خطأ في التحقق",
+  "all_fields_required": "كل الخانات مطلوبة.",
+  "game_exists": "اللعبة '{game_name}' موجودة من أول.",
+  "profile_end_with": "ملف البروفايل لازم ينتهي بـ .me3",
+  "mods_dir_already_used": "مجلد المودات '{mods_dir}' مستخدم من لعبة ثانية.",
+  "profile_file_already_used": "ملف البروفايل '{profile}' مستخدم من لعبة ثانية.",
+  "cli_id_already_used": "معرّف CLI '{cli_id}' مستخدم من لعبة ثانية.",
+  "remove_game": "حذف اللعبة",
+  "remove_game_text": "متأكد تبي تحذف '{game_name}'؟\n\nهذا الإجراء بيحذف كل البروفايلات والإعدادات والملفات المرتبطة فيها.",
+  "remove_game_success": "تم حذف '{game_name}' بنجاح.",
+  "remove_game_failed": "فشل حذف اللعبة: {e}",
+  "restore_default": "استعادة الافتراضي",
+  "restore_default_game": "استعادة لعبة افتراضية",
+  "restore_game_success": "تم استعادة '{game_name}' بنجاح.",
+  "restore_game_failed": "فشلت استعادة اللعبة: {e}",
+  "restore_default_game_text": "اختر لعبة افتراضية عشان تستعيدها:",
+  "all_default_games_present": "كل الألعاب الافتراضية موجودة.",
+  "no_missing_games": "ما فيه ألعاب ناقصة",
+  "settings": "الإعدادات",
+  "footer_text": "المدير v{VERSION}\nME3 CLI: {me3_version}\nمن تطوير 2Pz",
+  "platform_info": "معلومات النظام",
+  "platform_info_desc_linux": "استخدم سكريبتات تثبيت لينكس من نافذة المساعدة/عن البرنامج بدال هذا.",
+  "platform_info_desc_win": "استخدم تحميل مثبت ويندوز من نافذة المساعدة/عن البرنامج بدال هذا.",
+  "update_complete": "اكتمل التحديث",
+  "update_complete_text": "تم تحديث ME3 بنجاح.\n\n{clean_output}",
+  "update_failed": "فشل التحديث",
+  "update_failed_text": "أمر التحديث فشل:\n\n{clean_output}",
+  "download_complete": "اكتمل التحميل",
+  "download_complete_text": "تم تحميل مثبت ME3 في:\n{file_path}\n\nودك تشغله الحين؟",
+  "installation_detected": "تم الكشف عن التثبيت",
+  "installation_detected_text": "تم تثبيت ME3 v{current_version} بنجاح!\nتم تحديث التطبيق.",
+  "download_cancelled": "تم إلغاء التحميل",
+  "NETWORK_ERROR": "مشكلة في الشبكة: {e}",
+  "ERROR_OCCURRED": "صارت مشكلة: {e}",
+  "me3_command_not_found": "الأمر 'me3' مو موجود. تأكد إنه مثبت وموجود في مسار النظام (PATH).",
+  "update_process_timeout": "عملية التحديث طولت ووقفت بعد {minutes} دقايق.",
+  "UNEXPECTED_ERROR_OCCURRED": "صار خطأ غير متوقع: {e}",
+  "platform_error": "خطأ في النظام",
+  "platform_error_text_win": "تحميل مثبت ويندوز متاح بس على نظام ويندوز.",
+  "platform_error_text_win2": "مثبت ويندوز المخصص متاح بس على نظام ويندوز.",
+  "platform_error_text_linux": "مثبت لينكس مو متاح على ويندوز. استخدم مثبت ويندوز بداله.",
+  "save_me3_installer": "حفظ مثبت ME3",
+  "downloading_me3_installer": "جاري تحميل me3_installer.exe...",
+  "cancel_button": "إلغاء",
+  "SUCCESS": "نجاح",
+  "DOWNLOADING": "جاري التحميل",
+  "installing_me3_custom_distribution": "جاري تثبيت توزيعة ME3 المخصصة...",
+  "installing_me3": "جاري تثبيت ME3",
+  "installation_complete": "اكتمل التثبيت",
+  "installation_failed": "فشل التثبيت",
+  "running_me3_installer": "جاري تشغيل سكريبت تثبيت ME3...",
+  "version_installed": "\n\nالنسخة المثبتة: {installed_version}",
+  "install_script_failed": "سكريبت التثبيت فشل:\n\n{clean_output}",
+  "could_not_find_me3_exe": "ما لقيت الملفات التنفيذية لـ ME3 في الأرشيف اللي تحمل.\n\nالأرشيف فيه {file_count} ملف:\n{files_list}",
+  "failed_extract": "فشل استخراج أي ملف من الأرشيف.",
+  "download_file_not_vaild": "الملف اللي تحمل مو أرشيف ZIP صالح.",
+  "add_user_path_failed": "التثبيت كمل بس فشلت إضافته لمتغير بيئة PATH للمستخدم.",
+  "install_add_path": "تم تثبيت ME3 بنجاح في:\n{install_path}\n\nمجلد التثبيت انضاف لمسار المستخدم PATH.",
+  "add_dependency": "+ إضافة اعتمادية",
+  "advanced_options": "خيارات متقدمة - {mod_name}",
+  "mod_type": "النوع: {mod_type}",
+  "clear_all": "مسح كل الخيارات المتقدمة",
+  "load_order_description": "حدد أي المودات تبغى هذا المود يشتغل قبلها أو بعدها:",
+  "load_before": "شغّل قبل:",
+  "load_after": "شغّل بعد:",
+  "optional": "اختياري",
+  "note": "ملاحظة",
+  "load_order": "ترتيب التحميل",
+  "load_order_help_title": "إعداد ترتيب التشغيل",
+  "load_order_help_load_before": "قائمة بالاعتماديات اللي المفروض هذا المود يشتغل قبلها",
+  "load_order_help_load_after": "قائمة بالاعتماديات اللي المفروض هذا المود يشتغل بعدها",
+  "load_order_help_optional": "إذا كانت false، أي اعتمادية ناقصة تعتبر خطأ فادح (حقل مطلوب)",
+  "load_order_help_note": "كل مود تقدر تختاره مرة وحدة بس في القائمتين",
+  "load_order_help_runtime": "يتم فحص الاعتماديات وقت التشغيل - تأكد إن المودات المستهدفة موجودة في بروفايلك",
+  "optional_setting": "إعداد اختياري",
+  "optional_setting_tooltip": "إذا كانت true، اللعبة تكمل حتى لو فشل تحميل هذا المود",
+  "initializer": "المهيئ (Initializer)",
+  "initializer_type": "نوع المهيئ:",
+  "function_name_placeholder": "مثال: Initialize",
+  "function_name_label": "اسم الدالة (Function):",
+  "delay_ms_label": "تأخير (بالمللي ثانية):",
+  "finalizer": "المنهي (Finalizer)",
+  "finalizer_placeholder": "مثال: Cleanup (اتركه فاضي إذا ما تحتاج)",
+  "finalizer_tooltip": "الدالة اللي يتم استدعاؤها عند إلغاء تحميل المود",
+  "cleanup_function": "دالة التنظيف (Cleanup):",
+  "native_module_help_title": "إعدادات المود الأصلي",
+  "native_module_help_optional_title": "اختياري:",
+  "native_module_help_optional_description": "لو كانت القيمة false والمود الأصلي ما تحمل، بيتم التعامل معاه كخطأ حرج (الافتراضي: false)",
+  "native_module_help_initializer_title": "مُشغّل البدء:",
+  "native_module_help_initializer_description": "رمز اختياري يشتغل بعد ما المود الأصلي يتحمل بنجاح",
+  "native_module_help_function_title": "الدالة (Function):",
+  "native_module_help_function_description": "استدعاء رمز أو دالة معينة في ملف الـ DLL",
+  "native_module_help_delay_title": "التأخير:",
+  "native_module_help_delay_description": "الانتظار لعدد معين من الملي ثانية قبل استدعاء مُشغّل البدء",
+  "native_module_help_finalizer_title": "دالة الإنهاء:",
+  "native_module_help_finalizer_description": "رمز اختياري يشتغل لما المود يدخل في طابور إلغاء التحميل",
+  "advanced": "متقدم",
+  "edit_config_title": "محرر الإعدادات - {mod_name}",
+  "browse_button": "تصفح...",
+  "save_button": "حفظ",
+  "edit_config_placeholder": "ملف الإعدادات مو موجود في المسار الافتراضي:\n{path}\n\nاستخدم 'حفظ' عشان تسوي ملف جديد في هذا المسار، أو 'تصفح...' عشان تحدد مكانه.",
+  "config_loaded": "تم تحميل: {path}",
+  "config_saved": "تم حفظ: {path}",
+  "load_error": "خطأ في التحميل",
+  "load_error_msg": "ما قدرت أحمل الملف:\n{path}\n\nالخطأ: {error}",
+  ";padding": "; (هذا السطر حشو لمنع المشاكل مع بعض محللات INI)",
+  "save_error": "خطأ في الحفظ",
+  "save_error_msg": "ما فيه مسار ملف إعدادات محدد. استخدم 'تصفح...' عشان تختار ملف.",
+  "could_not_save_msg": "ما قدرت أحفظ الملف:\n{path}\n\nالخطأ: {error}",
+  "select_config_file": "اختر ملف إعدادات المود",
+  "ini_files_filter": "ملفات INI (*.ini);;كل الملفات (*)",
+  "game_options_title": "خيارات اللعبة  {game_name}",
+  "open_path_error": "خطأ في فتح المسار",
+  "open_path_error_msg": "فشل فتح المسار:\n{path}\n\nالخطأ: {e}",
+  "game_options_description": "ضبط خيارات لعبة ME3. هذي الإعدادات بتنحفظ في ملف إعدادات ME3.",
+  "me3_config_file_group": "ملف إعدادات ME3",
+  "loading_config_path": "جاري التحميل...",
+  "open_config_folder_button": "افتح المجلد",
+  "change_location_button": "غير المكان...",
+  "change_location_tooltip": "اختر من أماكن إعدادات ME3 المتاحة عشان تتجنب وجود أكثر من ملف إعدادات",
+  "me3_config_file_info": "💡 المدير يبحث في كل مسارات إعدادات ME3 ويستخدم أول ملف يلقاه. استخدم 'غير المكان...' عشان تختار من الأماكن المتاحة للكتابة.",
+  "skip_logos_checkbox": "تخطي شعارات اللعبة عند التشغيل",
+  "skip_logos_label": "تخطي الشعارات:",
+  "boot_boost_checkbox": "تفعيل تعزيز الإقلاع لتشغيل أسرع",
+  "boot_boost_label": "تعزيز الإقلاع:",
+  "steam_directory_title": "مجلد ستيم (Steam)",
+  "steam_directory_checkbox": "استخدام مجلد ستيم مخصص",
+  "steam_directory_label": "مسار مجلد تثبيت ستيم",
+  "clear_button": "مسح",
+  "steam_directory_info": "💡 حدد مجلد تثبيت ستيم مخصص إذا ما قدر ME3 يكتشفه تلقائيًا.",
+  "custom_executable_title": "ملف تنفيذي مخصص",
+  "custom_executable_checkbox": "استخدام مسار ملف تنفيذي مخصص",
+  "executable_path_placeholder": "مسار الملف التنفيذي للعبة",
+  "custom_executable_info": "💡 حدد ملفًا تنفيذيًا مخصصًا إذا لم يتمكن ME3 من اكتشاف تثبيت اللعبة تلقائيًا.",
+  "config_path_not_exist": "{config_path} (سيتم إنشاؤه)",
+  "steam_validation_title": "التحقق من مجلد ستيم",
+  "steam_validation_message": "المجلد اللي اخترته شكله مو مجلد ستيم:\n{steam_path}\n\nالمفروض ألقى 'steam.exe' (أو 'steam') و/أو مجلد 'steamapps'.\n\nتبي تستخدم هذا المجلد مع ذلك؟",
+  "config_not_found_title": "ملف الإعدادات مو موجود",
+  "config_not_found_message": "ملف إعدادات ME3 مو موجود للحين:\n{config_path}\n\nودك أسويه لك وأفتح المجلد؟",
+  "create_error": "خطأ في الإنشاء",
+  "create_error_msg": "فشل إنشاء ملف الإعدادات الافتراضي",
+  "open_folder_error": "خطأ في فتح المجلد",
+  "open_folder_error_msg": "فشل فتح مجلد الإعدادات: {e}",
+  "no_writable_paths_title": "لا توجد مسارات متاحة",
+  "no_writable_paths_msg": "ما فيه أي مسارات متاحة للكتابة لإعدادات ME3.",
+  "choose_config_location": "اختر مكان إعدادات ME3",
+  "choose_config_location_desc": "اختر وين تبي تسوي أو تستخدم ملف إعدادات ME3 (me3.toml):",
+  "exists": "✓ موجود",
+  "will_create": "✗ سيتم إنشاؤه",
+  "choose_config_location_info": "💡 اختر مكان يكون ملف me3.toml موجود فيه أو تقدر تسويه فيه. هذا يمنع وجود أكثر من ملف إعدادات في أماكن مختلفة.",
+  "select_button": "اختيار",
+  "config_updated_title": "تم تحديث مكان الإعدادات",
+  "config_updated_message": "تم تحديث مكان إعدادات ME3 إلى:\n{selected_config_path}\n\nأي ملفات إعدادات مكررة في أماكن ثانية تم حذفها.",
+  "config_setup_error_title": "خطأ في إعداد الكونفق",
+  "config_setup_error_message": "فشل إعداد ملف الإعدادات في المكان المحدد.",
+  "feature_not_available_title": "الميزة غير متوفرة",
+  "feature_not_available_message": "مدير معلومات ME3 غير متوفر.",
+  "config_location_error_title": "خطأ في مكان الإعدادات",
+  "config_location_error_message": "فشل تحديد مكان الإعدادات: {error}",
+  "browse_error_title": "خطأ في التصفح",
+  "browse_error_message": "فشل التصفح عن مكان الإعدادات: {error}",
+  "configuration_error_title": "خطأ في الإعدادات",
+  "configuration_error_message": "اسم الملف التنفيذي المتوقع لـ '{game_name}' غير محدد.",
+  "browse_executable_title": "اختر الملف التنفيذي لـ {game_name} ({expected_exe_name})",
+  "incorrect_executable_title": "تم اختيار ملف تنفيذي خطأ",
+  "executable_mismatch_title": "الملف التنفيذي غير مطابق",
+  "executable_mismatch_message": "الملف اللي اخترته ما يطابق الملف التنفيذي المطلوب لـ {game_name}.",
+  "expected_executable": "المتوقع",
+  "selected_executable": "المحدد",
+  "executable_mismatch_suggestion": "لو سمحت اختر الملف الصحيح اللي اسمه {expected_exe_name}.",
+  "steam_directory_required_title": "مجلد ستيم مطلوب",
+  "steam_directory_required_message": "لو سمحت حط مسار مجلد ستيم أو شيل الصح من الخيار.",
+  "executable_path_required_title": "مسار الملف التنفيذي مطلوب",
+  "executable_path_required_message": "لو سمحت حط مسار الملف التنفيذي أو شيل الصح من الخيار.",
+  "save_success": "تم الحفظ",
+  "save_success_message": "تم حفظ خيارات اللعبة لـ {game_name} بنجاح.",
+  "save_error_message": "فشل حفظ بعض الإعدادات. تأكد إن ME3 مثبت صح.",
+  "game_mods_title": "مودات {game_name}",
+  "profile_label": "البروفايل",
+  "from_folder_label": "من مجلد",
+  "select_profile_button": "اختر بروفايل",
+  "launch_game_button": "شغّل {game_name}",
+  "configure_game_options_tooltip": "ضبط خيارات اللعبة (تخطي الشعارات، تعزيز الإقلاع، تخطي تهيئة ستيم، الملف التنفيذي)",
+  "open_mods_folder_tooltip": "افتح مجلد مودات اللعبة",
+  "add_external_mod_tooltip": "أضف مود خارجي (.dll) من أي مكان",
+  "edit_profile_tooltip": "عدّل ملف بروفايل اللعبة (.me3)",
+  "search_mods_placeholder": "🔍 ابحث عن مودات...",
+  "drag_drop_zone_text": "📁 اسحب وأفلت المودات هنا، وتقدر تفلت ملفات بروفايل .me3 بعد!",
+  "items_per_page_label": "عناصر في كل صفحة:",
+  "previous_page_button": "◀ السابق",
+  "next_page_button": "التالي ▶",
+  "status_ready": "جاهز",
+  "filter_all": "الكل",
+  "filter_all_tooltip": "أظهر كل المودات",
+  "filter_enabled": "المفعّلة",
+  "filter_enabled_tooltip": "أظهر كل المودات المفعّلة (DLL ومجلدات)",
+  "filter_disabled": "المعطّلة",
+  "filter_disabled_tooltip": "أظهر كل المودات المعطّلة",
+  "filter_with_regulation": "مفعّلة مع Regulation",
+  "filter_with_regulation_tooltip": "أظهر مودات المجلدات المفعّلة اللي فيها regulation.bin",
+  "filter_without_regulation": "مفعّلة بدون Regulation",
+  "filter_without_regulation_tooltip": "أظهر مودات المجلدات المفعّلة اللي ما فيها regulation.bin",
+  "manage_profiles": "إدارة البروفايلات...",
+  "profile_saved_status": "تم حفظ البروفايل لـ {game_name}. جاري إعادة تحميل قائمة المودات...",
+  "import_error": "خطأ في الاستيراد",
+  "import_one_profile_warning": "لو سمحت استورد ملف بروفايل .me3 واحد كل مرة.",
+  "confirm_overwrite_title": "تأكيد الكتابة فوق الملفات",
+  "overwrite_confirm_text": "الملفات/المجلدات التالية موجودة من أول في مجلد المودات. تبغى تستبدلها؟\n\n",
+  "install_cancelled_status": "تم إلغاء التثبيت أو لا توجد عناصر جديدة للتثبيت.",
+  "install_error_title": "خطأ في التثبيت",
+  "install_success_status": "تم تثبيت {count} عنصر بنجاح.",
+  "import_profile_mods_title": "استيراد بروفايل ومودات - {game_name}",
+  "import_profile_mods_desc": "أنت على وشك استيراد بروفايل والمودات المرتبطة فيه.",
+  "import_merge_or_replace_question": "هل تبي تدمج هذا مع إعداداتك الحالية أو تستبدلها؟",
+  "merge_button_recommended": "دمج (مُوصى به)",
+  "replace_button": "استبدال",
+  "name_imported_package_title": "سمّي حزمة المودات المستوردة",
+  "name_imported_package_desc": "أدخل اسم لحزمة المودات المستوردة.",
+  "importing_from_label": "جاري الاستيراد من: {folder}",
+  "import_cancelled_status": "تم إلغاء الاستيراد.",
+  "importing_from_status": "جاري الاستيراد من {folder}...",
+  "mod_exists_title": "المود موجود",
+  "mod_folder_exists_replace_question": "مجلد المود '{mod_name}' موجود من أول. تبغى تستبدله؟",
+  "import_complete_success_header": "اكتمل الاستيراد بنجاح!",
+  "import_profile_success": "✓ تم استيراد وتحويل البروفايل",
+  "import_package_mods_success": "✓ تم استيراد {count} حزمة مودات",
+  "import_dll_mods_success": "✓ تم استيراد {count} مودات DLL",
+  "import_mods_skipped_header": "⚠ تم تخطي {count} مود:",
+  "skipped_reason_exists": "'{name}' - موجود من أول",
+  "import_errors_header": "الأخطاء اللي واجهتني:",
+  "import_complete_title": "اكتمل الاستيراد",
+  "import_failed_header": "فشل الاستيراد:",
+  "import_failed_title": "فشل الاستيراد",
+  "import_error_title": "خطأ في الاستيراد",
+  "import_error_msg": "خطأ أثناء الاستيراد: {error}",
+  "overwrite_dll_confirm_text": "ملفات DLL التالية موجودة من أول في مجلد المودات. تبغى تستبدلها؟\n\n",
+  "dll_install_cancelled_status": "تم إلغاء تثبيت DLL أو لا توجد ملفات DLL جديدة للتثبيت.",
+  "dll_copy_failed_msg": "فشل نسخ DLL {name}: {error}",
+  "dll_install_success_status": "تم تثبيت {count} مود DLL بنجاح.",
+  "name_mod_package_title": "سمّي حزمة المود",
+  "name_mod_package_desc": "أدخل اسم لحزمة المود هذي.\nكل المحتوى بيتجمع تحت هذا الاسم.",
+  "mod_folder_exists_overwrite_question": "مجلد المود '{mod_name}' موجود من أول. تبغى تستبدله؟",
+  "install_package_success_status": "تم تثبيت حزمة المود '{mod_name}' بنجاح.",
+  "create_folder_mod_failed_msg": "فشل إنشاء مود المجلد '{mod_name}': {error}",
+  "new_mod_name_title": "اسم المود الجديد",
+  "new_mod_name_desc": "أدخل اسم للمود الجديد اللي فيه هذي الـ {count} عناصر:",
+  "install_bundled_mod_success_status": "تم تثبيت المود المدمج: {mod_name}",
+  "bundle_items_failed_msg": "فشل دمج العناصر في المود '{mod_name}': {error}",
+  "page_label_text": "صفحة {current_page} من {total_pages}",
+  "showing_mods_status": "عرض {start}-{end} من أصل {total} مود ({enabled} مفعل)",
+  "mod_type_nested_dll": "DLL متداخل",
+  "mod_type_active_regulation": "حزمة Regulation نشطة",
+  "mod_type_package_with_regulation": "حزمة مع Regulation",
+  "mod_type_package": "حزمة مود",
+  "mod_type_dll": "مود DLL",
+  "mods_dir_not_found_warning": "تحذير: مجلد المودات للبروفايل النشط مو موجود.",
+  "regulation_error_title": "خطأ في Regulation",
+  "toggle_mod_error_title": "خطأ في تفعيل/تعطيل المود",
+  "delete_mod_title": "حذف المود",
+  "delete_mod_confirm_question": "متأكد تبي تحذف '{mod_name}'؟",
+  "delete_error_title": "خطأ في الحذف",
+  "select_external_mod_title": "اختر مود DLL خارجي",
+  "dll_files_filter": "ملفات DLL (*.dll)",
+  "add_external_mod_error_title": "خطأ في إضافة مود خارجي",
+  "config_path_saved_status": "تم حفظ مسار الإعدادات الجديد لـ {mod_name}",
+  "mod_info_not_found_error": "معلومات المود مو موجودة.",
+  "advanced_options_updated_status": "تم تحديث الخيارات المتقدمة لـ {mod_name}",
+  "advanced_options_error_title": "خطأ في الخيارات المتقدمة",
+  "advanced_options_open_failed_msg": "فشل فتح الخيارات المتقدمة: {error}",
+  "game_options_error_title": "خطأ في خيارات اللعبة",
+  "game_options_open_failed_msg": "فشل فتح خيارات اللعبة: {error}",
+  "folder_not_found_title": "المجلد مو موجود",
+  "mods_dir_not_exist_msg": "مجلد المودات مو موجود للحين:\n{mods_dir}",
+  "me3_not_installed_title": "ME3 مو مثبت",
+  "me3_required_for_launch_msg": "تحتاج Mod Engine 3 عشان تشغل الألعاب بالمودات.\n\nودك تثبته الحين؟",
+  "launch_error_title": "خطأ في التشغيل",
+  "profile_not_found_msg": "ملف البروفايل مو موجود:\n{path}",
+  "cli_id_not_found_msg": "ما قدرت أحدد معرّف CLI لـ {game_name}",
+  "custom_exe_requires_terminal_info": "تشغيل بملف تنفيذي مخصص يحتاج الطرفية (Terminal). هذا الإعداد سيتم تجاهله.",
+  "launching_with_custom_exe_status": "جاري تشغيل {game_name} بملف تنفيذي مخصص...",
+  "launching_game_status": "جاري تشغيل {game_name}...",
+  "launch_game_failed_msg": "فشل تشغيل اللعبة: {error}",
+  "manage_profiles_title": "إدارة البروفايلات - {game_name}",
+  "search_profiles_placeholder": "🔍 ابحث عن بروفايلات...",
+  "activate_button": " تفعيل",
+  "add_new_button": " إضافة جديد...",
+  "rename_button": " إعادة تسمية...",
+  "delete_button": " حذف",
+  "new_profile_name_title": "اسم البروفايل الجديد",
+  "new_profile_name_desc": "أدخل اسم للبروفايل الجديد:",
+  "select_folder_for_profile_title": "اختر مجلد للبروفايل الجديد",
+  "rename_profile_title": "إعادة تسمية البروفايل",
+  "enter_new_name_desc": "أدخل الاسم الجديد:",
+  "confirm_delete_title": "تأكيد الحذف",
+  "delete_profile_confirm_question": "متأكد تبي تحذف بروفايل '{profile_name}'؟\n\nهذا الإجراء ما راح يحذف ملفات المودات نفسها.",
+  "external_mod_tooltip": "مود خارجي",
+  "edit_config_tooltip_ini": "عدّل إعدادات المود (.ini)",
+  "open_containing_folder_tooltip": "افتح المجلد اللي فيه الملف",
+  "advanced_options_tooltip": "خيارات متقدمة (ترتيب التشغيل، المهيئات، ...إلخ)",
+  "delete_mod_tooltip": "احذف المود",
+  "regulation_active_tooltip": "ملف الـ regulation هذا هو النشط حاليًا",
+  "regulation_inactive_tooltip": "اضغط عشان تخلي هذا ملف الـ regulation النشط",
+  "nested_mod_full_tooltip": "DLL متداخل: {mod_name}\nالمسار: {mod_path}\n\nهذا المود جزء من حزمة أكبر.",
+  "mod_type_tooltip": "النوع: {mod_type}",
+  "mod_path_tooltip": "المسار: {mod_path}",
+  "expand_mod_tooltip": "اضغط ▶ عشان تشوف المودات المتداخلة",
+  "click_to_disable_tooltip": "اضغط عشان تعطله",
+  "click_to_enable_tooltip": "اضغط عشان تفعّله",
+  "edit_profile_title": "تعديل البروفايل: {profile_name}",
+  "profile_load_failed_comment": "فشل تحميل البروفايل:\n# {error}",
+  "profile_save_failed_title": "فشل الحفظ",
+  "profile_save_failed_msg": "فشل حفظ البروفايل: {error}",
+  "settings_title": "الإعدادات",
+  "steam_integration_header": "التكامل مع ستيم",
+  "auto_launch_steam_win_checkbox": "شغّل ستيم تلقائيًا وبدون صوت عند بدء التطبيق",
+  "auto_launch_steam_linux_checkbox": "شغّل ستيم تلقائيًا وبدون صوت عند بدء التطبيق (عبر flatpak-spawn)",
+  "steam_found_status": "لقيت ستيم في: {steam_path}",
+  "steam_not_found_status": "ما لقيت ستيم أو ME3 مو مثبت",
+  "steam_path_unavailable_tooltip": "مسار ستيم مو متاح - لازم يكون ME3 مثبت",
+  "me3_updates_header": "تحديثات Mod Engine 3",
+  "check_for_updates_checkbox": "شيك على تحديثات ME3 عند التشغيل",
+  "terminal_title": "🖥 الطرفية (Terminal)",
+  "copy_button": "نسخ",
+  "copied_feedback": "تم النسخ!",
+  "running_on_host_status": "جاري تشغيل الأمر على نظامك عبر flatpak-spawn...",
+  "process_success_status": "العملية تمت بنجاح.",
+  "process_finished_with_code_status": "انتهت العملية برمز الخروج: {exit_code}"
+}
