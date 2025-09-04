@@ -59,7 +59,7 @@ class GameOptionsDialog(QDialog):
             QMessageBox.warning(
                 self,
                 tr("open_path_error"),
-                tr("open_path_error_msg", path=path, str_e=str(e)),
+                tr("open_path_error_msg", path=path, e=str(e)),
             )
 
     def init_ui(self):
@@ -461,7 +461,7 @@ class GameOptionsDialog(QDialog):
                 )
         except Exception as e:
             QMessageBox.warning(
-                self, tr("open_folder_error"), tr("open_folder_error_msg", str_e=str(e))
+                self, tr("open_folder_error"), tr("open_folder_error_msg", e=str(e))
             )
 
     def browse_config_file(self):

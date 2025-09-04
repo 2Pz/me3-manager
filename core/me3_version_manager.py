@@ -389,7 +389,7 @@ class ME3VersionManager:
         """Handle completion of ME3 installer download."""
         self._cleanup_thread()
 
-        if "complete" in message.lower() and file_path:
+        if tr("download_complete") in message.lower() and file_path:
             reply = QMessageBox.information(
                 self.parent,
                 tr("download_complete"),
@@ -403,7 +403,7 @@ class ME3VersionManager:
                 # Start monitoring for installation completion
                 self._start_installation_monitoring()
 
-        elif "cancelled" not in message.lower():
+        elif tr("download_cancelled") not in message.lower():
             QMessageBox.critical(self.parent, tr("download_failed"), message)
 
     def custom_install_windows_me3(self, release_type: str = "latest"):
