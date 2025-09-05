@@ -1,9 +1,9 @@
 import sys
-from cx_Freeze import setup, Executable
-from version import VERSION
-
-
 import warnings
+
+from cx_Freeze import Executable, setup
+
+from version import VERSION
 
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 

@@ -1,18 +1,18 @@
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
+    QFormLayout,
     QHBoxLayout,
-    QListWidget,
-    QPushButton,
-    QMessageBox,
     QInputDialog,
     QLabel,
     QLineEdit,
-    QFormLayout,
+    QListWidget,
     QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
 
 from utils.translator import tr
 

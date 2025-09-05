@@ -4,11 +4,11 @@ Addresses the key issues with package mod enabling, regulation file management,
 and path handling consistency.
 """
 
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+import shutil
 from dataclasses import dataclass
 from enum import Enum
-import shutil
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class ModType(Enum):

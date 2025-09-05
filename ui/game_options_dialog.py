@@ -1,25 +1,27 @@
-import sys
 import os
-import tomllib
-import tomli_w
 import subprocess
+import sys
+import tomllib
 from pathlib import Path
+
+import tomli_w
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices, QFont
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
-    QVBoxLayout,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
-    QCheckBox,
     QLineEdit,
-    QFileDialog,
     QMessageBox,
-    QGroupBox,
-    QFormLayout,
+    QPushButton,
+    QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QFont, QDesktopServices
+
 from utils.translator import tr
 
 
@@ -487,11 +489,11 @@ class GameOptionsDialog(QDialog):
             # Show dialog to let user choose from available paths
             from PyQt6.QtWidgets import (
                 QDialog,
-                QVBoxLayout,
+                QHBoxLayout,
                 QLabel,
                 QListWidget,
                 QPushButton,
-                QHBoxLayout,
+                QVBoxLayout,
             )
 
             dialog = QDialog(self)

@@ -1,9 +1,9 @@
+import os
+import re
 import subprocess
 import sys
-import re
-import os
-from typing import Optional, Dict, List
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
 class ME3InfoManager:

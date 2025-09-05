@@ -1,17 +1,19 @@
-import sys
 import re
+import shlex
+import sys
+
+from PyQt6.QtCore import QProcess, QTimer
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
+    QApplication,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QTextEdit,
-    QApplication,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtGui import QFont
-from PyQt6.QtCore import QProcess, QTimer
-import shlex
+
 from utils.translator import tr
 
 
@@ -231,8 +233,9 @@ class EmbeddedTerminal(QWidget):
                     self.output.append(tr("running_on_host_status"))
                 else:
                     # Get environment from login shell
-                    from PyQt6.QtCore import QProcessEnvironment
                     import subprocess
+
+                    from PyQt6.QtCore import QProcessEnvironment
 
                     try:
                         result = subprocess.run(
@@ -286,8 +289,9 @@ class EmbeddedTerminal(QWidget):
                     self.output.append(tr("running_on_host_status"))
                 else:
                     # Set up environment for non-flatpak Linux with shell execution
-                    from PyQt6.QtCore import QProcessEnvironment
                     import subprocess
+
+                    from PyQt6.QtCore import QProcessEnvironment
 
                     try:
                         result = subprocess.run(

@@ -1,6 +1,8 @@
-import sys
 import os
+import sys
+
 from PyQt6.QtWidgets import QApplication
+
 from ui.main_window import ModEngine3Manager
 from utils.translator import translator
 

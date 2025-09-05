@@ -1,23 +1,25 @@
-from PyQt6.QtWidgets import (
-    QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QCheckBox,
-    QLineEdit,
-    QSpinBox,
-    QComboBox,
-    QGroupBox,
-    QDialogButtonBox,
-    QTabWidget,
-    QWidget,
-    QFormLayout,
-    QScrollArea,
-)
+from typing import Any, Dict, List
+
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
-from typing import Dict, Any, List
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
 from utils.translator import tr
 
 

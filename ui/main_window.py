@@ -1,29 +1,30 @@
-import subprocess
-import sys
 import os
 import re
-from ui.game_management_dialog import GameManagementDialog
+import subprocess
+import sys
 
+from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSlot
+from PyQt6.QtGui import QDesktopServices, QFont, QIcon
 from PyQt6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QSplitter,
-    QLabel,
-    QPushButton,
-    QMessageBox,
     QDialog,
     QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtGui import QFont, QIcon, QDesktopServices
-from PyQt6.QtCore import Qt, QUrl, QTimer, pyqtSlot
+
 from core.config_manager import ConfigManager
 from core.me3_version_manager import ME3VersionManager  # Import the new version manager
-from ui.game_page import GamePage
-from ui.terminal import EmbeddedTerminal
 from ui.draggable_game_button import DraggableGameButton, DraggableGameContainer
+from ui.game_management_dialog import GameManagementDialog
+from ui.game_page import GamePage
 from ui.settings_dialog import SettingsDialog
+from ui.terminal import EmbeddedTerminal
 from utils.resource_path import resource_path
 from utils.translator import tr
 from version import VERSION

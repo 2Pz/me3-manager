@@ -1,18 +1,20 @@
 import re
 from pathlib import Path
+
+from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLineEdit,
-    QTextEdit,
-    QPushButton,
-    QLabel,
     QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
     QMessageBox,
+    QPushButton,
+    QTextEdit,
+    QVBoxLayout,
 )
-from PyQt6.QtGui import QFont, QColor, QSyntaxHighlighter, QTextCharFormat
-from PyQt6.QtCore import QTimer
+
 from utils.translator import tr
 
 
