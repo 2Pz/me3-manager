@@ -26,3 +26,8 @@ dev = [
 [tool.uv]
 # Don't install dev dependencies on 'uv run'
 default-groups = []
+
+[tool.ruff.lint]
+extend-select = [
+  "I", # isort
+]
