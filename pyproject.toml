@@ -20,6 +20,7 @@ dependencies = [
 dev = [
   "cx-freeze>=8.4.0 ; sys_platform == 'win32'",
   "pyinstaller>=6.15.0 ; sys_platform == 'linux'",
+  "ruff>=0.12.12",
 ]
 
 [tool.uv]
