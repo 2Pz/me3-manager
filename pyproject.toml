@@ -11,7 +11,7 @@ authors = [
 ]
 
 dependencies = [
-  "PyQt6",
-  "toml",
-  "requests",
+  "pyqt6>=6.9.1",
+  "requests>=2.32.5",
+  "tomli-w>=1.2.0",
 ]

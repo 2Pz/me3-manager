@@ -1,6 +1,7 @@
 import sys
 import os
-import toml
+import tomllib
+import tomli_w
 import subprocess
 from pathlib import Path
 from PyQt6.QtWidgets import (
@@ -793,8 +794,8 @@ class GameOptionsDialog(QDialog):
             config_data = {}
             if config_path_obj.exists():
                 try:
-                    with open(config_path_obj, "r", encoding="utf-8") as f:
-                        config_data = toml.load(f)
+                    with open(config_path_obj, "rb") as f:
+                        config_data = tomllib.load(f)
                 except Exception as e:
                     print(f"Warning: Could not parse existing TOML config: {e}")
                     config_data = {}
@@ -809,8 +810,8 @@ class GameOptionsDialog(QDialog):
                 print("DEBUG: Removing steam_dir from global config")
 
             # Save back to file in TOML format
-            with open(config_path_obj, "w", encoding="utf-8") as f:
-                toml.dump(config_data, f)
+            with open(config_path_obj, "wb") as f:
+                tomli_w.dump(config_data, f)
 
             return True
 
@@ -880,8 +881,8 @@ class GameOptionsDialog(QDialog):
 
             if config_path_obj.exists():
                 try:
-                    with open(config_path_obj, "r", encoding="utf-8") as f:
-                        config_data = toml.load(f)
+                    with open(config_path_obj, "rb") as f:
+                        config_data = tomllib.load(f)
                     return config_data.get("steam_dir")
                 except Exception as e:
                     print(
@@ -916,8 +917,8 @@ class GameOptionsDialog(QDialog):
 
                     if path.exists() and path.suffix == ".toml":
                         try:
-                            with open(path, "r", encoding="utf-8") as f:
-                                config_data = toml.load(f)
+                            with open(path, "rb") as f:
+                                config_data = tomllib.load(f)
                             steam_dir = config_data.get("steam_dir")
                             if steam_dir:
                                 return steam_dir
