@@ -1,28 +1,27 @@
 # Mod Engine 3 Manager
 
-[Mod Engine 3 Manager](https://www.nexusmods.com/eldenringnightreign/mods/213)  
-A GUI manager tool designed to simplify the use of **Mod Engine 3**.
+A GUI manager tool designed to simplify the use of [me3](https://me3.help/).
 
----
+## Download and usage
 
-## License
-This project is licensed under the [MIT License](LICENSE).
+Visit [Mod Engine 3 Manager](https://www.nexusmods.com/eldenringnightreign/mods/213) on Nexus Mods.
 
----
+## Development
 
-## Developer Setup
+### Requirements
 
-### Clone the repository
-```bash
+- Python 3.13
+- pip or [uv](https://docs.astral.sh/uv/)
+
+### Developer setup
+
+#### Option 1: Classic Python setup
+
+```sh
 git clone https://github.com/2Pz/me3-manager.git
 cd me3-manager
-```
 
----
-
-### Option 1: Classic Python Setup
-```bash
-# Create venv with your Python version
+# Create venv
 python -m venv .venv
 
 # Activate venv
@@ -38,21 +37,21 @@ pip install -r requirements.txt
 python main.py
 ```
 
----
+#### Option 2: Modern setup with uv
 
-### Option 2: Modern Setup with uv
-
-```bash
+```sh
 git clone https://github.com/2Pz/me3-manager.git
 cd me3-manager
 
 # Automatically pick correct Python version, create venv,
 # install dependencies, and run the app
-uv run me3-manager
+uv run main.py
 ```
 
----
-
-
 ## Contributing
+
 Contributions are welcome!
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
