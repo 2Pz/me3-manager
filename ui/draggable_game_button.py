@@ -1,9 +1,10 @@
 # ui/draggable_game_button.py
 
-from PyQt6.QtWidgets import QPushButton, QWidget, QVBoxLayout
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QPoint
-from PyQt6.QtGui import QDrag, QPainter, QPixmap
 from typing import List
+
+from PyQt6.QtCore import QMimeData, QPoint, Qt, pyqtSignal
+from PyQt6.QtGui import QDrag, QPainter, QPixmap
+from PyQt6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 
 
 class DraggableGameButton(QPushButton):

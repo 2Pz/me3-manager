@@ -1,13 +1,15 @@
+import sys
+
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
-    QVBoxLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QCheckBox,
+    QVBoxLayout,
 )
-from PyQt6.QtGui import QFont
-import sys
+
 from utils.translator import tr
 
 

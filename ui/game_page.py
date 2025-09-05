@@ -1,44 +1,46 @@
-import shutil
-import subprocess
-from pathlib import Path
-from typing import List, Optional, Dict, Any
 import math
-from collections import deque
-import sys
 import os
 import shlex
+import shutil
+import subprocess
+import sys
+from collections import deque
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from PyQt6.QtCore import QProcess, QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import (
+    QAction,
+    QDesktopServices,
+    QDragEnterEvent,
+    QDropEvent,
+    QFont,
+    QIcon,
+)
 from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QLineEdit,
-    QMessageBox,
-    QFileDialog,
     QDialog,
-    QSpinBox,
+    QFileDialog,
+    QHBoxLayout,
     QInputDialog,
+    QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtCore import Qt, QTimer, QSize, QUrl, QProcess
-from PyQt6.QtGui import (
-    QFont,
-    QDragEnterEvent,
-    QDropEvent,
-    QIcon,
-    QDesktopServices,
-    QAction,
-)
-from utils.resource_path import resource_path
-from ui.mod_item import ModItem
-from ui.config_editor import ConfigEditorDialog
-from ui.profile_editor import ProfileEditor
-from ui.advanced_mod_options import AdvancedModOptionsDialog
-from ui.game_options_dialog import GameOptionsDialog
+
 from core.mod_manager import ImprovedModManager, ModStatus, ModType
+from ui.advanced_mod_options import AdvancedModOptionsDialog
+from ui.config_editor import ConfigEditorDialog
+from ui.game_options_dialog import GameOptionsDialog
+from ui.mod_item import ModItem
+from ui.profile_editor import ProfileEditor
+from utils.resource_path import resource_path
 from utils.translator import tr
 
 

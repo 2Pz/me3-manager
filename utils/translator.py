@@ -1,8 +1,10 @@
 import json
 import os
 from typing import Dict
-from utils.resource_path import resource_path
+
 from PyQt6.QtCore import QLocale
+
+from utils.resource_path import resource_path
 
 
 class Translator:

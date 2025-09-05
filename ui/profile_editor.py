@@ -1,12 +1,14 @@
 import re
+
+from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
 from PyQt6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
-    QPlainTextEdit,
     QDialogButtonBox,
     QMessageBox,
+    QPlainTextEdit,
+    QVBoxLayout,
 )
-from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QFont, QColor
+
 from core.config_manager import ConfigManager
 from utils.translator import tr
 

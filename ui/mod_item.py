@@ -1,6 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
-from PyQt6.QtGui import QFont, QIcon, QPixmap, QPainter
-from PyQt6.QtCore import pyqtSignal, Qt, QSize
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QFont, QIcon, QPainter, QPixmap
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+
 from utils.resource_path import resource_path
 from utils.translator import tr
 
@@ -69,7 +70,7 @@ class ModItem(QWidget):
         painter.fillRect(0, 0, size, size, Qt.GlobalColor.transparent)
 
         # Draw colored circle
-        from PyQt6.QtGui import QColor, QBrush
+        from PyQt6.QtGui import QBrush, QColor
 
         painter.setBrush(QBrush(QColor(bg_color)))
         painter.drawEllipse(0, 0, size, size)
@@ -91,8 +92,8 @@ class ModItem(QWidget):
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        from PyQt6.QtGui import QColor, QBrush, QPolygon
         from PyQt6.QtCore import QPoint
+        from PyQt6.QtGui import QBrush, QColor, QPolygon
 
         # Create diamond shape
         diamond = QPolygon(

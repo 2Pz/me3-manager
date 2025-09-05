@@ -1,13 +1,15 @@
-import subprocess
-import os
-import sys
 import json
+import os
 import re
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 import shutil
-from PyQt6.QtCore import QFileSystemWatcher
+import subprocess
+import sys
 import tomllib
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from PyQt6.QtCore import QFileSystemWatcher
+
 from core.me3_info import ME3InfoManager
 
 

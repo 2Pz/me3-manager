@@ -1,18 +1,19 @@
-import subprocess
-import sys
-import requests
+import ctypes
 import os
 import re
-from typing import Optional, Tuple, Callable
+import subprocess
+import sys
 import zipfile
+from typing import Callable, Optional, Tuple
+
+import requests
+from PyQt6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
+
 from utils.translator import tr
 
 if sys.platform == "win32":
     import winreg
-import ctypes
-from PyQt6.QtCore import QObject, pyqtSignal, QThread, QStandardPaths
-from PyQt6.QtWidgets import QProgressDialog, QMessageBox, QFileDialog
-from PyQt6.QtCore import Qt, QTimer
 
 
 class ME3Downloader(QObject):
