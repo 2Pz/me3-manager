@@ -60,7 +60,7 @@ echo "Building with PyInstaller..."
 pyinstaller Me3_Manager.spec --clean --noconfirm
 
 # Get version from version.py
-VERSION=$(cat version.py | grep VERSION | cut -d'"' -f2)
+VERSION=$(grep VERSION version.py | cut -d'"' -f2)
 
 # Create build directory structure
 BUILD_DIR="build/Me3_Manager_${VERSION}"

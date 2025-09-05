@@ -7,6 +7,8 @@ import warnings
 
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
+if sys.platform != "win32":
+    sys.exit("This script must be run on Windows to build a Windows binary.")
 
 # Include necessary files without including source code
 include_files = [
