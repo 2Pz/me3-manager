@@ -36,7 +36,7 @@ executables = [
     Executable(
         "main.py",  # The main script of your project
         base=base,
-        target_name=f"Me3_Manager.exe",  # Output executable name
+        target_name="Me3_Manager.exe",  # Output executable name
         icon="resources/icon/icon.ico",  # Path to the icon file
     )
 ]

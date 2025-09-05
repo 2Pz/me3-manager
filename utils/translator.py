@@ -59,9 +59,10 @@ class Translator:
         """Set language based on system locale"""
         # Get system locale
         system_locale = QLocale.system().name()
-        language_code = system_locale.split("_")[0]  # Extract language part (e.g., "zh" from "zh_CN")
+        # Extract language part (e.g., "zh" from "zh_CN")
+        language_code = system_locale.split("_")[0]
 
-        #language_code = "ar" # For testing purposes
+        # language_code = "ar" # For testing purposes
         # Try to set the language, fallback to English if not available
         if language_code in self.translations:
             self.current_language = language_code
@@ -100,7 +101,7 @@ class Translator:
             # Try to get language name from the translation file itself
             lang_name = self.translations[lang_code].get("language_name", lang_code)
             result[lang_code] = lang_name
-        
+
         return result
 
 

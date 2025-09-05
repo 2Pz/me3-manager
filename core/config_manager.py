@@ -591,7 +591,9 @@ class ConfigManager:
         """Creates a default ME3 profile using data from the game's configuration."""
         game_info = self.games.get(game_key)
         if not game_info:
-            print(f"Error: Could not find configuration for game '{game_key}' when creating profile.")
+            print(
+                f"Error: Could not find configuration for game '{game_key}' when creating profile."
+            )
             return
 
         mods_dir = game_info.get("mods_dir", "")

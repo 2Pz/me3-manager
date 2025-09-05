@@ -8,7 +8,7 @@ import zipfile
 from utils.translator import tr
 
 if sys.platform == "win32":
-    import winreg  
+    import winreg
 import ctypes
 from PyQt6.QtCore import QObject, pyqtSignal, QThread, QStandardPaths
 from PyQt6.QtWidgets import QProgressDialog, QMessageBox, QFileDialog
