@@ -33,6 +33,7 @@ pyqt6-sip==13.10.2
     # via pyqt6
 requests==2.32.5
     # via me3-manager
+ruff==0.12.12
 setuptools==80.9.0 ; sys_platform == 'linux' or sys_platform == 'win32'
     # via
     #   cx-freeze
