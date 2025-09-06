@@ -4,7 +4,7 @@ from typing import Dict
 
 from PyQt6.QtCore import QLocale
 
-from utils.resource_path import resource_path
+from me3_manager.utils.resource_path import resource_path
 
 
 class Translator:

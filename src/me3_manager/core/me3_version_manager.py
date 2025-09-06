@@ -10,7 +10,7 @@ import requests
 from PyQt6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
 
-from utils.translator import tr
+from me3_manager.utils.translator import tr
 
 if sys.platform == "win32":
     import winreg

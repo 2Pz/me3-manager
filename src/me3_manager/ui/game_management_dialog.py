@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from utils.translator import tr
+from me3_manager.utils.translator import tr
 
 
 class GameManagementDialog(QDialog):
