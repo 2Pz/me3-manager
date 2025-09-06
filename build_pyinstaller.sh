@@ -59,8 +59,8 @@ EOF
 echo "Building with PyInstaller..."
 pyinstaller Me3_Manager.spec --clean --noconfirm
 
-# Get version from version.py
-VERSION=$(grep VERSION version.py | cut -d'"' -f2)
+# Get version from pyproject.toml
+VERSION=$(grep --max-count=1 '^version\s*=' pyproject.toml | cut -d '"' -f2)
 
 # Create build directory structure
 BUILD_DIR="build/Me3_Manager_${VERSION}"

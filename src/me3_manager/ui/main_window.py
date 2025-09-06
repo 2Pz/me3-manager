@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager import __version__ as VERSION
 from me3_manager.core.config_manager import ConfigManager
 from me3_manager.core.me3_version_manager import ME3VersionManager
 from me3_manager.ui.draggable_game_button import (
@@ -30,7 +31,6 @@ from me3_manager.ui.settings_dialog import SettingsDialog
 from me3_manager.ui.terminal import EmbeddedTerminal
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
-from me3_manager.version import VERSION
 
 
 class HelpAboutDialog(QDialog):

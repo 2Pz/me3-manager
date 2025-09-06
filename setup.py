@@ -3,7 +3,7 @@ import warnings
 
 from cx_Freeze import Executable, setup
 
-from version import VERSION
+from me3_manager import __version__ as VERSION
 
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 
