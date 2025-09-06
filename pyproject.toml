@@ -5,16 +5,21 @@ description = "GUI application for Mod engine 3"
 readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
-
 authors = [
   { name = "2Pz" },
 ]
-
 dependencies = [
   "pyqt6>=6.9.1",
   "requests>=2.32.5",
   "tomli-w>=1.2.0",
 ]
+
+[project.scripts]
+me3-manager = "me3_manager.main:main"
+
+[build-system]
+requires = ["uv_build>=0.8.8,<0.9.0"]
+build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
