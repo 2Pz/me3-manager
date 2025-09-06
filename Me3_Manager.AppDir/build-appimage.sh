@@ -22,7 +22,7 @@ cat > usr/share/applications/Me3_Manager.desktop << EOF
 [Desktop Entry]
 Type=Application
 Name=Me3_Manager
-Comment=Mass Effect 3 Manager
+Comment=Me3 Manager
 Exec=Me3_Manager
 Icon=Me3_Manager
 Categories=Game;Utility;
