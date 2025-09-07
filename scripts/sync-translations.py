@@ -5,15 +5,19 @@ Synchronizes all translation JSON files with the master English translation file
 - Adds missing keys from en.json to other translation files
 - Organizes keys to match the order in en.json
 - Preserves existing translations
+
+Usage:
+Run the script from the project root:
+$ ./scripts/sync-translations.py
 """
 
 import json
 import os
 import sys
 
-# Add parent directory to path to import utils
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.resource_path import resource_path
+# Add direct path to avoid importing me3_manager
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../src/me3_manager/utils"))
+from resource_path import resource_path
 
 
 def load_json_file(file_path):
@@ -31,6 +35,8 @@ def save_json_file(file_path, data):
     try:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+            # Add trailing newline to file
+            f.write("\n")
         return True
     except Exception as e:
         print(f"Error saving {file_path}: {e}")
