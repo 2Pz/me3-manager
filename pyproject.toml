@@ -40,4 +40,7 @@ select = [
   "E9",
   "F",
   "I", # isort
+  # "T20", # flake8-print
+  "LOG", # flake8-logging
+  "G", # flake8-logging-format
 ]
