@@ -40,6 +40,7 @@ from me3_manager.ui.config_editor import ConfigEditorDialog
 from me3_manager.ui.game_options_dialog import GameOptionsDialog
 from me3_manager.ui.mod_item import ModItem
 from me3_manager.ui.profile_editor import ProfileEditor
+from me3_manager.ui.profile_settings_dialog import ProfileSettingsDialog
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
 
@@ -199,6 +200,12 @@ class GamePage(QWidget):
                 "icon": "settings.png",
                 "tooltip": tr("configure_game_options_tooltip"),
                 "callback": self.open_game_options,
+            },
+            {
+                "attr": "profile_settings_btn",
+                "icon": "profiles.png",
+                "tooltip": tr("profile_settings_tooltip"),
+                "callback": self.open_profile_settings,
             },
             {
                 "attr": "open_mods_folder_btn",
@@ -1826,6 +1833,25 @@ class GamePage(QWidget):
                 self,
                 tr("game_options_error_title"),
                 tr("game_options_open_failed_msg", error=str(e)),
+            )
+
+    def open_profile_settings(self):
+        """Open the profile settings dialog"""
+        try:
+            dialog = ProfileSettingsDialog(self.game_name, self.config_manager, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.status_label.setText(
+                    tr("profile_settings_saved_status", game_name=self.game_name)
+                )
+                self.load_mods(reset_page=False)
+                QTimer.singleShot(
+                    3000, lambda: self.status_label.setText(tr("status_ready"))
+                )
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                tr("profile_settings_error_title"),
+                tr("profile_settings_open_failed_msg", error=str(e)),
             )
 
     def open_mods_folder(self):
