@@ -31,5 +31,6 @@ pyinstaller --clean --noconfirm \
 	--copy-metadata me3-manager \
 	--add-data resources:resources \
 	--optimize 2 \
+	--strip \
 	--distpath "dist/linux-$version" \
 	src/me3_manager/main.py
