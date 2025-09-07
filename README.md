@@ -35,14 +35,11 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install the project in editable mode
-pip install -e .
-
 # Run the GUI app
 me3-manager
 ```
 
-The [editable install](https://setuptools.pypa.io/en/latest/userguide/development_mode.html) allows you to run `me3-manager` as if it is an installed package (while you are in the venv), but it actually points to the source code in the project directory. Make some changes to the code in `src/me3_manager/...` and run `me3-manager` again to see your changes immediately.
+Our `requirements.txt` includes `-e .`, which installs the project directory as an [editable install](https://setuptools.pypa.io/en/latest/userguide/development_mode.html). You can make changes to the source code, then run `me3-manager` to see your changes immediately.
 
 #### Option 2: Modern setup with uv
 
