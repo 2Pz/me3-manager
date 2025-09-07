@@ -3,8 +3,8 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
-from ui.main_window import ModEngine3Manager
-from utils.translator import translator
+from me3_manager.ui.main_window import ModEngine3Manager
+from me3_manager.utils.translator import translator
 
 
 def main():

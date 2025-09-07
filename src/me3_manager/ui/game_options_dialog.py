@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from utils.translator import tr
+from me3_manager.utils.translator import tr
 
 
 class GameOptionsDialog(QDialog):

@@ -2,8 +2,8 @@ from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
-from utils.resource_path import resource_path
-from utils.translator import tr
+from me3_manager.utils.resource_path import resource_path
+from me3_manager.utils.translator import tr
 
 
 class ModItem(QWidget):

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from PyQt6.QtCore import QFileSystemWatcher
 
-from core.me3_info import ME3InfoManager
+from me3_manager.core.me3_info import ME3InfoManager
 
 
 class ConfigManager:

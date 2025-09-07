@@ -9,8 +9,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from core.config_manager import ConfigManager
-from utils.translator import tr
+from me3_manager.core.config_manager import ConfigManager
+from me3_manager.utils.translator import tr
 
 
 class TomlHighlighter(QSyntaxHighlighter):

@@ -18,16 +18,19 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from core.config_manager import ConfigManager
-from core.me3_version_manager import ME3VersionManager  # Import the new version manager
-from ui.draggable_game_button import DraggableGameButton, DraggableGameContainer
-from ui.game_management_dialog import GameManagementDialog
-from ui.game_page import GamePage
-from ui.settings_dialog import SettingsDialog
-from ui.terminal import EmbeddedTerminal
-from utils.resource_path import resource_path
-from utils.translator import tr
-from version import VERSION
+from me3_manager import __version__ as VERSION
+from me3_manager.core.config_manager import ConfigManager
+from me3_manager.core.me3_version_manager import ME3VersionManager
+from me3_manager.ui.draggable_game_button import (
+    DraggableGameButton,
+    DraggableGameContainer,
+)
+from me3_manager.ui.game_management_dialog import GameManagementDialog
+from me3_manager.ui.game_page import GamePage
+from me3_manager.ui.settings_dialog import SettingsDialog
+from me3_manager.ui.terminal import EmbeddedTerminal
+from me3_manager.utils.resource_path import resource_path
+from me3_manager.utils.translator import tr
 
 
 class HelpAboutDialog(QDialog):

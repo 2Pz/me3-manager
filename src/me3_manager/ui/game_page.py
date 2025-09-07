@@ -34,14 +34,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from core.mod_manager import ImprovedModManager, ModStatus, ModType
-from ui.advanced_mod_options import AdvancedModOptionsDialog
-from ui.config_editor import ConfigEditorDialog
-from ui.game_options_dialog import GameOptionsDialog
-from ui.mod_item import ModItem
-from ui.profile_editor import ProfileEditor
-from utils.resource_path import resource_path
-from utils.translator import tr
+from me3_manager.core.mod_manager import ImprovedModManager, ModStatus, ModType
+from me3_manager.ui.advanced_mod_options import AdvancedModOptionsDialog
+from me3_manager.ui.config_editor import ConfigEditorDialog
+from me3_manager.ui.game_options_dialog import GameOptionsDialog
+from me3_manager.ui.mod_item import ModItem
+from me3_manager.ui.profile_editor import ProfileEditor
+from me3_manager.utils.resource_path import resource_path
+from me3_manager.utils.translator import tr
 
 
 class GamePage(QWidget):
