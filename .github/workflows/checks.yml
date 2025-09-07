@@ -1,11 +1,8 @@
 name: Checks
 on:
-  pull_request:
-    branches:
-      - main
-  push:
-    branches:
-      - main
+  # Make this a reusable workflow that can be called from other workflows
+  # https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
