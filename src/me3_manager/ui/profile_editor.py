@@ -59,17 +59,30 @@ class TomlHighlighter(QSyntaxHighlighter):
             "ms",
             "since",
         ]
+
+        # Add patterns for both quoted and unquoted property keys
         self.highlighting_rules.extend(
             [
                 (re.compile(rf"\b{keyword}\b"), property_keyword_format)
                 for keyword in property_keywords
             ]
         )
+        # Add pattern for quoted dotted keys like "initializer.delay.ms"
+        self.highlighting_rules.append(
+            (
+                re.compile(
+                    r'"[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*"(?=\s*=)'
+                ),
+                property_keyword_format,
+            )
+        )
 
-        # Strings (orange, match single and double quotes)
+        # Update the strings section to exclude quoted keys followed by =
         string_format = QTextCharFormat()
         string_format.setForeground(QColor("#CE9178"))  # Orange
-        self.highlighting_rules.append((re.compile(r'"[^"]*"'), string_format))
+        self.highlighting_rules.append(
+            (re.compile(r'"[^"]*"(?!\s*=)'), string_format)
+        )  # Don't match quoted keys
         self.highlighting_rules.append((re.compile(r"'[^']*'"), string_format))
 
         # Numbers (light purple)

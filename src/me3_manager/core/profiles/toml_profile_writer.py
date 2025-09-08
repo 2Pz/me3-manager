@@ -58,37 +58,6 @@ class TomlProfileWriter:
                     if "optional" in native and native["optional"]:
                         native_table["optional"] = native["optional"]
 
-                    if "initializer" in native:
-                        # Handle initializer using dotted keys
-                        initializer = native["initializer"]
-                        if isinstance(initializer, dict):
-                            if "function" in initializer:
-                                native_table["initializer.function"] = initializer[
-                                    "function"
-                                ]
-                            elif "delay" in initializer:
-                                delay_data = initializer["delay"]
-                                if isinstance(delay_data, dict):
-                                    native_table["initializer.delay.ms"] = (
-                                        delay_data.get("ms", 1000)
-                                    )
-                                else:
-                                    # Simple delay value
-                                    native_table["initializer.delay.ms"] = delay_data
-                        else:
-                            native_table["initializer"] = initializer
-
-                    if "finalizer" in native:
-                        # Handle finalizer using dotted keys if it's a dict, otherwise as string
-                        finalizer = native["finalizer"]
-                        if isinstance(finalizer, dict):
-                            if "function" in finalizer:
-                                native_table["finalizer.function"] = finalizer[
-                                    "function"
-                                ]
-                        else:
-                            native_table["finalizer"] = finalizer
-
                     # Handle load_before as simple string array
                     if "load_before" in native and native["load_before"]:
                         load_before_array = tomlkit.array()
@@ -116,6 +85,37 @@ class TomlProfileWriter:
                                 # Simple string format
                                 load_after_array.append(str(dep))
                         native_table["load_after"] = load_after_array
+
+                    # Handle initializer - add it after load arrays to maintain order
+                    if "initializer" in native:
+                        initializer = native["initializer"]
+                        if isinstance(initializer, dict):
+                            if "function" in initializer:
+                                native_table["initializer.function"] = initializer[
+                                    "function"
+                                ]
+                            elif "delay" in initializer:
+                                delay_data = initializer["delay"]
+                                if isinstance(delay_data, dict):
+                                    native_table["initializer.delay.ms"] = (
+                                        delay_data.get("ms", 1000)
+                                    )
+                                else:
+                                    # Simple delay value
+                                    native_table["initializer.delay.ms"] = delay_data
+                        else:
+                            native_table["initializer"] = initializer
+
+                    # Handle finalizer
+                    if "finalizer" in native:
+                        finalizer = native["finalizer"]
+                        if isinstance(finalizer, dict):
+                            if "function" in finalizer:
+                                native_table["finalizer.function"] = finalizer[
+                                    "function"
+                                ]
+                        else:
+                            native_table["finalizer"] = finalizer
 
                     natives_aot.append(native_table)
 
@@ -178,9 +178,18 @@ class TomlProfileWriter:
 
             doc.add("packages", packages_aot)
 
-        # Write to file
+        # Write to file - but post-process to fix dotted keys
+        toml_content = tomlkit.dumps(doc)
+
+        # Post-process to remove quotes from dotted keys
+        import re
+
+        toml_content = re.sub(r'"(initializer\.function)"', r"\1", toml_content)
+        toml_content = re.sub(r'"(initializer\.delay\.ms)"', r"\1", toml_content)
+        toml_content = re.sub(r'"(finalizer\.function)"', r"\1", toml_content)
+
         with open(profile_path, "w", encoding="utf-8") as f:
-            f.write(tomlkit.dumps(doc))
+            f.write(toml_content)
 
     @staticmethod
     def format_inline_to_aot(content: str) -> str:
