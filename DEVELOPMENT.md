@@ -1,5 +1,10 @@
 # Development
 
+> [!IMPORTANT]
+> All pip instructions assume you **activate venv** first.
+
+uv does things in venv automatically.
+
 ## Installing dev dependencies
 
 ### pip
@@ -8,39 +13,37 @@
 - `requirements-dev.txt` includes runtime deps and additional dev deps for formatting/linting and building.
 
 ```sh
-# Make sure venv is activated first
-# Install dev deps
 pip install -r requirements-dev.txt
 ```
 
 ### uv
 
 ```sh
-# Install dev deps
 uv sync --dev
 ```
 
 ## Linting and formatting code
 
-Use [ruff](https://docs.astral.sh/ruff/) to lint and format. Currently only some basic rules are enabled in [pyproject.toml](pyproject.toml), but they may be increased later to try to catch more errors.
+Use [ruff linter](https://docs.astral.sh/ruff/linter/) and [formatter](https://docs.astral.sh/ruff/formatter/). Currently only some basic rules are enabled in [pyproject.toml](pyproject.toml), but they may be increased later to try to catch more errors.
 
 ### pip
 
 ```sh
-# Check for linter errors
+# Check all .py files for linter errors
 ruff check
-# Format files immediately
+# Fix linter errors (not all errors can be fixed automatically)
+ruff check --fix
+
+# Format all .py files
 ruff format
+
+# Lint with extra rules e.g. A (builtins), B (bugbear), S (bandit)
+ruff check --extend-select A,B,S
 ```
 
 ### uv
 
-```sh
-# Check for linter errors
-uv run ruff check
-# Format files immediately
-uv run ruff format
-```
+Add `uv run` before each `ruff` command, e.g. `uv run ruff check`
 
 ## Testing
 
