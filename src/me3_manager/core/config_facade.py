@@ -29,7 +29,6 @@ class ConfigFacade:
 
         # Determine settings file path
         settings_file = self._get_initial_settings_path()
-        
 
         # Initialize core components
         self.settings_manager = SettingsManager(settings_file)
