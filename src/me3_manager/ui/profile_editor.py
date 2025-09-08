@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from me3_manager.core.config_manager import ConfigManager
+from me3_manager.core.config_facade import ConfigFacade as ConfigManager
 from me3_manager.utils.translator import tr
 
 
@@ -24,7 +24,14 @@ class TomlHighlighter(QSyntaxHighlighter):
         main_keyword_format = QTextCharFormat()
         main_keyword_format.setForeground(QColor("#569CD6"))  # Blue
         main_keyword_format.setFontWeight(QFont.Weight.Bold)
-        main_keywords = ["profileVersion", "natives", "supports", "packages"]
+        main_keywords = [
+            "profileVersion",
+            "savefile",
+            "start_online",
+            "natives",
+            "supports",
+            "packages",
+        ]
         self.highlighting_rules.extend(
             [
                 (re.compile(rf"\b{keyword}\b"), main_keyword_format)
@@ -194,32 +201,18 @@ class ProfileEditor(QDialog):
             self.editor.setPlainText(tr("profile_load_failed_comment", error=str(e)))
 
     def format_toml_content(self, content):
-        """Format TOML content for better readability with proper structure."""
+        """Format TOML content for better readability with proper array of tables structure."""
+        # The content is already properly formatted by TomlProfileWriter
+        # Just clean up any excessive whitespace while preserving the structure
         import re
 
-        # Remove all extra whitespace and newlines first
-        content = " ".join(content.split())
+        # Clean up excessive blank lines (more than 2 consecutive)
+        content = re.sub(r"\n\s*\n\s*\n+", "\n\n", content)
 
-        # Add line breaks after main sections
-        content = re.sub(r'(profileVersion\s*=\s*"[^"]*")', r"\1\n\n", content)
-
-        # Format natives array with advanced options support
+        # Ensure proper spacing after profileVersion
         content = re.sub(
-            r"natives\s*=\s*\[(.*?)\]", self._format_natives_section, content
+            r'(profileVersion\s*=\s*"[^"]*")\s*\n\s*\n\s*(\[\[)', r"\1\n\n\2", content
         )
-
-        # Format supports array
-        content = re.sub(
-            r"supports\s*=\s*\[(.*?)\]", self._format_simple_array_section, content
-        )
-
-        # Format packages array with advanced options support
-        content = re.sub(
-            r"packages\s*=\s*\[(.*?)\]", self._format_packages_section, content
-        )
-
-        # Clean up extra newlines
-        content = re.sub(r"\n\s*\n\s*\n", "\n\n", content)
 
         return content.strip()
 

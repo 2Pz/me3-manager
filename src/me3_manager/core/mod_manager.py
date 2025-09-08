@@ -747,160 +747,28 @@ class ImprovedModManager:
     def _write_improved_config(
         self, config_path: Path, config_data: Dict[str, Any], game_name: str
     ):
-        """Write TOML config file with improved path handling"""
-        lines = []
+        """Write TOML config file using tomlkit for proper formatting"""
+        # Import TomlProfileWriter here to avoid circular imports
+        from me3_manager.core.profiles import TomlProfileWriter
 
-        # Profile version
-        lines.append(f'profileVersion = "{config_data.get("profileVersion", "v1")}"')
-        lines.append("")
-
-        # Natives
-        natives = config_data.get("natives", [])
-        if natives:
-            lines.append("natives = [")
-            native_items = []
-            for native in natives:
-                if isinstance(native, dict):
-                    path = native.get("path", "")
-
-                    # Build the native entry with all advanced options
-                    native_parts = [f"path = '{path}'"]
-
-                    # Add optional flag if present
-                    if "optional" in native:
-                        native_parts.append(
-                            f"optional = {str(native['optional']).lower()}"
-                        )
-
-                    # Add initializer if present
-                    if "initializer" in native:
-                        initializer = native["initializer"]
-                        if isinstance(initializer, dict):
-                            if "function" in initializer:
-                                native_parts.append(
-                                    f'initializer = {{function = "{initializer["function"]}"}}'
-                                )
-                            elif "delay" in initializer:
-                                delay_ms = initializer["delay"].get("ms", 1000)
-                                native_parts.append(
-                                    f"initializer = {{delay = {{ms = {delay_ms}}}}}"
-                                )
-
-                    # Add finalizer if present
-                    if "finalizer" in native:
-                        native_parts.append(f'finalizer = "{native["finalizer"]}"')
-
-                    # Add load_before if present
-                    if "load_before" in native and native["load_before"]:
-                        deps = []
-                        for dep in native["load_before"]:
-                            dep_id = dep.get("id", "")
-                            dep_optional = str(dep.get("optional", False)).lower()
-                            deps.append(
-                                f'{{id = "{dep_id}", optional = {dep_optional}}}'
-                            )
-                        native_parts.append(f"load_before = [{', '.join(deps)}]")
-
-                    # Add load_after if present
-                    if "load_after" in native and native["load_after"]:
-                        deps = []
-                        for dep in native["load_after"]:
-                            dep_id = dep.get("id", "")
-                            dep_optional = str(dep.get("optional", False)).lower()
-                            deps.append(
-                                f'{{id = "{dep_id}", optional = {dep_optional}}}'
-                            )
-                        native_parts.append(f"load_after = [{', '.join(deps)}]")
-
-                    # Join all parts in a single line
-                    native_items.append(f"    {{{', '.join(native_parts)}}}")
-
-            lines.append(",\n".join(native_items))
-            lines.append("]")
-        else:
-            lines.append("natives = []")
-        lines.append("")
-
-        # Supports
-        supports = config_data.get("supports", [])
-        if supports:
-            lines.append("supports = [")
-            support_items = []
-            for support in supports:
-                game = support["game"] if isinstance(support, dict) else support
-                support_items.append(f'    {{game = "{game}"}}')
-            lines.append(",\n".join(support_items))
-            lines.append("]")
-        else:
-            lines.append("supports = []")
-        lines.append("")
-
-        # Packages
-        all_packages = config_data.get("packages", [])
-        # Filter out the main mods directory package from the output list
+        # Filter out the main mods directory package before writing
         main_mods_dirs = {
             game_info["mods_dir"] for game_info in self.config_manager.games.values()
         }
-        packages_to_write = [
-            p for p in all_packages if p.get("id") not in main_mods_dirs
-        ]
 
-        if packages_to_write:
-            lines.append("packages = [")
-            package_items = []
-            for package in packages_to_write:
-                package_parts = []
-                if "id" in package:
-                    package_parts.append(f'id = "{package["id"]}"')
+        # Create a copy of config_data to avoid modifying the original
+        filtered_config = config_data.copy()
 
-                # Use path field with normalized paths for consistency
-                if "path" in package:
-                    path = self._normalize_path(package["path"])
-                    package_parts.append(f"path = '{path}'")
-                elif "source" in package:
-                    # Legacy support for source field
-                    source = package["source"]
-                    # Convert to relative path if it's internal
-                    if Path(source).is_absolute():
-                        try:
-                            relative_path = Path(source).relative_to(
-                                self.config_manager.get_mods_dir(game_name).parent
-                            )
-                            path = self._normalize_path(str(relative_path))
-                        except ValueError:
-                            path = self._normalize_path(source)
-                    else:
-                        path = self._normalize_path(source)
-                    package_parts.append(f"path = '{path}'")
+        # Filter packages
+        if "packages" in filtered_config:
+            filtered_config["packages"] = [
+                p
+                for p in filtered_config["packages"]
+                if p.get("id") not in main_mods_dirs
+            ]
 
-                # Add load_before if present
-                if "load_before" in package and package["load_before"]:
-                    deps = []
-                    for dep in package["load_before"]:
-                        dep_id = dep.get("id", "")
-                        dep_optional = str(dep.get("optional", False)).lower()
-                        deps.append(f'{{id = "{dep_id}", optional = {dep_optional}}}')
-                    package_parts.append(f"load_before = [{', '.join(deps)}]")
-
-                # Add load_after if present
-                if "load_after" in package and package["load_after"]:
-                    deps = []
-                    for dep in package["load_after"]:
-                        dep_id = dep.get("id", "")
-                        dep_optional = str(dep.get("optional", False)).lower()
-                        deps.append(f'{{id = "{dep_id}", optional = {dep_optional}}}')
-                    package_parts.append(f"load_after = [{', '.join(deps)}]")
-
-                package_str = "{" + ", ".join(package_parts) + "}"
-                package_items.append(f"    {package_str}")
-
-            lines.append(",\n".join(package_items))
-            lines.append("]")
-        else:
-            lines.append("packages = []")
-
-        with open(config_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
+        # Use the new TomlProfileWriter with array of tables syntax
+        TomlProfileWriter.write_profile(config_path, filtered_config, game_name)
 
     def has_advanced_options(self, mod_info: ModInfo) -> bool:
         """Check if a mod has any advanced options configured"""

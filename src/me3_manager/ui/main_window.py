@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from me3_manager import __version__ as VERSION
-from me3_manager.core.config_manager import ConfigManager
+from me3_manager.core.config_facade import ConfigFacade
 from me3_manager.core.me3_version_manager import ME3VersionManager
 from me3_manager.ui.draggable_game_button import (
     DraggableGameButton,
@@ -266,7 +266,7 @@ class ModEngine3Manager(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.config_manager = ConfigManager()
+        self.config_manager = ConfigFacade()
         self.me3_version = self.get_me3_version()
 
         # Initialize the centralized version manager

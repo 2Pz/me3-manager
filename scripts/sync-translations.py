@@ -9,6 +9,7 @@ Synchronizes all translation JSON files with the master English translation file
 Usage:
 Run the script from the project root:
 $ ./scripts/sync-translations.py
+uv run ./scripts/sync-translations.py
 """
 
 import json

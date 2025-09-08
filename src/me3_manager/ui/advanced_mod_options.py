@@ -281,9 +281,25 @@ class AdvancedModOptionsDialog(QDialog):
         self.mod_name = mod_name
         self.is_folder_mod = is_folder_mod
         self.current_options = current_options or {}
-        self.available_mods = [
-            mod for mod in available_mods if mod != mod_name
-        ]  # Exclude self
+
+        # For DLL mods, ensure we use the full filename with .dll extension
+        # For package mods, use the folder name as-is
+        processed_available_mods = []
+        for mod in available_mods:
+            if mod != mod_name:  # Exclude self
+                # If it's a DLL mod and doesn't end with .dll, add the extension
+                if (
+                    not self.is_folder_mod
+                    and not mod.endswith(".dll")
+                    and "/" not in mod
+                    and "\\" not in mod
+                ):
+                    # This is likely a DLL mod name without extension, add .dll
+                    processed_available_mods.append(f"{mod}.dll")
+                else:
+                    processed_available_mods.append(mod)
+
+        self.available_mods = processed_available_mods
 
         self.setWindowTitle(tr("advanced_options", mod_name=mod_name))
         self.setMinimumSize(600, 500)
@@ -291,6 +307,42 @@ class AdvancedModOptionsDialog(QDialog):
 
         self.setup_ui()
         self.load_current_options()
+
+    def _convert_dependencies_to_dict_format(self, dependencies):
+        """Convert dependencies from string array format to dictionary format for UI compatibility"""
+        if not dependencies:
+            return []
+
+        converted = []
+        for dep in dependencies:
+            if isinstance(dep, str):
+                # Convert string to dictionary format
+                converted.append({"id": dep, "optional": False})
+            elif isinstance(dep, dict):
+                # Already in dictionary format
+                converted.append(dep)
+
+        return converted
+
+    def _convert_dependencies_to_string_format(self, dependencies):
+        """Convert dependencies from dictionary format back to string array format for TOML"""
+        if not dependencies:
+            return []
+
+        # For now, we only support simple string dependencies (no optional flag in TOML)
+        # Extract just the ID strings from the dictionary format
+        string_deps = []
+        for dep in dependencies:
+            if isinstance(dep, dict) and "id" in dep:
+                dep_id = dep["id"].strip()
+                if dep_id:  # Only add non-empty IDs
+                    string_deps.append(dep_id)
+            elif isinstance(dep, str):
+                dep = dep.strip()
+                if dep:  # Only add non-empty strings
+                    string_deps.append(dep)
+
+        return string_deps
 
     def setup_ui(self):
         """Setup the user interface"""
@@ -431,10 +483,18 @@ class AdvancedModOptionsDialog(QDialog):
         desc.setStyleSheet("color: #cccccc; margin-bottom: 10px;")
         layout.addWidget(desc)
 
+        # Convert string arrays to dictionary format for compatibility
+        load_before_data = self._convert_dependencies_to_dict_format(
+            self.current_options.get("load_before", [])
+        )
+        load_after_data = self._convert_dependencies_to_dict_format(
+            self.current_options.get("load_after", [])
+        )
+
         # Load Before
         self.load_before_widget = DependencyListWidget(
             tr("load_before"),
-            self.current_options.get("load_before", []),
+            load_before_data,
             self.available_mods,
         )
         layout.addWidget(self.load_before_widget)
@@ -442,7 +502,7 @@ class AdvancedModOptionsDialog(QDialog):
         # Load After
         self.load_after_widget = DependencyListWidget(
             tr("load_after"),
-            self.current_options.get("load_after", []),
+            load_after_data,
             self.available_mods,
         )
         layout.addWidget(self.load_after_widget)
@@ -608,9 +668,13 @@ class AdvancedModOptionsDialog(QDialog):
         """Get the configured options (excluding enabled field)"""
         options = {}
 
-        # Load order - always return a list
-        options["load_before"] = self.load_before_widget.get_dependencies()
-        options["load_after"] = self.load_after_widget.get_dependencies()
+        # Load order - convert back to simple string arrays for TOML format
+        options["load_before"] = self._convert_dependencies_to_string_format(
+            self.load_before_widget.get_dependencies()
+        )
+        options["load_after"] = self._convert_dependencies_to_string_format(
+            self.load_after_widget.get_dependencies()
+        )
 
         # Advanced options (DLL only)
         if not self.is_folder_mod:

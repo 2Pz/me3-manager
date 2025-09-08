@@ -12,6 +12,7 @@ dependencies = [
   "pyqt6>=6.9.1",
   "requests>=2.32.5",
   "tomli-w>=1.2.0",
+  "tomlkit>=0.13.0",
 ]
 
 [project.scripts]
