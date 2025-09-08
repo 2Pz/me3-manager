@@ -2,8 +2,8 @@ import re
 import shlex
 import sys
 
-from PyQt6.QtCore import QProcess, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import QProcess, QSize, QTimer
+from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
 
 
@@ -30,11 +31,21 @@ class EmbeddedTerminal(QWidget):
 
         # Terminal header
         header = QHBoxLayout()
+
+        # Create icon label
+        icon_label = QLabel()
+        icon_label.setPixmap(
+            QIcon(resource_path("resources/icon/terminal.svg")).pixmap(QSize(24, 24))
+        )
+
+        # Create title without emoji
         title = QLabel(tr("terminal_title"))
         title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         title.setStyleSheet("color: #ffffff; margin: 4px;")
-        header.addWidget(title)
 
+        # Add both icon and title to header
+        header.addWidget(icon_label)
+        header.addWidget(title)
         header.addStretch()
 
         # Copy button

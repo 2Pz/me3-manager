@@ -384,9 +384,8 @@ class GamePage(QWidget):
 
     def _get_enhanced_profile_button_style(self):
         """Return modern, simple CSS style for profile button."""
-        arrow_path = resource_path("resources/icon/arrow-down.png").replace("\\", "/")
-        return f"""
-            QPushButton {{
+        return """
+            QPushButton {
                 background-color: #404040;
                 border: none;
                 color: #ffffff;
@@ -394,23 +393,20 @@ class GamePage(QWidget):
                 border-bottom-right-radius: 8px;
                 font-size: 14px;
                 font-weight: 500;
-                padding: 12px 36px 12px 16px;
+                padding: 12px 16px;
                 text-align: center;
-            }}
-            QPushButton:hover {{
+            }
+            QPushButton:hover {
                 background-color: #0078d4;
-            }}
-            QPushButton:pressed {{
+            }
+            QPushButton:pressed {
                 background-color: #106ebe;
-            }}
-            QPushButton::menu-indicator {{
-                image: url({arrow_path});
-                position: absolute;
-                right: 12px;
-                top: 50%;
-                width: 12px;
-                height: 12px;
-            }}
+            }
+            QPushButton::menu-indicator {
+                image: none;
+                width: 0px;
+                height: 0px;
+            }
         """
 
     def _get_enhanced_profile_menu_style(self):

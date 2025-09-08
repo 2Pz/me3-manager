@@ -356,7 +356,7 @@
   "nested_mod_full_tooltip": "DLL متداخل: {mod_name}\nالمسار: {mod_path}\n\nهذا المود جزء من حزمة أكبر.",
   "mod_type_tooltip": "النوع: {mod_type}",
   "mod_path_tooltip": "المسار: {mod_path}",
-  "expand_mod_tooltip": "اضغط ▶ عشان تشوف المودات المتداخلة",
+  "expand_mod_tooltip": "اضغط {icon} عشان تشوف المودات المتداخلة",
   "click_to_disable_tooltip": "اضغط عشان تعطله",
   "click_to_enable_tooltip": "اضغط عشان تفعّله",
   "edit_profile_title": "تعديل البروفايل: {profile_name}",
@@ -372,7 +372,7 @@
   "steam_path_unavailable_tooltip": "مسار ستيم مو متاح - لازم يكون ME3 مثبت",
   "me3_updates_header": "تحديثات Mod Engine 3",
   "check_for_updates_checkbox": "شيك على تحديثات ME3 عند التشغيل",
-  "terminal_title": "🖥 الطرفية (Terminal)",
+  "terminal_title": "الطرفية (Terminal)",
   "copy_button": "نسخ",
   "copied_feedback": "تم النسخ!",
   "running_on_host_status": "جاري تشغيل الأمر على نظامك عبر flatpak-spawn...",
