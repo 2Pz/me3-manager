@@ -3,10 +3,10 @@ Path management for ME3 Manager.
 Handles all path resolution, custom paths, and directory management.
 """
 
+import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-from PyQt6.QtCore import QStandardPaths
 
 
 class PathManager:
@@ -33,17 +33,32 @@ class PathManager:
         if self.me3_info:
             dynamic_profile_dir = self.me3_info.get_profile_directory()
             if dynamic_profile_dir:
-                self._config_root = dynamic_profile_dir
+                self._config_root = Path(dynamic_profile_dir)
                 return
 
-        # Use QStandardPaths for cross-platform compatibility
-        config_location = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppLocalDataLocation
-        )
-        # QStandardPaths returns organization/application, we need to set it properly
-        self._config_root = (
-            Path(config_location) / "garyttierney" / "me3" / "config" / "profiles"
-        )
+        # Use platform-specific paths for ME3 config
+        if sys.platform == "win32":
+            localappdata = os.environ.get("LOCALAPPDATA")
+            if localappdata:
+                self._config_root = (
+                    Path(localappdata) / "garyttierney" / "me3" / "config" / "profiles"
+                )
+            else:
+                self._config_root = (
+                    Path.home()
+                    / "AppData"
+                    / "Local"
+                    / "garyttierney"
+                    / "me3"
+                    / "config"
+                    / "profiles"
+                )
+        else:
+            xdg_config = os.environ.get("XDG_CONFIG_HOME")
+            if xdg_config:
+                self._config_root = Path(xdg_config) / "me3" / "profiles"
+            else:
+                self._config_root = Path.home() / ".config" / "me3" / "profiles"
 
     @property
     def config_root(self) -> Path:
@@ -337,4 +352,4 @@ class PathManager:
             self.me3_info.refresh_info()
             dynamic_profile_dir = self.me3_info.get_profile_directory()
             if dynamic_profile_dir:
-                self._config_root = dynamic_profile_dir
+                self._config_root = Path(dynamic_profile_dir)
