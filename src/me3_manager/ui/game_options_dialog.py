@@ -4,9 +4,8 @@ import sys
 import tomllib
 from pathlib import Path
 
-import tomli_w
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QFont
+from PyQt6.QtGui import QDesktopServices, QFont, QKeyEvent
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -22,7 +21,21 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager.utils.toml_config_writer import TomlConfigWriter
 from me3_manager.utils.translator import tr
+
+
+class NoEnterLineEdit(QLineEdit):
+    """QLineEdit that doesn't activate buttons when Enter is pressed."""
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Override key press event to handle Enter/Return keys."""
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            # Consume the event - don't let it propagate to activate buttons
+            event.accept()
+            return
+        # For all other keys, use default behavior
+        super().keyPressEvent(event)
 
 
 class GameOptionsDialog(QDialog):
@@ -153,7 +166,7 @@ class GameOptionsDialog(QDialog):
         # Steam directory path selection
         self.steam_dir_path_layout = QHBoxLayout()
 
-        self.steam_dir_edit = QLineEdit()
+        self.steam_dir_edit = NoEnterLineEdit()
         self.steam_dir_edit.setPlaceholderText(tr("steam_directory_placeholder"))
         self.steam_dir_edit.setStyleSheet(self._get_lineedit_style())
         self.steam_dir_edit.setEnabled(False)
@@ -202,7 +215,7 @@ class GameOptionsDialog(QDialog):
         # Executable path selection
         self.exe_path_layout = QHBoxLayout()
 
-        self.exe_path_edit = QLineEdit()
+        self.exe_path_edit = NoEnterLineEdit()
         self.exe_path_edit.setPlaceholderText(tr("executable_path_placeholder"))
         self.exe_path_edit.setStyleSheet(self._get_lineedit_style())
         self.exe_path_edit.setEnabled(False)
@@ -720,21 +733,37 @@ class GameOptionsDialog(QDialog):
             )
 
             # Handle steam_dir directly by modifying the TOML file
-            steam_save_success = self._save_steam_dir_globally(steam_dir)
+            steam_save_success, steam_error_msg = self._save_steam_dir_globally(
+                steam_dir
+            )
 
-            if game_save_success and steam_save_success:
-                QMessageBox.information(
-                    self,
-                    tr("save_success"),
-                    tr("save_success_message", game_name=self.game_name),
-                )
-                self.accept()
-            else:
+            # Check for errors and provide specific feedback
+            if not game_save_success:
                 QMessageBox.warning(
                     self,
                     tr("save_error"),
-                    tr("save_error_message", game_name=self.game_name),
+                    f"Failed to save game settings for {self.game_name}. Please check the ME3 config file permissions.",
                 )
+                return
+
+            if not steam_save_success:
+                QMessageBox.warning(
+                    self,
+                    tr("save_error"),
+                    f"Failed to save Steam directory setting:\n\n{steam_error_msg}\n\nGame settings were saved successfully, but the Steam directory setting could not be updated.",
+                )
+                return
+
+            # Both saves successful
+            QMessageBox.information(
+                self,
+                tr("save_success"),
+                tr("save_success_message", game_name=self.game_name),
+            )
+
+            # Refresh the config path display in case we switched to a different config file
+            self.load_current_settings()
+            self.accept()
 
         except Exception as e:
             QMessageBox.warning(
@@ -744,80 +773,60 @@ class GameOptionsDialog(QDialog):
             )
 
     def _save_steam_dir_globally(self, steam_dir):
-        """Save steam_dir at the root level of me3.toml (keeping TOML format)"""
+        """Save steam_dir at the root level of me3.toml using TomlConfigWriter"""
         try:
-            # Get the config file path (keep as .toml)
+            # Get the config file path
             config_path = None
             if hasattr(self.config_manager, "get_me3_config_path"):
                 config_path = self.config_manager.get_me3_config_path(self.game_name)
 
             if not config_path:
                 print("ERROR: Could not get ME3 config path")
-                return False
+                return False, "Could not determine ME3 config file path"
 
             config_path_obj = Path(config_path)
 
-            # Check if the config path is writable
-            if config_path_obj.exists():
-                try:
-                    # Test write access
-                    with open(config_path_obj, "a", encoding="utf-8"):
-                        pass
-                except (PermissionError, OSError) as e:
-                    print(f"ERROR: Config file is not writable: {config_path_obj}")
-                    print(f"This is likely a system config file. Error: {e}")
+            # First, validate write access to the original path
+            can_write, error_msg = TomlConfigWriter.validate_write_access(
+                config_path_obj
+            )
 
-                    # Try to get a writable config path instead
-                    writable_path = self._get_writable_config_path()
-                    if writable_path:
-                        config_path_obj = writable_path
-                        print(f"Using writable config path instead: {config_path_obj}")
-                    else:
-                        return False
+            if not can_write:
+                print(f"ERROR: Cannot write to {config_path_obj}: {error_msg}")
+
+                # Try to get a writable config path instead
+                writable_path = self._get_writable_config_path()
+                if writable_path:
+                    config_path_obj = writable_path
+                    print(f"Using writable config path instead: {config_path_obj}")
+
+                    # Update the config manager to use the new path
+                    if hasattr(self.config_manager, "set_me3_config_path"):
+                        self.config_manager.set_me3_config_path(
+                            self.game_name, str(config_path_obj)
+                        )
+                else:
+                    return (
+                        False,
+                        f"No writable config path available. Original error: {error_msg}",
+                    )
+
+            # Use TomlConfigWriter to update the steam_dir value
+            success, error_msg = TomlConfigWriter.update_config_value(
+                config_path_obj, "steam_dir", steam_dir
+            )
+
+            if success:
+                print(f"DEBUG: Successfully saved steam_dir globally: {steam_dir}")
+                return True, ""
             else:
-                # File doesn't exist, check if parent directory is writable
-                try:
-                    config_path_obj.parent.mkdir(parents=True, exist_ok=True)
-                except (PermissionError, OSError) as e:
-                    print(f"ERROR: Cannot create config file at: {config_path_obj}")
-                    print(f"Parent directory not writable. Error: {e}")
-
-                    # Try to get a writable config path instead
-                    writable_path = self._get_writable_config_path()
-                    if writable_path:
-                        config_path_obj = writable_path
-                        print(f"Using writable config path instead: {config_path_obj}")
-                    else:
-                        return False
-
-            # Load existing TOML config or create empty one
-            config_data = {}
-            if config_path_obj.exists():
-                try:
-                    with open(config_path_obj, "rb") as f:
-                        config_data = tomllib.load(f)
-                except Exception as e:
-                    print(f"Warning: Could not parse existing TOML config: {e}")
-                    config_data = {}
-
-            # Set or remove steam_dir at root level
-            if steam_dir:
-                config_data["steam_dir"] = steam_dir
-                print(f"DEBUG: Setting steam_dir globally to: {steam_dir}")
-            else:
-                # Remove steam_dir if it exists
-                config_data.pop("steam_dir", None)
-                print("DEBUG: Removing steam_dir from global config")
-
-            # Save back to file in TOML format
-            with open(config_path_obj, "wb") as f:
-                tomli_w.dump(config_data, f)
-
-            return True
+                print(f"ERROR: Failed to save steam_dir: {error_msg}")
+                return False, error_msg
 
         except Exception as e:
-            print(f"ERROR: Failed to save steam_dir globally: {e}")
-            return False
+            error_msg = f"Unexpected error saving steam_dir: {str(e)}"
+            print(f"ERROR: {error_msg}")
+            return False, error_msg
 
     def _get_writable_config_path(self):
         """Get a writable config path, preferring user locations over system ones"""

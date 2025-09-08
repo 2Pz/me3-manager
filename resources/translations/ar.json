@@ -178,7 +178,7 @@
   "boot_boost_label": "تعزيز الإقلاع:",
   "steam_directory_title": "مجلد ستيم (Steam)",
   "steam_directory_checkbox": "استخدام مجلد ستيم مخصص",
-  "steam_directory_label": "مسار مجلد تثبيت ستيم",
+  "steam_directory_placeholder": "مسار مجلد تثبيت ستيم",
   "clear_button": "مسح",
   "steam_directory_info": "💡 حدد مجلد تثبيت ستيم مخصص إذا ما قدر ME3 يكتشفه تلقائيًا.",
   "custom_executable_title": "ملف تنفيذي مخصص",
