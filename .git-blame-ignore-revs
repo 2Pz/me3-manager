@@ -1,0 +1,27 @@
+# -*- mode: conf-unix; -*-
+# This file lists commits that should be ignored during git blame.
+#
+# Only include commits that contain purely formatting changes or file renames.
+# Make sure the formatting doesn't change the behaviour of code.
+# If in doubt, do not add the commit to this file.
+#
+# This file's name is a common convention (used by GitHub, GitLab, etc), but not
+# a git default. To enable it for local git blame, configure in your repo:
+#
+#     $ git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# https://docs.github.com/en/repositories/working-with-files/using-files/viewing-and-understanding-files#ignore-commits-in-the-blame-view
+
+# Apply isort fix -- only sorted imports, no functional changes
+e2eb282eedae3c70e0463b0c97c2aa4146ba1c55
+# Move source code under src/ dir -- only moves, no edits
+cc669f7073106b7ef1bfad6445b37ed9a5899f36
+
+# These 2 commits are no-op (exact revert), checked with `git diff 95838c5^ df918d5`
+# Refactor translation placeholders in en.json [...]
+95838c55e34d210d7370908587a318047ff8b9a7
+# Revert "Refactor translation placeholders in en.json [...]"
+df918d5c1a8a660d520286022b8fbb5d66d7e656
+
+# Update config_facade.py -- whitespace
+05f0fb53562ce523a12cf3e0825d911cd0ede85b
