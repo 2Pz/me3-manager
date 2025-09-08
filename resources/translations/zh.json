@@ -178,7 +178,7 @@
   "boot_boost_label": "启动加速:",
   "steam_directory_title": "Steam 目录",
   "steam_directory_checkbox": "使用自定义 Steam 目录",
-  "steam_directory_label": "Steam 安装目录路径",
+  "steam_directory_placeholder": "Steam 安装目录路径",
   "clear_button": "清除",
   "steam_directory_info": "💡 如果 ME3 无法自动检测到，请指定自定义 Steam 安装目录。",
   "custom_executable_title": "自定义执行程序",

@@ -178,7 +178,7 @@
   "boot_boost_label": "Boot Boost:",
   "steam_directory_title": "Steam Directory",
   "steam_directory_checkbox": "Use custom Steam directory",
-  "steam_directory_label": "Path to Steam installation directory",
+  "steam_directory_placeholder": "Path to Steam installation directory",
   "clear_button": "Clear",
   "steam_directory_info": "💡 Specify a custom Steam installation directory if ME3 cannot auto-detect it.",
   "custom_executable_title": "Custom Executable",
