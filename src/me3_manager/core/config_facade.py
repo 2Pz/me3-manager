@@ -3,10 +3,12 @@ Configuration facade for backward compatibility.
 Provides the same interface as the old ConfigManager while delegating to new components.
 """
 
+import os
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PyQt6.QtCore import QFileSystemWatcher, QStandardPaths
+from PyQt6.QtCore import QFileSystemWatcher
 
 from me3_manager.core.me3_info import ME3InfoManager
 from me3_manager.core.paths import FileWatcher, PathManager
@@ -27,6 +29,7 @@ class ConfigFacade:
 
         # Determine settings file path
         settings_file = self._get_initial_settings_path()
+        
 
         # Initialize core components
         self.settings_manager = SettingsManager(settings_file)
@@ -57,15 +60,31 @@ class ConfigFacade:
         if self.me3_info and self.me3_info.is_me3_installed():
             profile_dir = self.me3_info.get_profile_directory()
             if profile_dir:
-                return profile_dir.parent / "manager_settings.json"
+                return Path(profile_dir).parent / "manager_settings.json"
 
-        # Use QStandardPaths for cross-platform compatibility
-        config_location = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppLocalDataLocation
-        )
-        config_root = (
-            Path(config_location) / "garyttierney" / "me3" / "config" / "profiles"
-        )
+        # Use platform-specific paths for ME3 config
+        if sys.platform == "win32":
+            localappdata = os.environ.get("LOCALAPPDATA")
+            if localappdata:
+                config_root = (
+                    Path(localappdata) / "garyttierney" / "me3" / "config" / "profiles"
+                )
+            else:
+                config_root = (
+                    Path.home()
+                    / "AppData"
+                    / "Local"
+                    / "garyttierney"
+                    / "me3"
+                    / "config"
+                    / "profiles"
+                )
+        else:
+            xdg_config = os.environ.get("XDG_CONFIG_HOME")
+            if xdg_config:
+                config_root = Path(xdg_config) / "me3" / "profiles"
+            else:
+                config_root = Path.home() / ".config" / "me3" / "profiles"
 
         return config_root.parent / "manager_settings.json"
 
