@@ -1584,11 +1584,7 @@ class GamePage(QWidget):
         Can now accept a source_mods dictionary to bypass fetching from config_manager.
         """
         search_text = self.search_bar.text().lower()
-        all_mods = (
-            source_mods
-            if source_mods is not None
-            else self.all_mods_data
-        )
+        all_mods = source_mods if source_mods is not None else self.all_mods_data
 
         self.filtered_mods = {}
 
