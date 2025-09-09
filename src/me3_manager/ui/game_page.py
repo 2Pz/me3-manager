@@ -62,6 +62,7 @@ class GamePage(QWidget):
         self.current_page = 1
         self.total_pages = 1
         self.filtered_mods = {}
+        self.all_mods_data = {}  # Store all mods data for filtering
 
         self.acceptable_folders = [
             "_backup",
@@ -1555,6 +1556,8 @@ class GamePage(QWidget):
                 "advanced_options": mod_info.advanced_options,
             }
 
+        # Store the mods data for filtering
+        self.all_mods_data = final_mods
         self.apply_filters(reset_page=reset_page, source_mods=final_mods)
         self.update_profile_dropdown()
 
@@ -1581,11 +1584,7 @@ class GamePage(QWidget):
         Can now accept a source_mods dictionary to bypass fetching from config_manager.
         """
         search_text = self.search_bar.text().lower()
-        all_mods = (
-            source_mods
-            if source_mods is not None
-            else self.config_manager.get_mods_info(self.game_name, skip_sync=True)
-        )
+        all_mods = source_mods if source_mods is not None else self.all_mods_data
 
         self.filtered_mods = {}
 

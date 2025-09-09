@@ -10,6 +10,7 @@ import requests
 from PyQt6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
 
+from me3_manager.utils.status import Status
 from me3_manager.utils.translator import tr
 
 if sys.platform == "win32":
@@ -20,7 +21,7 @@ class ME3Downloader(QObject):
     """Handles downloading ME3 installer files in a separate thread (for Windows)."""
 
     download_progress = pyqtSignal(int)
-    download_finished = pyqtSignal(str, str)
+    download_finished = pyqtSignal(int, str, str)  # status_code, message, file_path
 
     def __init__(self, url: str, save_path: str):
         super().__init__()
@@ -38,7 +39,9 @@ class ME3Downloader(QObject):
             with open(self.save_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if self._is_cancelled:
-                        self.download_finished.emit(tr("download_cancelled"), "")
+                        self.download_finished.emit(
+                            Status.CANCELLED, tr("download_cancelled"), ""
+                        )
                         return
                     if chunk:
                         bytes_downloaded += len(chunk)
@@ -47,11 +50,15 @@ class ME3Downloader(QObject):
                             progress = int((bytes_downloaded / total_size) * 100)
                             self.download_progress.emit(progress)
 
-            self.download_finished.emit(tr("download_complete"), self.save_path)
+            self.download_finished.emit(
+                Status.SUCCESS, tr("download_complete"), self.save_path
+            )
         except requests.RequestException as e:
-            self.download_finished.emit(tr("NETWORK_ERROR", e=e), "")
+            self.download_finished.emit(
+                Status.NETWORK_ERROR, tr("NETWORK_ERROR", e=e), ""
+            )
         except Exception as e:
-            self.download_finished.emit(tr("ERROR_OCCURRED", e=e), "")
+            self.download_finished.emit(Status.FAILED, tr("ERROR_OCCURRED", e=e), "")
 
     def cancel(self):
         self._is_cancelled = True
@@ -60,7 +67,7 @@ class ME3Downloader(QObject):
 class ME3Updater(QObject):
     """Runs 'me3 update' command in a separate thread to prevent UI freezing."""
 
-    update_finished = pyqtSignal(int, str)
+    update_finished = pyqtSignal(int, int, str)  # status_code, return_code, output
 
     def __init__(self, prepare_command_func: Callable[[list], list]):
         super().__init__()
@@ -84,20 +91,27 @@ class ME3Updater(QObject):
             )
 
             output = (result.stdout.strip() + "\n" + result.stderr.strip()).strip()
-            self.update_finished.emit(result.returncode, output)
+            status_code = Status.SUCCESS if result.returncode == 0 else Status.FAILED
+            self.update_finished.emit(status_code, result.returncode, output)
 
         except FileNotFoundError:
-            self.update_finished.emit(-1, tr("me3_command_not_found"))
+            self.update_finished.emit(
+                Status.NOT_INSTALLED, -1, tr("me3_command_not_found")
+            )
         except subprocess.TimeoutExpired:
-            self.update_finished.emit(-2, tr("update_process_timeout", minutes="2"))
+            self.update_finished.emit(
+                Status.TIMEOUT, -2, tr("update_process_timeout", minutes="2")
+            )
         except Exception as e:
-            self.update_finished.emit(-3, tr("UNEXPECTED_ERROR_OCCURRED", e=e))
+            self.update_finished.emit(
+                Status.FAILED, -3, tr("UNEXPECTED_ERROR_OCCURRED", e=e)
+            )
 
 
 class ME3LinuxInstaller(QObject):
     """Runs ME3 installer script in a separate thread for Linux."""
 
-    install_finished = pyqtSignal(int, str)
+    install_finished = pyqtSignal(int, int, str)  # status_code, return_code, output
 
     def __init__(
         self,
@@ -142,12 +156,17 @@ class ME3LinuxInstaller(QObject):
             )
 
             output = (result.stdout.strip() + "\n" + result.stderr.strip()).strip()
-            self.install_finished.emit(result.returncode, output)
+            status_code = Status.SUCCESS if result.returncode == 0 else Status.FAILED
+            self.install_finished.emit(status_code, result.returncode, output)
 
         except subprocess.TimeoutExpired:
-            self.install_finished.emit(-2, tr("update_process_timeout", minutes="2.5"))
+            self.install_finished.emit(
+                Status.TIMEOUT, -2, tr("update_process_timeout", minutes="2.5")
+            )
         except Exception as e:
-            self.install_finished.emit(-3, tr("UNEXPECTED_ERROR_OCCURRED", e=e))
+            self.install_finished.emit(
+                Status.FAILED, -3, tr("UNEXPECTED_ERROR_OCCURRED", e=e)
+            )
 
 
 class ME3VersionManager:
@@ -285,7 +304,7 @@ class ME3VersionManager:
         self.thread.start()
         self.progress_dialog.show()
 
-    def _on_update_finished(self, return_code: int, output: str):
+    def _on_update_finished(self, status_code: int, return_code: int, output: str):
         """Handle completion of ME3 update process."""
         self._cleanup_thread()
 
@@ -294,11 +313,23 @@ class ME3VersionManager:
         # Refresh ME3 status and trigger app refresh
         self.refresh_callback()
 
-        if return_code == 0:
+        if status_code == Status.SUCCESS:
             QMessageBox.information(
                 self.parent,
                 tr("update_complete"),
                 tr("update_complete_text", clean_output=clean_output),
+            )
+        elif status_code == Status.NOT_INSTALLED:
+            QMessageBox.warning(
+                self.parent,
+                tr("me3_not_installed"),
+                clean_output,
+            )
+        elif status_code == Status.TIMEOUT:
+            QMessageBox.warning(
+                self.parent,
+                tr("update_timeout"),
+                clean_output,
             )
         else:
             QMessageBox.warning(
@@ -391,11 +422,11 @@ class ME3VersionManager:
                     tr("installation_detected_text", current_version=current_version),
                 )
 
-    def _on_download_finished(self, message: str, file_path: str):
+    def _on_download_finished(self, status_code: int, message: str, file_path: str):
         """Handle completion of ME3 installer download."""
         self._cleanup_thread()
 
-        if tr("download_complete") in message.lower() and file_path:
+        if status_code == Status.SUCCESS and file_path:
             reply = QMessageBox.information(
                 self.parent,
                 tr("download_complete"),
@@ -409,7 +440,12 @@ class ME3VersionManager:
                 # Start monitoring for installation completion
                 self._start_installation_monitoring()
 
-        elif tr("download_cancelled") not in message.lower():
+        elif status_code == Status.CANCELLED:
+            # Don't show error for cancelled downloads
+            pass
+        elif status_code == Status.NETWORK_ERROR:
+            QMessageBox.critical(self.parent, tr("network_error"), message)
+        else:
             QMessageBox.critical(self.parent, tr("download_failed"), message)
 
     def custom_install_windows_me3(self, release_type: str = "latest"):
@@ -521,15 +557,26 @@ class ME3VersionManager:
         if hasattr(self, "worker") and isinstance(self.worker, ME3CustomInstaller):
             self.worker.cancel()
 
-    def _on_custom_install_finished(self, return_code: int, message: str):
+    def _on_custom_install_finished(
+        self, status_code: int, return_code: int, message: str
+    ):
         """Handle completion of custom ME3 installation."""
         self._cleanup_thread()
 
         # Refresh ME3 status and trigger app refresh
         self.refresh_callback()
 
-        if return_code == 0:
+        if status_code == Status.SUCCESS:
             QMessageBox.information(self.parent, tr("installation_complete"), message)
+        elif status_code == Status.CANCELLED:
+            # Don't show error for cancelled installations
+            pass
+        elif status_code == Status.NETWORK_ERROR:
+            QMessageBox.warning(self.parent, tr("network_error"), message)
+        elif status_code == Status.PERMISSION_ERROR:
+            QMessageBox.warning(self.parent, tr("permission_error"), message)
+        elif status_code == Status.INVALID_DATA:
+            QMessageBox.warning(self.parent, tr("invalid_data_error"), message)
         else:
             QMessageBox.warning(self.parent, tr("installation_failed"), message)
 
@@ -590,7 +637,9 @@ class ME3VersionManager:
         self.thread.start()
         self.progress_dialog.show()
 
-    def _on_linux_install_finished(self, return_code: int, output: str):
+    def _on_linux_install_finished(
+        self, status_code: int, return_code: int, output: str
+    ):
         """Handle completion of Linux ME3 installation."""
         self._cleanup_thread()
 
@@ -599,7 +648,7 @@ class ME3VersionManager:
         # Refresh ME3 status and trigger app refresh
         self.refresh_callback()
 
-        if return_code == 0:
+        if status_code == Status.SUCCESS:
             # Try to find the version from the script's output
             version_match = re.search(
                 r"using latest version: (v[0-9]+\.[0-9]+\.[0-9]+)", clean_output
@@ -616,6 +665,12 @@ class ME3VersionManager:
 
             QMessageBox.information(
                 self.parent, tr("installation_complete"), final_message
+            )
+        elif status_code == Status.TIMEOUT:
+            QMessageBox.warning(
+                self.parent,
+                tr("installation_timeout"),
+                clean_output,
             )
         else:
             QMessageBox.warning(
@@ -694,7 +749,7 @@ class ME3CustomInstaller(QObject):
     """Handles downloading and installing ME3 portable distribution for Windows."""
 
     download_progress = pyqtSignal(int)
-    install_finished = pyqtSignal(int, str)
+    install_finished = pyqtSignal(int, int, str)  # status_code, return_code, message
 
     def __init__(self, url: str, temp_path: str, path_manager):
         super().__init__()
@@ -716,7 +771,9 @@ class ME3CustomInstaller(QObject):
             with open(self.temp_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if self._is_cancelled:
-                        self.install_finished.emit(-1, tr("download_cancelled"))
+                        self.install_finished.emit(
+                            Status.CANCELLED, -1, tr("download_cancelled")
+                        )
                         return
                     if chunk:
                         bytes_downloaded += len(chunk)
@@ -775,6 +832,7 @@ class ME3CustomInstaller(QObject):
                         files_list += f"\n... and {len(all_files) - 10} more files"
 
                     self.install_finished.emit(
+                        Status.INVALID_DATA,
                         -2,
                         tr(
                             "could_not_find_me3_exe",
@@ -803,7 +861,7 @@ class ME3CustomInstaller(QObject):
                         continue
 
                 if extracted_count == 0:
-                    self.install_finished.emit(-2, tr("failed_extract"))
+                    self.install_finished.emit(Status.FAILED, -2, tr("failed_extract"))
                     return
 
             self.download_progress.emit(75)  # Extraction complete
@@ -823,20 +881,30 @@ class ME3CustomInstaller(QObject):
                     pass  # Ignore file cleanup errors
 
                 self.install_finished.emit(
-                    0, tr("install_add_path", install_path=str(self.install_path))
+                    Status.SUCCESS,
+                    0,
+                    tr("install_add_path", install_path=str(self.install_path)),
                 )
             else:
-                self.install_finished.emit(-3, tr("add_user_path_failed"))
+                self.install_finished.emit(
+                    Status.PERMISSION_ERROR, -3, tr("add_user_path_failed")
+                )
 
         except zipfile.BadZipFile:
-            self.install_finished.emit(-2, tr("download_file_not_vaild"))
+            self.install_finished.emit(
+                Status.INVALID_DATA, -2, tr("download_file_not_vaild")
+            )
         except requests.RequestException as e:
-            self.install_finished.emit(-1, tr("NETWORK_ERROR", e=e))
+            self.install_finished.emit(
+                Status.NETWORK_ERROR, -1, tr("NETWORK_ERROR", e=e)
+            )
         except Exception as e:
-            self.install_finished.emit(-3, tr("ERROR_OCCURRED", e=e))
+            self.install_finished.emit(Status.FAILED, -3, tr("ERROR_OCCURRED", e=e))
 
     def _add_to_user_path(self, new_path: str) -> bool:
         """Add the installation path to the user PATH environment variable."""
+        if sys.platform != "win32":
+            return False
         try:
             # Open the user Environment subkey in the registry
             with winreg.OpenKey(
@@ -908,6 +976,8 @@ class ME3CustomInstaller(QObject):
 
     def _refresh_current_process_path(self):
         """Refresh the PATH environment variable for the current process."""
+        if sys.platform != "win32":
+            return
         try:
             # Read the updated user PATH from registry
             with winreg.OpenKey(

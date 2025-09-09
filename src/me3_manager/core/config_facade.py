@@ -25,7 +25,9 @@ class ConfigFacade:
     def __init__(self):
         """Initialize the facade with all necessary components."""
         # Initialize ME3 info manager
-        self.me3_info = ME3InfoManager()
+        self.me3_info_manager = ME3InfoManager()
+        # Keep legacy attribute for backward compatibility
+        self.me3_info = self.me3_info_manager
 
         # Determine settings file path
         settings_file = self._get_initial_settings_path()
@@ -35,7 +37,7 @@ class ConfigFacade:
         self.ui_settings = UISettings(self.settings_manager)
         self.game_registry = GameRegistry(self.settings_manager)
         self.path_manager = PathManager(
-            self.settings_manager, self.game_registry, self.me3_info
+            self.settings_manager, self.game_registry, self.me3_info_manager
         )
         self.file_watcher_handler = FileWatcher()
 
@@ -56,8 +58,8 @@ class ConfigFacade:
     def _get_initial_settings_path(self) -> Path:
         """Get the initial settings file path."""
         # Try to get from ME3 info
-        if self.me3_info and self.me3_info.is_me3_installed():
-            profile_dir = self.me3_info.get_profile_directory()
+        if self.me3_info_manager and self.me3_info_manager.is_me3_installed():
+            profile_dir = self.me3_info_manager.get_profile_directory()
             if profile_dir:
                 return Path(profile_dir).parent / "manager_settings.json"
 
@@ -407,23 +409,27 @@ class ConfigFacade:
 
     def is_me3_installed(self) -> bool:
         """Check if ME3 is installed."""
-        return self.me3_info.is_me3_installed()
+        return self.me3_info_manager.is_me3_installed()
+
+    def get_me3_installation_status(self) -> int:
+        """Get ME3 installation status as a Status code."""
+        return self.me3_info_manager.get_me3_installation_status()
 
     def get_me3_version(self) -> Optional[str]:
         """Get ME3 version."""
-        return self.me3_info.get_version()
+        return self.me3_info_manager.get_version()
 
     def get_steam_path(self) -> Optional[Path]:
         """Get Steam path."""
-        return self.me3_info.get_steam_path()
+        return self.me3_info_manager.get_steam_path()
 
     def get_logs_directory(self) -> Optional[Path]:
         """Get ME3 logs directory."""
-        return self.me3_info.get_logs_directory()
+        return self.me3_info_manager.get_logs_directory()
 
     def refresh_me3_info(self):
         """Refresh ME3 info."""
-        self.me3_info.refresh_info()
+        self.me3_info_manager.refresh_info()
         self.path_manager.refresh_config_root()
         self.config_root = self.path_manager.config_root
 
@@ -506,10 +512,11 @@ class ConfigFacade:
         # For now, return False
         return False
 
-    def get_mods_info(self, game_name):
+    def get_mods_info(self, game_name, skip_sync=False):
         """Get mods info for a game (needed by various UI components)."""
         # This would be handled by ModManager in full refactor
         # For now, return empty dict
+        # The skip_sync parameter is accepted for compatibility but not used
         return {}
 
     def set_mod_enabled(self, game_name, mod_path, enabled):
