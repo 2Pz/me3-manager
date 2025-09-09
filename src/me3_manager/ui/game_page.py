@@ -1973,7 +1973,7 @@ class GamePage(QWidget):
 
                 if reply == QMessageBox.StandardButton.Yes:
                     # Open the installation dialog
-                    from ui.main_window import HelpAboutDialog
+                    from me3_manager.ui.main_window import HelpAboutDialog
 
                     dialog = HelpAboutDialog(self.window(), initial_setup=True)
                     dialog.exec()

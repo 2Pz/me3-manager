@@ -39,9 +39,7 @@ class HelpAboutDialog(QDialog):
     def __init__(self, main_window, initial_setup=False):
         super().__init__(main_window)
         self.main_window = main_window
-        self.version_manager = (
-            main_window.version_manager
-        )  # Use the centralized version manager
+        self.version_manager = self.main_window.version_manager
         self.setMinimumWidth(550)
         self.setStyleSheet("""
             QDialog { background-color: #252525; color: #ffffff; }
@@ -83,7 +81,7 @@ class HelpAboutDialog(QDialog):
         line.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line)
 
-        self.close_button = QPushButton()  # Defined here for use in if/else
+        self.close_button = QPushButton()
 
         if initial_setup:
             self.setWindowTitle(tr("me3_required_title"))
@@ -120,7 +118,7 @@ class HelpAboutDialog(QDialog):
                 f'<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">{tr("win_tutorial_title")}</a>'
             )
         else:
-            # For Linux/macOS, use the same video link but with a different text
+            # For Linux, use the same video link but with a different text
             # since the installation process is different.
             video_link = QLabel(
                 f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>'
@@ -273,6 +271,7 @@ class ModEngine3Manager(QMainWindow):
         self.version_manager = ME3VersionManager(
             parent_widget=self,
             config_manager=self.config_manager,
+            path_manager=self.config_manager.path_manager,
             refresh_callback=self.refresh_me3_status,
         )
 
@@ -374,7 +373,7 @@ class ModEngine3Manager(QMainWindow):
         self.game_container.set_game_order(game_order)
 
         # 5. Rebuild the game pages in the content area
-        from ui.game_page import GamePage
+        from me3_manager.ui.game_page import GamePage
 
         # Iterate through the ordered list to add pages sequentially
         for game_name in game_order:
@@ -548,8 +547,11 @@ class ModEngine3Manager(QMainWindow):
             self.content_layout.addWidget(page)
             self.game_pages[game_name] = page
 
-        first_game = self.config_manager.get_game_order()[0]
-        self.switch_game(first_game)
+        game_order = self.config_manager.get_game_order()
+        if game_order:
+            first_game = game_order[0]
+            self.switch_game(first_game)
+
         self.terminal = EmbeddedTerminal()
         self.content_layout.addWidget(self.terminal)
         parent.addWidget(self.content_stack)
@@ -601,7 +603,7 @@ class ModEngine3Manager(QMainWindow):
         This method is triggered by the QFileSystemWatcher. It starts a
         debounced timer to perform a full refresh, preventing rapid-fire updates.
         """
-        # print(f"Filesystem change detected at: {path}. Scheduling a full refresh.")
+
         self.refresh_timer.start(500)
 
     def perform_global_refresh(self):
@@ -609,7 +611,6 @@ class ModEngine3Manager(QMainWindow):
         This is the master refresh function. It cleans the config and then forces
         every single game page to completely reload its UI from that clean config.
         """
-        # print("Performing global state refresh...")
 
         # Step 1: Prune the master list of profiles from the settings file.
         # This removes profiles whose folders have been deleted.
@@ -635,8 +636,6 @@ class ModEngine3Manager(QMainWindow):
 
         # Step 4: Update the file watcher to only monitor directories that still exist.
         self.config_manager.setup_file_watcher()
-
-        # print("Global refresh complete.")
 
     def on_game_order_changed(self, new_order):
         self.config_manager.set_game_order(new_order)

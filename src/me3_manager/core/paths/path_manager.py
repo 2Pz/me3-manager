@@ -216,6 +216,19 @@ class PathManager:
         me3_paths[game_name] = config_path
         self.settings_manager.set("me3_config_paths", me3_paths)
 
+    def get_me3_binary_path(self) -> Path:
+        """
+        Get the path where the ME3 binary/executable should be installed.
+        This is typically a 'bin' directory alongside the 'config' directory.
+
+        Returns:
+            Path to the binary installation directory.
+        """
+        # self.config_root is .../me3/config/profiles
+        # We want .../me3/bin
+        me3_root = self.config_root.parent.parent
+        return me3_root / "bin"
+
     def ensure_directories(self, game_name: Optional[str] = None) -> None:
         """
         Ensure necessary directories exist.
