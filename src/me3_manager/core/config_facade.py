@@ -108,7 +108,7 @@ class ConfigFacade:
         self.stored_custom_profile_paths = {}
         self.stored_custom_mods_paths = {}
 
-    # ========== Settings Management (delegated) ==========
+    # Settings Management (delegated)
 
     def _load_settings(self) -> dict:
         """Legacy method for loading settings."""
@@ -131,7 +131,7 @@ class ConfigFacade:
         )
         self.settings_manager.save_settings()
 
-    # ========== Game Management (delegated to GameRegistry) ==========
+    # Game Management (delegated to GameRegistry)
 
     def add_game(
         self, name: str, mods_dir: str, profile: str, cli_id: str, executable: str
@@ -190,7 +190,7 @@ class ConfigFacade:
             self._sync_legacy_attributes()
         return success
 
-    # ========== UI Settings (delegated to UISettings) ==========
+    # UI Settings (delegated to UISettings)
 
     def get_mods_per_page(self) -> int:
         """Get mods per page setting."""
@@ -216,7 +216,7 @@ class ConfigFacade:
         """Set auto launch Steam setting."""
         self.ui_settings.set_auto_launch_steam(enabled)
 
-    # ========== Path Management (delegated to PathManager) ==========
+    # Path Management (delegated to PathManager)
 
     def get_mods_dir(self, game_name: str) -> Path:
         """Get mods directory for a game."""
@@ -249,7 +249,7 @@ class ConfigFacade:
         """Ensure all necessary directories exist."""
         self.path_manager.ensure_directories()
 
-    # ========== File Watcher (delegated to FileWatcher) ==========
+    # File Watcher (delegated to FileWatcher)
 
     def setup_file_watcher(self):
         """Setup file watcher for all games."""
@@ -266,7 +266,7 @@ class ConfigFacade:
         if new_dirs:
             self.file_watcher.addPaths(new_dirs)
 
-    # ========== Profile Management ==========
+    # Profile Management
 
     def get_profiles_for_game(self, game_name: str) -> List[Dict]:
         """Get all profiles for a game."""
@@ -361,7 +361,7 @@ class ConfigFacade:
         # Delegate to GameRegistry for the actual default games
         return self.game_registry.DEFAULT_GAMES
 
-    # ========== External Mod Tracking ==========
+    # External Mod Tracking
 
     def track_external_mod(self, game_name: str, mod_path: str):
         """Track an external mod."""
@@ -403,7 +403,7 @@ class ConfigFacade:
                     del self.tracked_external_mods[game_name][active_profile_id]
                 self._save_settings()
 
-    # ========== ME3 Integration ==========
+    # ME3 Integration
 
     def is_me3_installed(self) -> bool:
         """Check if ME3 is installed."""
@@ -427,7 +427,7 @@ class ConfigFacade:
         self.path_manager.refresh_config_root()
         self.config_root = self.path_manager.config_root
 
-    # ========== Additional methods needed by mod_manager ==========
+    # Additional methods needed by mod_manager
 
     def _parse_toml_config(self, config_path):
         """Parse TOML config file (needed by mod_manager)."""

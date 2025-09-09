@@ -81,7 +81,7 @@ class HelpAboutDialog(QDialog):
         line.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line)
 
-        self.close_button = QPushButton()  # Defined here for use in if/else
+        self.close_button = QPushButton()
 
         if initial_setup:
             self.setWindowTitle(tr("me3_required_title"))
@@ -118,7 +118,7 @@ class HelpAboutDialog(QDialog):
                 f'<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">{tr("win_tutorial_title")}</a>'
             )
         else:
-            # For Linux/macOS, use the same video link but with a different text
+            # For Linux, use the same video link but with a different text
             # since the installation process is different.
             video_link = QLabel(
                 f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>'
@@ -603,7 +603,7 @@ class ModEngine3Manager(QMainWindow):
         This method is triggered by the QFileSystemWatcher. It starts a
         debounced timer to perform a full refresh, preventing rapid-fire updates.
         """
-        # print(f"Filesystem change detected at: {path}. Scheduling a full refresh.")
+
         self.refresh_timer.start(500)
 
     def perform_global_refresh(self):
@@ -611,7 +611,6 @@ class ModEngine3Manager(QMainWindow):
         This is the master refresh function. It cleans the config and then forces
         every single game page to completely reload its UI from that clean config.
         """
-        # print("Performing global state refresh...")
 
         # Step 1: Prune the master list of profiles from the settings file.
         # This removes profiles whose folders have been deleted.
@@ -637,8 +636,6 @@ class ModEngine3Manager(QMainWindow):
 
         # Step 4: Update the file watcher to only monitor directories that still exist.
         self.config_manager.setup_file_watcher()
-
-        # print("Global refresh complete.")
 
     def on_game_order_changed(self, new_order):
         self.config_manager.set_game_order(new_order)

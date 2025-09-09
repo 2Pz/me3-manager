@@ -12,7 +12,6 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
 
 from me3_manager.utils.translator import tr
 
-# Conditionally import winreg for Windows-specific functionality
 if sys.platform == "win32":
     import winreg
 
@@ -21,7 +20,7 @@ class ME3Downloader(QObject):
     """Handles downloading ME3 installer files in a separate thread (for Windows)."""
 
     download_progress = pyqtSignal(int)
-    download_finished = pyqtSignal(str, str)  # message, file_path
+    download_finished = pyqtSignal(str, str)
 
     def __init__(self, url: str, save_path: str):
         super().__init__()
@@ -61,7 +60,7 @@ class ME3Downloader(QObject):
 class ME3Updater(QObject):
     """Runs 'me3 update' command in a separate thread to prevent UI freezing."""
 
-    update_finished = pyqtSignal(int, str)  # return_code, output_message
+    update_finished = pyqtSignal(int, str)
 
     def __init__(self, prepare_command_func: Callable[[list], list]):
         super().__init__()
@@ -98,7 +97,7 @@ class ME3Updater(QObject):
 class ME3LinuxInstaller(QObject):
     """Runs ME3 installer script in a separate thread for Linux."""
 
-    install_finished = pyqtSignal(int, str)  # return_code, output_message
+    install_finished = pyqtSignal(int, str)
 
     def __init__(
         self,
@@ -695,7 +694,7 @@ class ME3CustomInstaller(QObject):
     """Handles downloading and installing ME3 portable distribution for Windows."""
 
     download_progress = pyqtSignal(int)
-    install_finished = pyqtSignal(int, str)  # return_code, message
+    install_finished = pyqtSignal(int, str)
 
     def __init__(self, url: str, temp_path: str, path_manager):
         super().__init__()
