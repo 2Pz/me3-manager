@@ -512,10 +512,11 @@ class ConfigFacade:
         # For now, return False
         return False
 
-    def get_mods_info(self, game_name):
+    def get_mods_info(self, game_name, skip_sync=False):
         """Get mods info for a game (needed by various UI components)."""
         # This would be handled by ModManager in full refactor
         # For now, return empty dict
+        # The skip_sync parameter is accepted for compatibility but not used
         return {}
 
     def set_mod_enabled(self, game_name, mod_path, enabled):
