@@ -39,9 +39,7 @@ class HelpAboutDialog(QDialog):
     def __init__(self, main_window, initial_setup=False):
         super().__init__(main_window)
         self.main_window = main_window
-        self.version_manager = (
-            self.main_window.version_manager
-        )
+        self.version_manager = self.main_window.version_manager
         self.setMinimumWidth(550)
         self.setStyleSheet("""
             QDialog { background-color: #252525; color: #ffffff; }
