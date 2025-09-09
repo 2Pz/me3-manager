@@ -292,7 +292,7 @@ class GameOptionsDialog(QDialog):
                     )
                 else:
                     self.config_path_label.setText(
-                        tr("config_path_not_exist", path=config_path)
+                        tr("config_path_not_exist", config_path=config_path)
                     )
                     self.config_path_label.setStyleSheet(
                         "color: #FFB347; font-size: 12px; font-family: 'Consolas', 'Monaco', monospace;"
