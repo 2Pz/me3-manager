@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -23,6 +24,8 @@ from PyQt6.QtWidgets import (
 
 from me3_manager.utils.toml_config_writer import TomlConfigWriter
 from me3_manager.utils.translator import tr
+
+log = logging.getLogger(__name__)
 
 
 class NoEnterLineEdit(QLineEdit):
@@ -318,8 +321,8 @@ class GameOptionsDialog(QDialog):
             if not steam_dir:
                 steam_dir = self.current_settings.get("steam_dir")
                 if steam_dir:
-                    print(
-                        "WARNING: Found steam_dir in game settings, should be at global level"
+                    log.warning(
+                        "Found steam_dir in game settings, should be at global level"
                     )
 
             if steam_dir:
@@ -724,8 +727,8 @@ class GameOptionsDialog(QDialog):
                     None  # Remove from config when no custom exe
                 )
 
-            print(f"DEBUG: Game settings to save: {game_settings}")
-            print(f"DEBUG: Steam directory to save: {steam_dir}")
+            log.debug("Game settings to save: %s", game_settings)
+            log.debug("Steam directory to save: %s", steam_dir)
 
             # Save game-specific settings first
             game_save_success = self.config_manager.set_me3_game_settings(
@@ -781,7 +784,7 @@ class GameOptionsDialog(QDialog):
                 config_path = self.config_manager.get_me3_config_path(self.game_name)
 
             if not config_path:
-                print("ERROR: Could not get ME3 config path")
+                log.error("Could not get ME3 config path")
                 return False, "Could not determine ME3 config file path"
 
             config_path_obj = Path(config_path)
@@ -792,13 +795,13 @@ class GameOptionsDialog(QDialog):
             )
 
             if not can_write:
-                print(f"ERROR: Cannot write to {config_path_obj}: {error_msg}")
+                log.error("Cannot write to %s: %s", config_path_obj, error_msg)
 
                 # Try to get a writable config path instead
                 writable_path = self._get_writable_config_path()
                 if writable_path:
                     config_path_obj = writable_path
-                    print(f"Using writable config path instead: {config_path_obj}")
+                    log.debug("Using writable config path instead: %s", config_path_obj)
 
                     # Update the config manager to use the new path
                     if hasattr(self.config_manager, "set_me3_config_path"):
@@ -817,15 +820,15 @@ class GameOptionsDialog(QDialog):
             )
 
             if success:
-                print(f"DEBUG: Successfully saved steam_dir globally: {steam_dir}")
+                log.debug("Successfully saved steam_dir globally: %s", steam_dir)
                 return True, ""
             else:
-                print(f"ERROR: Failed to save steam_dir: {error_msg}")
+                log.error("Failed to save steam_dir: %s", error_msg)
                 return False, error_msg
 
         except Exception as e:
             error_msg = f"Unexpected error saving steam_dir: {str(e)}"
-            print(f"ERROR: {error_msg}")
+            log.error("%s", error_msg)
             return False, error_msg
 
     def _get_writable_config_path(self):
@@ -866,7 +869,7 @@ class GameOptionsDialog(QDialog):
             return None
 
         except Exception as e:
-            print(f"ERROR: Failed to get writable config path: {e}")
+            log.error("Failed to get writable config path: %s", e)
             return None
 
     def _is_system_path(self, file_path: Path) -> bool:
@@ -894,8 +897,8 @@ class GameOptionsDialog(QDialog):
                         config_data = tomllib.load(f)
                     return config_data.get("steam_dir")
                 except Exception as e:
-                    print(
-                        f"ERROR: Failed to read TOML config file {config_path_obj}: {e}"
+                    log.error(
+                        "Failed to read TOML config file %s: %s", config_path_obj, e
                     )
                     # If the system config is not readable, try to find a user config
                     user_steam_dir = self._find_user_config_with_steam_dir()
@@ -905,7 +908,7 @@ class GameOptionsDialog(QDialog):
             return None
 
         except Exception as e:
-            print(f"ERROR: Failed to load steam_dir globally: {e}")
+            log.error("Failed to load steam_dir globally: %s", e)
             return None
 
     def _find_user_config_with_steam_dir(self):
@@ -937,7 +940,7 @@ class GameOptionsDialog(QDialog):
             return None
 
         except Exception as e:
-            print(f"ERROR: Failed to find user config with steam_dir: {e}")
+            log.error("Failed to find user config with steam_dir: %s", e)
             return None
 
     def _get_dialog_style(self):

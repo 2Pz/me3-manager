@@ -1,4 +1,5 @@
 import ctypes
+import logging
 import os
 import re
 import subprocess
@@ -15,6 +16,8 @@ from me3_manager.utils.translator import tr
 
 if sys.platform == "win32":
     import winreg
+
+log = logging.getLogger(__name__)
 
 
 class ME3Downloader(QObject):
@@ -214,10 +217,10 @@ class ME3VersionManager:
             data = response.json()
             version = data.get("tag_name")
             if version and version.startswith("v"):
-                print(f"Successfully fetched version from GitHub API: {version}")
+                log.debug("Fetched version from GitHub API: %s", version)
                 return version
         except requests.RequestException as e:
-            print(f"Python-based GitHub API request failed: {e}")
+            log.error("Python-based GitHub API request failed: %s", e)
             return None
         return None
 
@@ -395,21 +398,23 @@ class ME3VersionManager:
         self.last_known_version = self.config_manager.get_me3_version()
         self.monitoring_installation = True
         self.installation_monitor_timer.start(2000)  # Check every 2 seconds
-        print("Started monitoring ME3 installation...")
+        log.debug("Started monitoring ME3 installation...")
 
     def _stop_installation_monitoring(self):
         """Stop monitoring for ME3 installation changes."""
         self.installation_monitor_timer.stop()
         self.monitoring_installation = False
-        print("Stopped monitoring ME3 installation.")
+        log.debug("Stopped monitoring ME3 installation.")
 
     def _check_installation_status(self):
         """Check if ME3 installation status has changed."""
         current_version = self.config_manager.get_me3_version()
 
         if current_version != self.last_known_version:
-            print(
-                f"ME3 version changed: {self.last_known_version} -> {current_version}"
+            log.info(
+                "ME3 version changed: %s -> %s",
+                self.last_known_version,
+                current_version,
             )
             self._stop_installation_monitoring()
             self.refresh_callback()
@@ -857,7 +862,7 @@ class ME3CustomInstaller(QObject):
                                 target.write(source.read())
                                 extracted_count += 1
                     except Exception as e:
-                        print(f"Warning: Failed to extract {file_path}: {e}")
+                        log.warning("Failed to extract %s: %s", file_path, e)
                         continue
 
                 if extracted_count == 0:
@@ -930,12 +935,12 @@ class ME3CustomInstaller(QObject):
                     ):
                         cleaned_paths.append(path)
                     else:
-                        print(f"Removed existing ME3 path from user PATH: {path}")
+                        log.debug("Removed existing ME3 path from user PATH: %s", path)
 
                 # Add the new path if it's not already there
                 if new_path not in cleaned_paths:
                     cleaned_paths.append(new_path)
-                    print(f"Added new ME3 path to user PATH: {new_path}")
+                    log.debug("Added new ME3 path to user PATH: %s", new_path)
 
                 # Set the new PATH value
                 new_path_value = ";".join(cleaned_paths)
@@ -943,7 +948,7 @@ class ME3CustomInstaller(QObject):
                 return True
 
         except Exception as e:
-            print(f"Error updating user PATH: {e}")
+            log.error("Error updating user PATH: %s", e)
             return False
 
     def _refresh_environment(self):
@@ -964,15 +969,15 @@ class ME3CustomInstaller(QObject):
             )
 
             if result == 0:
-                print("Warning: Failed to broadcast environment variable changes")
+                log.warning("Failed to broadcast environment variable changes")
             else:
-                print("Successfully broadcasted environment variable changes")
+                log.debug("Successfully broadcasted environment variable changes")
 
             # IMPORTANT: Also refresh the current process's environment
             self._refresh_current_process_path()
 
         except Exception as e:
-            print(f"Warning: Could not refresh environment variables: {e}")
+            log.warning("Could not refresh environment variables: %s", e)
 
     def _refresh_current_process_path(self):
         """Refresh the PATH environment variable for the current process."""
@@ -1012,12 +1017,12 @@ class ME3CustomInstaller(QObject):
 
             # Update the current process's PATH
             os.environ["PATH"] = new_path
-            print(
-                f"Updated current process PATH, ME3 installation: {self.install_path}"
+            log.debug(
+                "Updated current process PATH, ME3 installation: %s", self.install_path
             )
 
         except Exception as e:
-            print(f"Warning: Could not refresh current process PATH: {e}")
+            log.warning("Could not refresh current process PATH: %s", e)
 
     def cancel(self):
         self._is_cancelled = True

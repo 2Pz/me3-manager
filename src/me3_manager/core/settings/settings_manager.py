@@ -4,8 +4,11 @@ Manages JSON-based configuration storage.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict
+
+log = logging.getLogger(__name__)
 
 
 class SettingsManager:
@@ -42,7 +45,7 @@ class SettingsManager:
             with open(self.settings_file, "r", encoding="utf-8") as f:
                 self._settings_cache = json.load(f)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Error loading settings from {self.settings_file}: {e}")
+            log.error("Error loading settings from %s: %s", self.settings_file, e)
             self._settings_cache = self._get_default_settings()
 
         return self._settings_cache
@@ -59,7 +62,7 @@ class SettingsManager:
                 json.dump(self._settings_cache, f, indent=4)
             return True
         except IOError as e:
-            print(f"Error saving settings to {self.settings_file}: {e}")
+            log.error("Error saving settings to %s: %s", self.settings_file, e)
             return False
 
     def get(self, key: str, default: Any = None) -> Any:

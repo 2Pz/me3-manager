@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -6,6 +7,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from me3_manager.utils.status import Status
+
+log = logging.getLogger(__name__)
 
 
 class ME3InfoManager:
@@ -112,8 +115,10 @@ class ME3InfoManager:
             )
 
             if result.returncode != 0 or not result.stdout:
-                print(
-                    f"Failed to get 'me3 info'. Exit code: {result.returncode}, Stderr: {result.stderr}"
+                log.error(
+                    "Failed to get 'me3 info'. Exit code: %s, Stderr: %s",
+                    result.returncode,
+                    result.stderr,
                 )
                 return None
 
@@ -122,7 +127,7 @@ class ME3InfoManager:
             return info
 
         except (FileNotFoundError, subprocess.TimeoutExpired, UnicodeDecodeError) as e:
-            print(f"Error getting ME3 info: {e}")
+            log.error("Error getting ME3 info: %s", e)
             return None
 
     def _parse_me3_info(self, output: str) -> Dict[str, str]:
@@ -269,7 +274,7 @@ class ME3InfoManager:
                 return result.stdout.strip().split("\n")[0]
 
         except Exception as e:
-            print(f"Error getting version from --version command: {e}")
+            log.error("Error getting version from --version command: %s", e)
 
         return None
 
@@ -345,7 +350,7 @@ class ME3InfoManager:
             return config_paths
 
         except Exception as e:
-            print(f"Error getting ME3 config paths: {e}")
+            log.error("Error getting ME3 config paths: %s", e)
             return []
 
     def find_existing_config(self) -> Optional[Path]:
@@ -366,12 +371,14 @@ class ME3InfoManager:
                             f.read(1)  # Just read one character to test access
                         return config_path
                     except (PermissionError, OSError) as e:
-                        print(
-                            f"Found config at {config_path} but cannot access it: {e}"
+                        log.error(
+                            "Found config at %s but cannot access it: %s",
+                            config_path,
+                            e,
                         )
                         continue
             except (PermissionError, OSError) as e:
-                print(f"Cannot access path {config_path}: {e}")
+                log.error("Cannot access path %s: %s", config_path, e)
                 continue
 
         return None
@@ -403,10 +410,10 @@ class ME3InfoManager:
                     test_file.unlink()  # Remove test file
                     return config_path
                 except (PermissionError, OSError) as e:
-                    print(f"Cannot write to {config_path.parent}: {e}")
+                    log.error("Cannot write to %s: %s", config_path.parent, e)
                     continue
             except (PermissionError, OSError) as e:
-                print(f"Cannot access directory {config_path.parent}: {e}")
+                log.error("Cannot access directory %s: %s", config_path.parent, e)
                 continue
 
         # Fallback to first path if all else fails
@@ -453,9 +460,9 @@ class ME3InfoManager:
                     # Try to delete the config file
                     config_path.unlink()
                     deleted_paths.append(config_path)
-                    print(f"Deleted existing config file: {config_path}")
+                    log.debug("Deleted existing config file: %s", config_path)
                 except (PermissionError, OSError) as e:
-                    print(f"Could not delete config file {config_path}: {e}")
+                    log.error("Could not delete config file %s: %s", config_path, e)
 
         return deleted_paths
 
@@ -479,8 +486,10 @@ class ME3InfoManager:
                     import shutil
 
                     shutil.copy2(existing_config, preferred_config_path)
-                    print(
-                        f"Copied config from {existing_config} to {preferred_config_path}"
+                    log.debug(
+                        "Copied config from %s to %s",
+                        existing_config,
+                        preferred_config_path,
                     )
                 else:
                     # Create default config
@@ -490,18 +499,18 @@ class ME3InfoManager:
 """
                     with open(preferred_config_path, "w", encoding="utf-8") as f:
                         f.write(default_config)
-                    print(f"Created new config file: {preferred_config_path}")
+                    log.debug("Created new config file: %s", preferred_config_path)
 
             # Now delete all other config files
             deleted_paths = self.cleanup_other_configs(preferred_config_path)
 
             if deleted_paths:
-                print(f"Cleaned up {len(deleted_paths)} duplicate config files")
+                log.debug("Cleaned up %d duplicate config files", len(deleted_paths))
 
             return True
 
         except Exception as e:
-            print(f"Error ensuring single config: {e}")
+            log.error("Error ensuring single config: %s", e)
             return False
 
     def create_default_config(self) -> bool:
@@ -532,7 +541,7 @@ class ME3InfoManager:
             return True
 
         except Exception as e:
-            print(f"Error creating config file at {config_path}: {e}")
+            log.error("Error creating config file at %s: %s", config_path, e)
             return False
 
     def refresh_info(self):

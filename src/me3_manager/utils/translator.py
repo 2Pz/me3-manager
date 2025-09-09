@@ -1,10 +1,13 @@
 import json
+import logging
 import os
 from typing import Dict
 
 from PyQt6.QtCore import QLocale
 
 from me3_manager.utils.resource_path import resource_path
+
+log = logging.getLogger(__name__)
 
 
 class Translator:
@@ -41,7 +44,7 @@ class Translator:
                     with open(file_path, "r", encoding="utf-8") as f:
                         self.translations[lang_code] = json.load(f)
                 except Exception as e:
-                    print(f"Error loading translation file {filename}: {e}")
+                    log.error("Cannot load translation file %s: %s", filename, e)
 
         # Ensure we have English translations
         if "en" not in self.translations:
@@ -52,9 +55,7 @@ class Translator:
         if language_code in self.translations:
             self.current_language = language_code
         else:
-            print(
-                f"Warning: Translation for language '{language_code}' not found. Using English."
-            )
+            log.warning("Translation for %s not found. Using English.", language_code)
             self.current_language = "en"
 
     def set_system_language(self):
@@ -73,8 +74,8 @@ class Translator:
             if system_locale in self.translations:
                 self.current_language = system_locale
             else:
-                print(
-                    f"System language '{system_locale}' not supported. Using English."
+                log.warning(
+                    "System locale %s not supported. Using English.", system_locale
                 )
                 self.current_language = "en"
 
@@ -90,8 +91,8 @@ class Translator:
             try:
                 translation = translation.format(**kwargs)
             except KeyError as e:
-                print(
-                    f"Error formatting translation for key '{key}': missing argument {e}"
+                log.error(
+                    "Cannot format translation for key %s: missing argument %s", key, e
                 )
 
         return translation

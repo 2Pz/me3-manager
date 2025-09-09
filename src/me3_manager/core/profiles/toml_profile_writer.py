@@ -3,10 +3,13 @@ TOML profile writer for ME3 Manager.
 Handles writing profile files with clean array of tables syntax using tomlkit.
 """
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 import tomlkit
+
+log = logging.getLogger(__name__)
 
 
 class TomlProfileWriter:
@@ -226,5 +229,5 @@ class TomlProfileWriter:
                 tmp_path.unlink(missing_ok=True)
 
         except Exception as e:
-            print(f"Error converting TOML format: {e}")
+            log.error("Error converting TOML format: %s", e)
             return content  # Return original if conversion fails
