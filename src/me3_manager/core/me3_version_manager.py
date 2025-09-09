@@ -903,6 +903,8 @@ class ME3CustomInstaller(QObject):
 
     def _add_to_user_path(self, new_path: str) -> bool:
         """Add the installation path to the user PATH environment variable."""
+        if sys.platform != "win32":
+            return False
         try:
             # Open the user Environment subkey in the registry
             with winreg.OpenKey(
@@ -974,6 +976,8 @@ class ME3CustomInstaller(QObject):
 
     def _refresh_current_process_path(self):
         """Refresh the PATH environment variable for the current process."""
+        if sys.platform != "win32":
+            return
         try:
             # Read the updated user PATH from registry
             with winreg.OpenKey(
