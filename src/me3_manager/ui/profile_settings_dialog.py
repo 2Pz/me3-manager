@@ -3,7 +3,8 @@ Profile Settings Dialog for ME3 Manager.
 Provides a user-friendly interface for configuring profile-level settings like savefile and start_online.
 """
 
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont, QKeyEvent
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -19,6 +20,19 @@ from PyQt6.QtWidgets import (
 )
 
 from me3_manager.utils.translator import tr
+
+
+class NoEnterLineEdit(QLineEdit):
+    """QLineEdit that doesn't activate buttons when Enter is pressed."""
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """Override key press event to handle Enter/Return keys."""
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            # Consume the event - don't let it propagate to activate buttons
+            event.accept()
+            return
+        # For all other keys, use default behavior
+        super().keyPressEvent(event)
 
 
 class ProfileSettingsDialog(QDialog):
@@ -71,7 +85,7 @@ class ProfileSettingsDialog(QDialog):
         savefile_input_layout = QHBoxLayout()
 
         # Savefile name input
-        self.savefile_edit = QLineEdit()
+        self.savefile_edit = NoEnterLineEdit()
         self.savefile_edit.setPlaceholderText(tr("savefile_placeholder"))
         self.savefile_edit.setStyleSheet(self._get_lineedit_style())
         self.savefile_edit.setEnabled(False)

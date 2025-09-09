@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from me3_manager.utils.status import Status
+
 
 class ME3InfoManager:
     """
@@ -75,6 +77,13 @@ class ME3InfoManager:
             self._is_installed = False
 
         return self._is_installed
+
+    def get_me3_installation_status(self) -> int:
+        """Get ME3 installation status as a Status code."""
+        if self.is_me3_installed():
+            return Status.SUCCESS
+        else:
+            return Status.NOT_INSTALLED
 
     def get_me3_info(self) -> Optional[Dict[str, str]]:
         """Get ME3 installation information using 'me3 info' command."""

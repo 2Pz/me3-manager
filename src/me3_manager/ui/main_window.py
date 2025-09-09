@@ -30,6 +30,7 @@ from me3_manager.ui.game_page import GamePage
 from me3_manager.ui.settings_dialog import SettingsDialog
 from me3_manager.ui.terminal import EmbeddedTerminal
 from me3_manager.utils.resource_path import resource_path
+from me3_manager.utils.status import Status
 from me3_manager.utils.translator import tr
 
 
@@ -168,7 +169,10 @@ class HelpAboutDialog(QDialog):
         # Update ME3 button
         self.update_cli_button = QPushButton(tr("update_me3_button"))
         self.update_cli_button.clicked.connect(self.handle_update_cli)
-        if self.main_window.me3_version == tr("not_installed"):
+        if (
+            self.main_window.config_manager.me3_info_manager.get_me3_installation_status()
+            == Status.NOT_INSTALLED
+        ):
             self.update_cli_button.setDisabled(True)
             self.update_cli_button.setToolTip(tr("me3_not_installed_tip"))
         layout.addWidget(self.update_cli_button)
@@ -405,7 +409,10 @@ class ModEngine3Manager(QMainWindow):
         if not self.config_manager.get_check_for_updates():
             return
 
-        if self.me3_version == tr("not_installed"):
+        if (
+            self.config_manager.me3_info_manager.get_me3_installation_status()
+            == Status.NOT_INSTALLED
+        ):
             return
 
         update_info = self.version_manager.check_for_updates()
@@ -557,7 +564,10 @@ class ModEngine3Manager(QMainWindow):
         parent.addWidget(self.content_stack)
 
     def check_me3_installation(self):
-        if self.me3_version == tr("not_installed"):
+        if (
+            self.config_manager.me3_info_manager.get_me3_installation_status()
+            == Status.NOT_INSTALLED
+        ):
             self.prompt_for_me3_installation()
 
     def prompt_for_me3_installation(self):
