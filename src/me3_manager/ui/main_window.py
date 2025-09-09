@@ -374,7 +374,7 @@ class ModEngine3Manager(QMainWindow):
         self.game_container.set_game_order(game_order)
 
         # 5. Rebuild the game pages in the content area
-        from ui.game_page import GamePage
+        from me3_manager.ui.game_page import GamePage
 
         # Iterate through the ordered list to add pages sequentially
         for game_name in game_order:

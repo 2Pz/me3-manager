@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 import zipfile
-from typing import Callable, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Optional, Tuple
 
 import requests
 from PyQt6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, pyqtSignal
@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
 
 from me3_manager.utils.translator import tr
 
-if sys.platform == "win32":
+if TYPE_CHECKING:
     import winreg
 
 
@@ -95,7 +95,7 @@ class ME3Updater(QObject):
 
 
 class ME3LinuxInstaller(QObject):
-    """Runs ME3 installer script in a separate thread for Linux/macOS."""
+    """Runs ME3 installer script in a separate thread for Linux."""
 
     install_finished = pyqtSignal(int, str)  # return_code, output_message
 
@@ -153,7 +153,7 @@ class ME3LinuxInstaller(QObject):
 class ME3VersionManager:
     """
     Centralized manager for ME3 version checking, updating, and installation.
-    Handles both Windows and Linux/macOS platforms.
+    Handles both Windows and Linux platforms.
     """
 
     def __init__(
@@ -248,7 +248,7 @@ class ME3VersionManager:
             target_path = path if run_file else os.path.dirname(path)
             if sys.platform == "win32":
                 os.startfile(target_path)
-            else:  # Linux/macOS
+            else:  # Linux
                 subprocess.run(["xdg-open", target_path], check=True)
         except Exception as e:
             QMessageBox.warning(
@@ -425,10 +425,10 @@ class ME3VersionManager:
             )
             return
 
-        # Show installation path to user
-        install_path = os.path.join(
-            os.path.expanduser("~"), "AppData", "Local", "garyttierney", "me3", "bin"
-        )
+        # Get installation path from PathManager
+        config_root = self.path_manager.config_root
+        me3_root = config_root.parent.parent  # From config/profiles to me3/
+        install_path = me3_root / "bin"
 
         # Confirm installation
         reply = QMessageBox.question(
@@ -437,7 +437,7 @@ class ME3VersionManager:
             tr(
                 "custom_installer_question_win",
                 version=version,
-                install_path=install_path,
+                install_path=str(install_path),  # Convert Path to string for display
             ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
@@ -459,7 +459,8 @@ class ME3VersionManager:
         self.progress_dialog.canceled.connect(self._cancel_custom_install)
 
         self.thread = QThread()
-        self.worker = ME3CustomInstaller(zip_url, temp_path)
+        # Pass path_manager to the installer
+        self.worker = ME3CustomInstaller(zip_url, temp_path, self.path_manager)
         self.worker.moveToThread(self.thread)
         self.worker.download_progress.connect(self.progress_dialog.setValue)
         self.worker.install_finished.connect(self._on_custom_install_finished)
@@ -533,7 +534,7 @@ class ME3VersionManager:
     def install_linux_me3(
         self, release_type: str = "latest", custom_installer_url: str = None
     ):
-        """Install or update ME3 on Linux/macOS using installer script."""
+        """Install or update ME3 on Linux using installer script."""
         if sys.platform == "win32":
             QMessageBox.warning(
                 self.parent, tr("platform_error"), tr("platform_error_text_linux")
@@ -693,14 +694,17 @@ class ME3CustomInstaller(QObject):
     download_progress = pyqtSignal(int)
     install_finished = pyqtSignal(int, str)  # return_code, message
 
-    def __init__(self, url: str, temp_path: str):
+    def __init__(self, url: str, temp_path: str, path_manager):
         super().__init__()
         self.url = url
         self.temp_path = temp_path
-        # UPDATED: Use garyttierney path to match official installer structure
-        self.install_path = os.path.join(
-            os.path.expanduser("~"), "AppData", "Local", "garyttierney", "me3", "bin"
-        )
+        self.path_manager = path_manager
+        # Use PathManager to get the installation path
+        # Install to bin directory (sibling to config directory)
+        config_root = self.path_manager.config_root
+        # Go up from config/profiles to get the me3 root, then add bin
+        me3_root = config_root.parent.parent  # From config/profiles to me3/
+        self.install_path = me3_root / "bin"
         self._is_cancelled = False
 
     def run(self):
