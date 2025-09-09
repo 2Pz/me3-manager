@@ -164,7 +164,7 @@ class ModItem(QWidget):
         # For nested items - show connection indicator
         if self.is_nested:
             connector_label = QLabel()
-            arrow_icon = QIcon(resource_path("resources/icon/arrow.png"))
+            arrow_icon = QIcon(resource_path("resources/icon/arrow.svg"))
             connector_label.setPixmap(arrow_icon.pixmap(QSize(14, 14)))
             connector_label.setFixedWidth(50)
             connector_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -239,15 +239,16 @@ class ModItem(QWidget):
         button_size = 28
 
         # Toggle button
-        self.toggle_btn = QPushButton("⏻")
-        self.toggle_btn.setFixedSize(button_size, button_size)
+        self.toggle_btn = QPushButton()
+        self.toggle_btn.setIcon(QIcon(resource_path("resources/icon/activate.svg")))
         self.toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.toggle_btn.clicked.connect(self.on_toggle)
         layout.addWidget(self.toggle_btn)
 
         # Config button (only for DLL mods)
         if not self.is_folder_mod and not self.is_regulation:
-            config_btn = QPushButton("⚙️")
+            config_btn = QPushButton()
+            config_btn.setIcon(QIcon(resource_path("resources/icon/settings.svg")))
             config_btn.setFixedSize(button_size, button_size)
             config_btn.setToolTip(tr("edit_config_tooltip_ini"))
             config_btn.setStyleSheet(self._get_action_button_style())
@@ -258,8 +259,8 @@ class ModItem(QWidget):
 
         # Open folder button for external mods
         if self.is_external:
-            open_btn = QPushButton("📂")
-            open_btn.setFixedSize(button_size, button_size)
+            open_btn = QPushButton()
+            open_btn.setIcon(QIcon(resource_path("resources/icon/folder.svg")))
             open_btn.setToolTip(tr("open_containing_folder_tooltip"))
             open_btn.setStyleSheet(self._get_action_button_style())
             open_btn.clicked.connect(
@@ -268,8 +269,10 @@ class ModItem(QWidget):
             layout.addWidget(open_btn)
 
         # Advanced options button
-        advanced_btn = QPushButton("🔧")
-        advanced_btn.setFixedSize(button_size, button_size)
+        advanced_btn = QPushButton()
+        advanced_btn.setIcon(
+            QIcon(resource_path("resources/icon/advanced_options.svg"))
+        )
         advanced_btn.setToolTip(tr("advanced_options_tooltip"))
 
         if has_advanced_options:
@@ -284,7 +287,8 @@ class ModItem(QWidget):
 
         # Delete button (hidden for nested mods)
         if not self.is_nested:
-            delete_btn = QPushButton("🗑")
+            delete_btn = QPushButton()
+            delete_btn.setIcon(QIcon(resource_path("resources/icon/delete.svg")))
             delete_btn.setFixedSize(button_size, button_size)
             delete_btn.setToolTip(tr("delete_mod_tooltip"))
             delete_btn.setStyleSheet(self._get_delete_button_style())
@@ -295,7 +299,10 @@ class ModItem(QWidget):
 
         # Regulation activation button
         if self.is_regulation and not self.is_nested:
-            self.activate_regulation_btn = QPushButton("🧩")
+            self.activate_regulation_btn = QPushButton()
+            self.activate_regulation_btn.setIcon(
+                QIcon(resource_path("resources/icon/regulation.svg"))
+            )
             self.activate_regulation_btn.setFixedSize(button_size, button_size)
 
             if self.is_regulation_active:
@@ -408,7 +415,17 @@ class ModItem(QWidget):
     def _update_expand_button(self):
         """Update expand button icon based on state"""
         if hasattr(self, "expand_btn"):
-            self.expand_btn.setText("▼" if self.is_expanded else "▶")
+            icon_size = QSize(24, 24)
+            if self.is_expanded:
+                self.expand_btn.setIcon(
+                    QIcon(resource_path("resources/icon/chevron-down.svg"))
+                )
+            else:
+                self.expand_btn.setIcon(
+                    QIcon(resource_path("resources/icon/chevron-right.svg"))
+                )
+            self.expand_btn.setIconSize(icon_size)
+            self.expand_btn.setText("")  # Clear any text
 
     def _on_expand_clicked(self):
         """Handle expand/collapse button click"""
@@ -432,8 +449,19 @@ class ModItem(QWidget):
                 tr("mod_path_tooltip", mod_path=self.mod_path),
             ]
             if self.has_children:
-                tooltip_parts.append(tr("expand_mod_tooltip"))
-            self.setToolTip("\n".join(tooltip_parts))
+                # Read SVG file and convert to base64
+                svg_path = resource_path("resources/icon/chevron-right.svg")
+                with open(svg_path, "r") as f:
+                    svg_content = f.read()
+                import base64
+
+                svg_b64 = base64.b64encode(svg_content.encode()).decode()
+                icon_html = f'<img src="data:image/svg+xml;base64,{svg_b64}" width="12" height="12">'
+
+                tooltip_parts.append(f"Click {icon_html} to expand nested mods")
+
+            tooltip_html = "<br>".join(tooltip_parts)
+            self.setToolTip(tooltip_html)
 
     def update_toggle_button_ui(self):
         """Update toggle button appearance based on enabled state"""

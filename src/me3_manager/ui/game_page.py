@@ -197,31 +197,31 @@ class GamePage(QWidget):
         icon_buttons_config = [
             {
                 "attr": "game_options_btn",
-                "icon": "settings.png",
+                "icon": "game_options.svg",
                 "tooltip": tr("configure_game_options_tooltip"),
                 "callback": self.open_game_options,
             },
             {
                 "attr": "profile_settings_btn",
-                "icon": "profiles.png",
+                "icon": "profiles.svg",
                 "tooltip": tr("profile_settings_tooltip"),
                 "callback": self.open_profile_settings,
             },
             {
                 "attr": "open_mods_folder_btn",
-                "icon": "folder.png",
+                "icon": "folder.svg",
                 "tooltip": tr("open_mods_folder_tooltip"),
                 "callback": self.open_mods_folder,
             },
             {
                 "attr": "add_external_mod_btn",
-                "icon": "dll.png",
+                "icon": "dll.svg",
                 "tooltip": tr("add_external_mod_tooltip"),
                 "callback": self.add_external_mod,
             },
             {
                 "attr": "edit_profile_btn",
-                "icon": "note.png",
+                "icon": "note.svg",
                 "tooltip": tr("edit_profile_tooltip"),
                 "callback": self.open_profile_editor,
             },
@@ -384,9 +384,8 @@ class GamePage(QWidget):
 
     def _get_enhanced_profile_button_style(self):
         """Return modern, simple CSS style for profile button."""
-        arrow_path = resource_path("resources/icon/arrow-down.png").replace("\\", "/")
-        return f"""
-            QPushButton {{
+        return """
+            QPushButton {
                 background-color: #404040;
                 border: none;
                 color: #ffffff;
@@ -394,23 +393,20 @@ class GamePage(QWidget):
                 border-bottom-right-radius: 8px;
                 font-size: 14px;
                 font-weight: 500;
-                padding: 12px 36px 12px 16px;
+                padding: 12px 16px;
                 text-align: center;
-            }}
-            QPushButton:hover {{
+            }
+            QPushButton:hover {
                 background-color: #0078d4;
-            }}
-            QPushButton:pressed {{
+            }
+            QPushButton:pressed {
                 background-color: #106ebe;
-            }}
-            QPushButton::menu-indicator {{
-                image: url({arrow_path});
-                position: absolute;
-                right: 12px;
-                top: 50%;
-                width: 12px;
-                height: 12px;
-            }}
+            }
+            QPushButton::menu-indicator {
+                image: none;
+                width: 0px;
+                height: 0px;
+            }
         """
 
     def _get_enhanced_profile_menu_style(self):
@@ -597,7 +593,7 @@ class GamePage(QWidget):
         self.profile_menu.addSeparator()
 
         manage_action = QAction(
-            QIcon(resource_path("resources/icon/profiles.png")),
+            QIcon(resource_path("resources/icon/profiles.svg")),
             tr("manage_profiles"),
             self,
         )
@@ -1455,33 +1451,33 @@ class GamePage(QWidget):
             mod_info = self.mod_infos[mod_path]
             if mod_info.mod_type.value == "nested":
                 mod_type = tr("mod_type_nested_dll")
-                type_icon = QIcon(resource_path("resources/icon/dll.png"))
+                type_icon = QIcon(resource_path("resources/icon/dll.svg"))
             elif regulation_active:
                 mod_type = tr("mod_type_active_regulation")
-                type_icon = QIcon(resource_path("resources/icon/regulation_active.png"))
+                type_icon = QIcon(resource_path("resources/icon/regulation_active.svg"))
             elif has_regulation:
                 mod_type = tr("mod_type_package_with_regulation")
-                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+                type_icon = QIcon(resource_path("resources/icon/folder.svg"))
             elif is_folder_mod:
                 mod_type = tr("mod_type_package")
-                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+                type_icon = QIcon(resource_path("resources/icon/folder.svg"))
             else:
                 mod_type = tr("mod_type_dll")
-                type_icon = QIcon(resource_path("resources/icon/dll.png"))
+                type_icon = QIcon(resource_path("resources/icon/dll.svg"))
         else:
             # Fallback
             if regulation_active:
                 mod_type = tr("mod_type_active_regulation")
-                type_icon = QIcon(resource_path("resources/icon/regulation_active.png"))
+                type_icon = QIcon(resource_path("resources/icon/regulation_active.svg"))
             elif has_regulation:
                 mod_type = tr("mod_type_package_with_regulation")
-                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+                type_icon = QIcon(resource_path("resources/icon/folder.svg"))
             elif is_folder_mod:
                 mod_type = tr("mod_type_package")
-                type_icon = QIcon(resource_path("resources/icon/folder.png"))
+                type_icon = QIcon(resource_path("resources/icon/folder.svg"))
             else:
                 mod_type = tr("mod_type_dll")
-                type_icon = QIcon(resource_path("resources/icon/dll.png"))
+                type_icon = QIcon(resource_path("resources/icon/dll.svg"))
 
         # Check advanced options
         mod_info = self.mod_infos.get(mod_path) if hasattr(self, "mod_infos") else None
@@ -2158,16 +2154,16 @@ class GamePage(QWidget):
         """
 
         activate_btn = QPushButton(
-            QIcon(resource_path("resources/icon/play.png")), tr("activate_button")
+            QIcon(resource_path("resources/icon/activate.svg")), tr("activate_button")
         )
         add_btn = QPushButton(
-            QIcon(resource_path("resources/icon/add.png")), tr("add_new_button")
+            QIcon(resource_path("resources/icon/add.svg")), tr("add_new_button")
         )
         rename_btn = QPushButton(
-            QIcon(resource_path("resources/icon/edit.png")), tr("rename_button")
+            QIcon(resource_path("resources/icon/edit.svg")), tr("rename_button")
         )
         delete_btn = QPushButton(
-            QIcon(resource_path("resources/icon/delete.png")), tr("delete_button")
+            QIcon(resource_path("resources/icon/delete.svg")), tr("delete_button")
         )
 
         for btn in [activate_btn, add_btn, rename_btn, delete_btn]:
