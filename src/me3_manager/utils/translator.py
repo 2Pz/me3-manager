@@ -15,7 +15,7 @@ class Translator:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(Translator, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
