@@ -125,7 +125,7 @@ class ME3LinuxInstaller(QObject):
         super().__init__()
         self.installer_url = installer_url
         self._prepare_command = prepare_command_func
-        self.env_vars = env_vars if env_vars else {}
+        self.env_vars = env_vars or {}
 
     def run(self):
         """Executes the installer script by piping curl's output to a shell."""
