@@ -40,8 +40,8 @@ class HelpAboutDialog(QDialog):
         super().__init__(main_window)
         self.main_window = main_window
         self.version_manager = (
-            main_window.version_manager
-        )  # Use the centralized version manager
+            self.main_window.version_manager
+        )
         self.setMinimumWidth(550)
         self.setStyleSheet("""
             QDialog { background-color: #252525; color: #ffffff; }
@@ -273,6 +273,7 @@ class ModEngine3Manager(QMainWindow):
         self.version_manager = ME3VersionManager(
             parent_widget=self,
             config_manager=self.config_manager,
+            path_manager=self.config_manager.path_manager,
             refresh_callback=self.refresh_me3_status,
         )
 
@@ -548,8 +549,11 @@ class ModEngine3Manager(QMainWindow):
             self.content_layout.addWidget(page)
             self.game_pages[game_name] = page
 
-        first_game = self.config_manager.get_game_order()[0]
-        self.switch_game(first_game)
+        game_order = self.config_manager.get_game_order()
+        if game_order:
+            first_game = game_order[0]
+            self.switch_game(first_game)
+
         self.terminal = EmbeddedTerminal()
         self.content_layout.addWidget(self.terminal)
         parent.addWidget(self.content_stack)

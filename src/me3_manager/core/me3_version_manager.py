@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 import zipfile
-from typing import TYPE_CHECKING, Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import requests
 from PyQt6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, pyqtSignal
@@ -12,7 +12,8 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
 
 from me3_manager.utils.translator import tr
 
-if TYPE_CHECKING:
+# Conditionally import winreg for Windows-specific functionality
+if sys.platform == "win32":
     import winreg
 
 
@@ -157,10 +158,15 @@ class ME3VersionManager:
     """
 
     def __init__(
-        self, parent_widget, config_manager, refresh_callback: Callable[[], None]
+        self,
+        parent_widget,
+        config_manager,
+        path_manager,
+        refresh_callback: Callable[[], None],
     ):
         self.parent = parent_widget
         self.config_manager = config_manager
+        self.path_manager = path_manager
         self.refresh_callback = refresh_callback
         self.progress_dialog = None
         self.thread = None
@@ -426,9 +432,7 @@ class ME3VersionManager:
             return
 
         # Get installation path from PathManager
-        config_root = self.path_manager.config_root
-        me3_root = config_root.parent.parent  # From config/profiles to me3/
-        install_path = me3_root / "bin"
+        install_path = self.path_manager.get_me3_binary_path()
 
         # Confirm installation
         reply = QMessageBox.question(
@@ -437,7 +441,7 @@ class ME3VersionManager:
             tr(
                 "custom_installer_question_win",
                 version=version,
-                install_path=str(install_path),  # Convert Path to string for display
+                install_path=str(install_path),
             ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
@@ -459,7 +463,6 @@ class ME3VersionManager:
         self.progress_dialog.canceled.connect(self._cancel_custom_install)
 
         self.thread = QThread()
-        # Pass path_manager to the installer
         self.worker = ME3CustomInstaller(zip_url, temp_path, self.path_manager)
         self.worker.moveToThread(self.thread)
         self.worker.download_progress.connect(self.progress_dialog.setValue)
@@ -700,11 +703,7 @@ class ME3CustomInstaller(QObject):
         self.temp_path = temp_path
         self.path_manager = path_manager
         # Use PathManager to get the installation path
-        # Install to bin directory (sibling to config directory)
-        config_root = self.path_manager.config_root
-        # Go up from config/profiles to get the me3 root, then add bin
-        me3_root = config_root.parent.parent  # From config/profiles to me3/
-        self.install_path = me3_root / "bin"
+        self.install_path = self.path_manager.get_me3_binary_path()
         self._is_cancelled = False
 
     def run(self):
@@ -811,7 +810,7 @@ class ME3CustomInstaller(QObject):
             self.download_progress.emit(75)  # Extraction complete
 
             # Step 3: Add to user PATH (no admin required)
-            if self._add_to_user_path(self.install_path):
+            if self._add_to_user_path(str(self.install_path)):
                 self.download_progress.emit(90)  # PATH update complete
 
                 # Step 4: Refresh environment variables
@@ -825,7 +824,7 @@ class ME3CustomInstaller(QObject):
                     pass  # Ignore file cleanup errors
 
                 self.install_finished.emit(
-                    0, tr("install_add_path", install_path=self.install_path)
+                    0, tr("install_add_path", install_path=str(self.install_path))
                 )
             else:
                 self.install_finished.emit(-3, tr("add_user_path_failed"))
