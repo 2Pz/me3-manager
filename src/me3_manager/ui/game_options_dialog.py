@@ -548,7 +548,7 @@ class GameOptionsDialog(QDialog):
                 }
             """)
 
-            for i, config_path in enumerate(available_paths):
+            for config_path in available_paths:
                 status = tr("exists") if config_path.exists() else tr("will_create")
                 path_list.addItem(f"{status} - {config_path}")
 
