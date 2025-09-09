@@ -126,7 +126,8 @@ class GameManagementDialog(QDialog):
         # Only enable restore button for removed default games
         if has_selection:
             selected_items[0].text().replace(" (Default)", "")
-            selected_items[0].data(Qt.ItemDataRole.UserRole) == "default"
+            # FIXME: This == comparison doesn't do anything
+            # selected_items[0].data(Qt.ItemDataRole.UserRole) == "default"
             self.restore_button.setEnabled(False)  # Default games are already present
         else:
             # Check if there are any default games missing
