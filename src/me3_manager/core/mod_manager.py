@@ -788,7 +788,9 @@ class ImprovedModManager:
             for key in advanced_keys
         )
 
-    def update_advanced_options(self, game_name: str, mod_path: str, new_options: dict, is_folder_mod: bool):
+    def update_advanced_options(
+        self, game_name: str, mod_path: str, new_options: dict, is_folder_mod: bool
+    ):
         """Updates the advanced options for a specific mod in its profile file."""
         profile_path = self.config_manager.get_profile_path(game_name)
         config_data = self.config_manager._parse_toml_config(profile_path)
@@ -811,7 +813,7 @@ class ImprovedModManager:
                 config_key = self._normalize_path(f"{mods_dir_name}/{relative_path}")
             except ValueError:  # External mod
                 config_key = self._normalize_path(str(mod_path_obj.resolve()))
-            
+
             natives = config_data.get("natives", [])
             for native in natives:
                 if self._normalize_path(native.get("path", "")) == config_key:
@@ -820,7 +822,13 @@ class ImprovedModManager:
 
         if target_entry is not None:
             # Purge all old advanced option keys from the entry
-            keys_to_purge = ["load_before", "load_after", "optional", "initializer", "finalizer"]
+            keys_to_purge = [
+                "load_before",
+                "load_after",
+                "optional",
+                "initializer",
+                "finalizer",
+            ]
             for key in keys_to_purge:
                 if key in target_entry:
                     del target_entry[key]
@@ -831,7 +839,10 @@ class ImprovedModManager:
                     target_entry[key] = True
                 elif key in ["load_before", "load_after"] and value:
                     target_entry[key] = value
-                elif key not in ["optional", "load_before", "load_after"] and value is not None:
+                elif (
+                    key not in ["optional", "load_before", "load_after"]
+                    and value is not None
+                ):
                     target_entry[key] = value
 
             # Write the entire modified configuration back to disk
