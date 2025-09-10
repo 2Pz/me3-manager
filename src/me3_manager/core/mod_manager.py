@@ -787,3 +787,63 @@ class ImprovedModManager:
             key in mod_info.advanced_options and mod_info.advanced_options[key]
             for key in advanced_keys
         )
+
+    def update_advanced_options(
+        self, game_name: str, mod_path: str, new_options: dict, is_folder_mod: bool
+    ):
+        """Updates the advanced options for a specific mod in its profile file."""
+        profile_path = self.config_manager.get_profile_path(game_name)
+        config_data = self.config_manager._parse_toml_config(profile_path)
+        mod_name = Path(mod_path).name
+
+        target_entry = None
+        if is_folder_mod:
+            packages = config_data.get("packages", [])
+            for pkg in packages:
+                if pkg.get("id") == mod_name:
+                    target_entry = pkg
+                    break
+        else:  # Native DLL mod
+            mod_path_obj = Path(mod_path)
+            mods_dir = self.config_manager.get_mods_dir(game_name)
+            config_key = ""
+            try:
+                relative_path = mod_path_obj.relative_to(mods_dir)
+                mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
+                config_key = self._normalize_path(f"{mods_dir_name}/{relative_path}")
+            except ValueError:  # External mod
+                config_key = self._normalize_path(str(mod_path_obj.resolve()))
+
+            natives = config_data.get("natives", [])
+            for native in natives:
+                if self._normalize_path(native.get("path", "")) == config_key:
+                    target_entry = native
+                    break
+
+        if target_entry is not None:
+            # Purge all old advanced option keys from the entry
+            keys_to_purge = [
+                "load_before",
+                "load_after",
+                "optional",
+                "initializer",
+                "finalizer",
+            ]
+            for key in keys_to_purge:
+                if key in target_entry:
+                    del target_entry[key]
+
+            # Add the new options back, but ONLY if they are not the default value.
+            for key, value in new_options.items():
+                if key == "optional" and value is True:
+                    target_entry[key] = True
+                elif key in ["load_before", "load_after"] and value:
+                    target_entry[key] = value
+                elif (
+                    key not in ["optional", "load_before", "load_after"]
+                    and value is not None
+                ):
+                    target_entry[key] = value
+
+            # Write the entire modified configuration back to disk
+            self._write_improved_config(profile_path, config_data, game_name)
