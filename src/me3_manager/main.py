@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 from me3_manager.ui.main_window import ModEngine3Manager
@@ -69,8 +70,10 @@ def main():
     app.setApplicationName("Mod Engine 3 Manager")
     app.setOrganizationName("ME3 Tools")
 
-    # Apply dark theme
     app.setStyle("Fusion")
+
+    # Force dark mode
+    app.styleHints().setColorScheme(Qt.ColorScheme.Dark)
 
     # Create and show main window
     window = ModEngine3Manager()
