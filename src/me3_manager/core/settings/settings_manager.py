@@ -44,7 +44,7 @@ class SettingsManager:
         try:
             with open(self.settings_file, "r", encoding="utf-8") as f:
                 self._settings_cache = json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             log.error("Error loading settings from %s: %s", self.settings_file, e)
             self._settings_cache = self._get_default_settings()
 
@@ -61,7 +61,7 @@ class SettingsManager:
             with open(self.settings_file, "w", encoding="utf-8") as f:
                 json.dump(self._settings_cache, f, indent=4)
             return True
-        except IOError as e:
+        except OSError as e:
             log.error("Error saving settings to %s: %s", self.settings_file, e)
             return False
 

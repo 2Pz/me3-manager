@@ -548,7 +548,7 @@ class ConfigFacade:
         try:
             with open(profile_path, "r", encoding="utf-8") as f:
                 return f.read()
-        except IOError as e:
+        except OSError as e:
             log.error("Error reading profile %s: %s", profile_path, e)
             return ""
 
@@ -558,7 +558,7 @@ class ConfigFacade:
         try:
             with open(profile_path, "w", encoding="utf-8") as f:
                 f.write(content)
-        except IOError as e:
+        except OSError as e:
             log.error("Error writing to profile %s: %s", profile_path, e)
             raise
 
