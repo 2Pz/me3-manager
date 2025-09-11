@@ -59,7 +59,7 @@ RESERVED_NAMES = {
 }
 
 # Regex for valid mod names (letters, numbers, spaces, underscores, dots, hyphens)
-NAME_RE = re.compile(r"[A-Za-z0-9 _\.-]{1,60}$")
+NAME_RE = re.compile(r'^[^<>:"/\\|?*]{1,60}$')
 
 
 def _contains_symlink(path: Path) -> bool:
