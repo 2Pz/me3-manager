@@ -5,7 +5,7 @@ Handles writing profile files with clean array of tables syntax using tomlkit.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import tomlkit
 from tomlkit.items import Array
@@ -17,7 +17,7 @@ class TomlProfileWriter:
     """Handles writing TOML profile files with clean formatting using tomlkit."""
 
     @staticmethod
-    def _create_dependency_array(dependencies: List[Dict[str, Any]]) -> Optional[Array]:
+    def _create_dependency_array(dependencies: list[dict[str, Any]]) -> Array | None:
         """
         Creates a tomlkit Array of inline tables for dependencies.
         This format is required by the ModEngine parser for both natives and packages.
@@ -48,8 +48,8 @@ class TomlProfileWriter:
     @staticmethod
     def write_profile(
         profile_path: Path,
-        config_data: Dict[str, Any],
-        game_name: Optional[str] = None,
+        config_data: dict[str, Any],
+        game_name: str | None = None,
     ) -> None:
         """
         Write a ME3 profile file with clean array of tables syntax using tomlkit.

@@ -6,7 +6,7 @@ Manages JSON-based configuration storage.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class SettingsManager:
             settings_file: Path to the JSON settings file
         """
         self.settings_file = settings_file
-        self._settings_cache: Dict[str, Any] = {}
+        self._settings_cache: dict[str, Any] = {}
         self._ensure_settings_directory()
         self.load_settings()
 
@@ -30,7 +30,7 @@ class SettingsManager:
         """Ensure the settings directory exists."""
         self.settings_file.parent.mkdir(parents=True, exist_ok=True)
 
-    def load_settings(self) -> Dict[str, Any]:
+    def load_settings(self) -> dict[str, Any]:
         """
         Load settings from the JSON file.
 
@@ -91,7 +91,7 @@ class SettingsManager:
         if auto_save:
             self.save_settings()
 
-    def update(self, settings: Dict[str, Any], auto_save: bool = True) -> None:
+    def update(self, settings: dict[str, Any], auto_save: bool = True) -> None:
         """
         Update multiple settings at once.
 
@@ -130,7 +130,7 @@ class SettingsManager:
         if auto_save:
             self.save_settings()
 
-    def _get_default_settings(self) -> Dict[str, Any]:
+    def _get_default_settings(self) -> dict[str, Any]:
         """
         Get default settings structure.
 
@@ -149,7 +149,7 @@ class SettingsManager:
             "me3_config_paths": {},
         }
 
-    def get_all_settings(self) -> Dict[str, Any]:
+    def get_all_settings(self) -> dict[str, Any]:
         """
         Get a copy of all current settings.
 

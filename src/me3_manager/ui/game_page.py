@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
@@ -33,15 +33,15 @@ class GamePage(QWidget):
         self.style = GamePageStyle()
         self.config_manager = config_manager
         self.mod_manager = ImprovedModManager(config_manager)
-        self.mod_widgets: Dict[str, QWidget] = {}
+        self.mod_widgets: dict[str, QWidget] = {}
         self.current_filter: str = "all"
-        self.filter_buttons: Dict[str, QWidget] = {}
+        self.filter_buttons: dict[str, QWidget] = {}
         self.mods_per_page: int = self.config_manager.get_mods_per_page()
         self.current_page: int = 1
         self.total_pages: int = 1
-        self.filtered_mods: Dict[str, Any] = {}
-        self.all_mods_data: Dict[str, Any] = {}
-        self.mod_infos: Dict[str, Any] = {}
+        self.filtered_mods: dict[str, Any] = {}
+        self.all_mods_data: dict[str, Any] = {}
+        self.mod_infos: dict[str, Any] = {}
         self.acceptable_folders = [
             "_backup",
             "_unknown",
@@ -101,7 +101,7 @@ class GamePage(QWidget):
         self.mod_list_handler.load_mods(reset_page)
 
     def apply_filters(
-        self, reset_page: bool = True, source_mods: Optional[Dict[str, Any]] = None
+        self, reset_page: bool = True, source_mods: dict[str, Any] | None = None
     ):
         self.mod_list_handler.apply_filters(reset_page, source_mods)
 
@@ -151,7 +151,7 @@ class GamePage(QWidget):
 
     # Delegated Installation Actions
 
-    def install_linked_mods(self, items_to_install: List[Path]) -> bool:
+    def install_linked_mods(self, items_to_install: list[Path]) -> bool:
         return self.mod_installer.install_linked_mods(items_to_install)
 
     def handle_profile_import(self, import_folder: Path, profile_file: Path):
@@ -160,7 +160,7 @@ class GamePage(QWidget):
     def install_root_mod_package(self, root_path: Path):
         self.mod_installer.install_root_mod_package(root_path)
 
-    def install_loose_items(self, items_to_install: List[Path]):
+    def install_loose_items(self, items_to_install: list[Path]):
         self.mod_installer.install_loose_items(items_to_install)
 
     # Delegated Profile Actions
@@ -202,7 +202,7 @@ class GamePage(QWidget):
     def open_mod_folder(self, mod_path: str):
         self.utils.open_mod_folder(mod_path)
 
-    def is_valid_drop(self, paths: List[Path]) -> bool:
+    def is_valid_drop(self, paths: list[Path]) -> bool:
         return self.utils.is_valid_drop(paths)
 
     # Core Page Logic & Helpers
@@ -213,7 +213,7 @@ class GamePage(QWidget):
         self.reload_timer.setSingleShot(True)
         self.reload_timer.timeout.connect(lambda: self.load_mods(reset_page=False))
 
-    def _get_filter_definitions(self) -> Dict[str, tuple]:
+    def _get_filter_definitions(self) -> dict[str, tuple]:
         """Provides filter button text and tooltips to the UI builder."""
         return {
             "all": (tr("filter_all"), tr("filter_all_tooltip")),

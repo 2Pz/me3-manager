@@ -6,7 +6,7 @@ Handles all path resolution, custom paths, and directory management.
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class PathManager:
@@ -175,7 +175,7 @@ class PathManager:
         custom_paths[game_name][mod_key] = config_path
         self.settings_manager.set("custom_config_paths", custom_paths)
 
-    def get_me3_config_path(self, game_name: str) -> Optional[Path]:
+    def get_me3_config_path(self, game_name: str) -> Path | None:
         """
         Get the ME3 config file path for a game.
 
@@ -229,7 +229,7 @@ class PathManager:
         me3_root = self.config_root.parent.parent
         return me3_root / "bin"
 
-    def ensure_directories(self, game_name: Optional[str] = None) -> None:
+    def ensure_directories(self, game_name: str | None = None) -> None:
         """
         Ensure necessary directories exist.
 
@@ -337,7 +337,7 @@ class PathManager:
         # Simple filename, assume in mods dir
         return self.get_mods_dir(game_name) / path_str
 
-    def _get_active_profile(self, game_name: str) -> Optional[Dict[str, Any]]:
+    def _get_active_profile(self, game_name: str) -> dict[str, Any] | None:
         """
         Get the active profile for a game.
 

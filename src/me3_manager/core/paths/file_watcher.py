@@ -4,7 +4,6 @@ Monitors directories and files for changes.
 """
 
 from pathlib import Path
-from typing import List, Set
 
 from PyQt6.QtCore import QFileSystemWatcher, QObject, pyqtSignal
 
@@ -25,8 +24,8 @@ class FileWatcher(QObject):
         """
         super().__init__(parent)
         self.watcher = QFileSystemWatcher()
-        self._watched_dirs: Set[str] = set()
-        self._watched_files: Set[str] = set()
+        self._watched_dirs: set[str] = set()
+        self._watched_files: set[str] = set()
 
         # Connect signals
         self.watcher.directoryChanged.connect(self._on_directory_changed)
@@ -184,7 +183,7 @@ class FileWatcher(QObject):
         for file_path in list(self._watched_files):
             self.remove_file(file_path)
 
-    def get_watched_directories(self) -> List[str]:
+    def get_watched_directories(self) -> list[str]:
         """
         Get list of currently watched directories.
 
@@ -193,7 +192,7 @@ class FileWatcher(QObject):
         """
         return list(self._watched_dirs)
 
-    def get_watched_files(self) -> List[str]:
+    def get_watched_files(self) -> list[str]:
         """
         Get list of currently watched files.
 
@@ -203,7 +202,7 @@ class FileWatcher(QObject):
         return list(self._watched_files)
 
     def _update_watched_paths(
-        self, target_dirs: Set[str], target_files: Set[str]
+        self, target_dirs: set[str], target_files: set[str]
     ) -> None:
         """
         Update watched paths to match target sets.

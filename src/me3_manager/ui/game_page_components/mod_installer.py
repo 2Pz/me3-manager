@@ -10,7 +10,7 @@ import re
 import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import tomlkit
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
@@ -202,7 +202,7 @@ class ModInstaller:
         candidate.relative_to(base_res)
         return candidate
 
-    def install_linked_mods(self, items_to_install: List[Path]) -> bool:
+    def install_linked_mods(self, items_to_install: list[Path]) -> bool:
         """
         Installs a list of items (DLLs and their associated config folders) directly
         into the mods directory without bundling them.
@@ -582,7 +582,7 @@ class ModInstaller:
             )
             self.game_page.status_label.setText(tr("status_ready"))
 
-    def install_loose_items(self, items_to_install: List[Path]):
+    def install_loose_items(self, items_to_install: list[Path]):
         if not items_to_install:
             return
 

@@ -3,8 +3,6 @@ Game registry for managing game configurations.
 Handles game definitions, order, and game-specific settings.
 """
 
-from typing import Dict, List, Optional
-
 
 class GameRegistry:
     """Manages game configurations and registry."""
@@ -94,7 +92,7 @@ class GameRegistry:
         if self.settings_manager.get("game_exe_paths") is None:
             self.settings_manager.set("game_exe_paths", {}, auto_save=False)
 
-    def get_all_games(self) -> Dict[str, Dict[str, str]]:
+    def get_all_games(self) -> dict[str, dict[str, str]]:
         """
         Get all registered games.
 
@@ -103,7 +101,7 @@ class GameRegistry:
         """
         return self.settings_manager.get("games", {}).copy()
 
-    def get_game(self, game_name: str) -> Optional[Dict[str, str]]:
+    def get_game(self, game_name: str) -> dict[str, str] | None:
         """
         Get configuration for a specific game.
 
@@ -194,7 +192,7 @@ class GameRegistry:
         self.settings_manager.set("games", games)
         return True
 
-    def get_game_order(self) -> List[str]:
+    def get_game_order(self) -> list[str]:
         """
         Get the current game order.
 
@@ -203,7 +201,7 @@ class GameRegistry:
         """
         return self.settings_manager.get("game_order", []).copy()
 
-    def set_game_order(self, new_order: List[str]) -> bool:
+    def set_game_order(self, new_order: list[str]) -> bool:
         """
         Set a new game order.
 
@@ -219,7 +217,7 @@ class GameRegistry:
         self.settings_manager.set("game_order", new_order)
         return True
 
-    def get_game_exe_path(self, game_name: str) -> Optional[str]:
+    def get_game_exe_path(self, game_name: str) -> str | None:
         """
         Get custom executable path for a game.
 
@@ -232,7 +230,7 @@ class GameRegistry:
         exe_paths = self.settings_manager.get("game_exe_paths", {})
         return exe_paths.get(game_name)
 
-    def set_game_exe_path(self, game_name: str, path: Optional[str]) -> None:
+    def set_game_exe_path(self, game_name: str, path: str | None) -> None:
         """
         Set or clear custom executable path for a game.
 
@@ -247,7 +245,7 @@ class GameRegistry:
             exe_paths.pop(game_name, None)
         self.settings_manager.set("game_exe_paths", exe_paths)
 
-    def get_game_cli_id(self, game_name: str) -> Optional[str]:
+    def get_game_cli_id(self, game_name: str) -> str | None:
         """
         Get CLI identifier for a game.
 
@@ -260,7 +258,7 @@ class GameRegistry:
         game = self.get_game(game_name)
         return game.get("cli_id") if game else None
 
-    def get_game_executable_name(self, game_name: str) -> Optional[str]:
+    def get_game_executable_name(self, game_name: str) -> str | None:
         """
         Get expected executable filename for a game.
 
@@ -273,7 +271,7 @@ class GameRegistry:
         game = self.get_game(game_name)
         return game.get("executable") if game else None
 
-    def get_game_mods_dir(self, game_name: str) -> Optional[str]:
+    def get_game_mods_dir(self, game_name: str) -> str | None:
         """
         Get mods directory name for a game.
 
@@ -286,7 +284,7 @@ class GameRegistry:
         game = self.get_game(game_name)
         return game.get("mods_dir") if game else None
 
-    def get_game_profile_name(self, game_name: str) -> Optional[str]:
+    def get_game_profile_name(self, game_name: str) -> str | None:
         """
         Get profile filename for a game.
 

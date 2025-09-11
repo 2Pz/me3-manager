@@ -4,7 +4,7 @@ Handles writing ME3 config files while preserving comments and formatting using 
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import tomlkit
 
@@ -14,8 +14,8 @@ class TomlConfigWriter:
 
     @staticmethod
     def update_config_value(
-        config_path: Path, key: str, value: Any, section: Optional[str] = None
-    ) -> Tuple[bool, str]:
+        config_path: Path, key: str, value: Any, section: str | None = None
+    ) -> tuple[bool, str]:
         """
         Update a single value in a TOML config file while preserving comments and formatting.
 
@@ -88,8 +88,8 @@ class TomlConfigWriter:
 
     @staticmethod
     def update_game_settings(
-        config_path: Path, game_name: str, settings: Dict[str, Any]
-    ) -> Tuple[bool, str]:
+        config_path: Path, game_name: str, settings: dict[str, Any]
+    ) -> tuple[bool, str]:
         """
         Update game-specific settings in the [game.gamename] section.
 
@@ -159,7 +159,7 @@ class TomlConfigWriter:
             return False, f"Unexpected error updating game settings: {str(e)}"
 
     @staticmethod
-    def validate_write_access(config_path: Path) -> Tuple[bool, str]:
+    def validate_write_access(config_path: Path) -> tuple[bool, str]:
         """
         Validate that we can write to the given config path.
 

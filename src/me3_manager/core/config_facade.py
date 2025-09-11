@@ -7,7 +7,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from PyQt6.QtCore import QFileSystemWatcher
 
@@ -153,29 +152,29 @@ class ConfigFacade:
             self._save_settings()
         return success
 
-    def get_game_cli_id(self, game_name: str) -> Optional[str]:
+    def get_game_cli_id(self, game_name: str) -> str | None:
         """Get CLI ID for a game."""
         return self.game_registry.get_game_cli_id(game_name)
 
-    def get_game_executable_name(self, game_name: str) -> Optional[str]:
+    def get_game_executable_name(self, game_name: str) -> str | None:
         """Get executable name for a game."""
         return self.game_registry.get_game_executable_name(game_name)
 
-    def get_game_exe_path(self, game_name: str) -> Optional[str]:
+    def get_game_exe_path(self, game_name: str) -> str | None:
         """Get custom executable path for a game."""
         return self.game_registry.get_game_exe_path(game_name)
 
-    def set_game_exe_path(self, game_name: str, path: Optional[str]):
+    def set_game_exe_path(self, game_name: str, path: str | None):
         """Set custom executable path for a game."""
         self.game_registry.set_game_exe_path(game_name, path)
         self._sync_legacy_attributes()
         self._save_settings()
 
-    def get_game_order(self) -> List[str]:
+    def get_game_order(self) -> list[str]:
         """Get game order."""
         return self.game_registry.get_game_order()
 
-    def set_game_order(self, new_order: List[str]):
+    def set_game_order(self, new_order: list[str]):
         """Set game order."""
         success = self.game_registry.set_game_order(new_order)
         if success:
@@ -225,7 +224,7 @@ class ConfigFacade:
         self.path_manager.set_mod_config_path(game_name, mod_path_str, config_path)
         self._sync_legacy_attributes()
 
-    def get_me3_config_path(self, game_name: str) -> Optional[str]:
+    def get_me3_config_path(self, game_name: str) -> str | None:
         """Get ME3 config path for a game."""
         path = self.path_manager.get_me3_config_path(game_name)
         return str(path) if path else None
@@ -253,12 +252,12 @@ class ConfigFacade:
             self.file_watcher.addPaths(new_dirs)
 
     # Profile Management
-    def get_profiles_for_game(self, game_name: str) -> List[Dict]:
+    def get_profiles_for_game(self, game_name: str) -> list[dict]:
         """Get all profiles for a game."""
         profiles = self.settings_manager.get("profiles", {})
         return profiles.get(game_name, [])
 
-    def get_active_profile(self, game_name: str) -> Optional[Dict]:
+    def get_active_profile(self, game_name: str) -> dict | None:
         """Get active profile for a game."""
         profiles = self.get_profiles_for_game(game_name)
         if not profiles:
@@ -294,7 +293,7 @@ class ConfigFacade:
 
     def add_profile(
         self, game_name: str, name: str, mods_path: str, make_active: bool = False
-    ) -> Optional[str]:
+    ) -> str | None:
         """Add a new profile for a game."""
         import uuid
 
@@ -399,15 +398,15 @@ class ConfigFacade:
         """Get ME3 installation status as a Status code."""
         return self.me3_info_manager.get_me3_installation_status()
 
-    def get_me3_version(self) -> Optional[str]:
+    def get_me3_version(self) -> str | None:
         """Get ME3 version."""
         return self.me3_info_manager.get_version()
 
-    def get_steam_path(self) -> Optional[Path]:
+    def get_steam_path(self) -> Path | None:
         """Get Steam path."""
         return self.me3_info_manager.get_steam_path()
 
-    def get_logs_directory(self) -> Optional[Path]:
+    def get_logs_directory(self) -> Path | None:
         """Get ME3 logs directory."""
         return self.me3_info_manager.get_logs_directory()
 
