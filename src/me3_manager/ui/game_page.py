@@ -29,12 +29,10 @@ class GamePage(QWidget):
     def __init__(self, game_name: str, config_manager):
         super().__init__()
 
-        # --- 1. Core State & Properties ---
         self.game_name = game_name
         self.style = GamePageStyle()
         self.config_manager = config_manager
         self.mod_manager = ImprovedModManager(config_manager)
-
         self.mod_widgets: Dict[str, QWidget] = {}
         self.current_filter: str = "all"
         self.filter_buttons: Dict[str, QWidget] = {}
@@ -44,7 +42,6 @@ class GamePage(QWidget):
         self.filtered_mods: Dict[str, Any] = {}
         self.all_mods_data: Dict[str, Any] = {}
         self.mod_infos: Dict[str, Any] = {}
-
         self.acceptable_folders = [
             "_backup",
             "_unknown",
@@ -70,7 +67,6 @@ class GamePage(QWidget):
         ]
         self.setAcceptDrops(True)
 
-        # --- 2. Handlers Initialization ---
         self.builder = UiBuilder(self)
         self.drag_drop_handler = DragDropHandler(self)
         self.mod_installer = ModInstaller(self)
@@ -82,13 +78,11 @@ class GamePage(QWidget):
         self.utils = PageUtils(self)
         self.mod_list_handler = ModListHandler(self)
 
-        # --- 3. UI Construction & Data Load ---
         self.builder.init_ui()
         self._setup_file_watcher()
         self.load_mods()
 
     # Delegated Drag & Drop Events
-
     def dragEnterEvent(self, event: QDragEnterEvent):
         self.drag_drop_handler.dragEnterEvent(event)
 

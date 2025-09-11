@@ -33,6 +33,7 @@ class DependencyWidget(QWidget):
         dependency_data: Dict[str, Any] = None,
         available_mods: List[str] = None,
         parent_list_widget=None,
+        is_package_mod: bool = False,
     ):
         super().__init__()
         self.available_mods = available_mods or []
@@ -59,6 +60,10 @@ class DependencyWidget(QWidget):
         self.optional_check = QCheckBox(tr("optional"))
         if dependency_data:
             self.optional_check.setChecked(dependency_data.get("optional", False))
+
+        # Hide the optional checkbox for package mods, as the schema doesn't support it
+        self.optional_check.setVisible(not is_package_mod)
+
         layout.addWidget(self.optional_check)
 
         # Remove button
@@ -137,10 +142,12 @@ class DependencyListWidget(QWidget):
         title: str,
         dependencies: List[Dict[str, Any]] = None,
         available_mods: List[str] = None,
+        is_package_mod: bool = False,
     ):
         super().__init__()
         self.available_mods = available_mods or []
         self.dependency_widgets = []
+        self.is_package_mod = is_package_mod
         self.other_list_widget = (
             None  # Reference to the other dependency list (load_before/load_after)
         )
@@ -225,7 +232,14 @@ class DependencyListWidget(QWidget):
 
     def add_dependency(self, dependency_data: Dict[str, Any] = None):
         """Add a new dependency widget"""
-        dep_widget = DependencyWidget(dependency_data, self.available_mods, self)
+
+        # Pass the is_package_mod flag to the individual dependency widget
+        dep_widget = DependencyWidget(
+            dependency_data,
+            self.available_mods,
+            self,
+            is_package_mod=self.is_package_mod,
+        )
         dep_widget.removed.connect(lambda: self.remove_dependency(dep_widget))
 
         self.dependency_widgets.append(dep_widget)
@@ -309,40 +323,49 @@ class AdvancedModOptionsDialog(QDialog):
         self.load_current_options()
 
     def _convert_dependencies_to_dict_format(self, dependencies):
-        """Convert dependencies from string array format to dictionary format for UI compatibility"""
+        """Convert dependencies from string or dict format to a consistent dictionary format for the UI."""
         if not dependencies:
             return []
 
         converted = []
         for dep in dependencies:
             if isinstance(dep, str):
-                # Convert string to dictionary format
+                # Convert string to dictionary format, assuming not optional
                 converted.append({"id": dep, "optional": False})
             elif isinstance(dep, dict):
-                # Already in dictionary format
+                # Already in dictionary format, ensure 'optional' key exists
+                if "optional" not in dep:
+                    dep["optional"] = False
                 converted.append(dep)
-
         return converted
 
-    def _convert_dependencies_to_string_format(self, dependencies):
-        """Convert dependencies from dictionary format back to string array format for TOML"""
+    # --- NEW METHOD TO REPLACE THE OLD ONE ---
+    def _format_dependencies_for_saving(
+        self, dependencies: List[Dict[str, Any]]
+    ) -> List:
+        """
+        Formats dependencies for saving to the profile, respecting the schema.
+        - For packages, returns a simple list of strings.
+        - For natives (DLLs), returns a list of dictionaries to support 'optional'.
+        """
         if not dependencies:
             return []
 
-        # For now, we only support simple string dependencies (no optional flag in TOML)
-        # Extract just the ID strings from the dictionary format
-        string_deps = []
+        formatted_deps = []
         for dep in dependencies:
-            if isinstance(dep, dict) and "id" in dep:
-                dep_id = dep["id"].strip()
-                if dep_id:  # Only add non-empty IDs
-                    string_deps.append(dep_id)
-            elif isinstance(dep, str):
-                dep = dep.strip()
-                if dep:  # Only add non-empty strings
-                    string_deps.append(dep)
+            dep_id = dep.get("id", "").strip()
+            if not dep_id:
+                continue
 
-        return string_deps
+            if self.is_folder_mod:
+                # Package mods only support a list of strings
+                formatted_deps.append(dep_id)
+            else:
+                # Native mods support the full dictionary format
+                is_optional = dep.get("optional", False)
+                formatted_deps.append({"id": dep_id, "optional": is_optional})
+
+        return formatted_deps
 
     def setup_ui(self):
         """Setup the user interface"""
@@ -483,7 +506,6 @@ class AdvancedModOptionsDialog(QDialog):
         desc.setStyleSheet("color: #cccccc; margin-bottom: 10px;")
         layout.addWidget(desc)
 
-        # Convert string arrays to dictionary format for compatibility
         load_before_data = self._convert_dependencies_to_dict_format(
             self.current_options.get("load_before", [])
         )
@@ -491,27 +513,27 @@ class AdvancedModOptionsDialog(QDialog):
             self.current_options.get("load_after", [])
         )
 
-        # Load Before
+        # Pass the is_folder_mod flag to the list widgets
         self.load_before_widget = DependencyListWidget(
             tr("load_before"),
             load_before_data,
             self.available_mods,
+            is_package_mod=self.is_folder_mod,
         )
         layout.addWidget(self.load_before_widget)
 
-        # Load After
         self.load_after_widget = DependencyListWidget(
             tr("load_after"),
             load_after_data,
             self.available_mods,
+            is_package_mod=self.is_folder_mod,
         )
+
         layout.addWidget(self.load_after_widget)
 
-        # Connect the two widgets so they can communicate
         self.load_before_widget.set_other_list_widget(self.load_after_widget)
         self.load_after_widget.set_other_list_widget(self.load_before_widget)
 
-        # Help text
         help_text = QLabel(f"""
 <b>{tr("load_order_help_title")}:</b><br>
 • <b>{tr("load_before")}:</b> {tr("load_order_help_load_before")}<br>
@@ -520,7 +542,6 @@ class AdvancedModOptionsDialog(QDialog):
 • <b>{tr("note")}:</b> {tr("load_order_help_note")}<br>
 • {tr("load_order_help_runtime")}
 """)
-
         help_text.setWordWrap(True)
         help_text.setStyleSheet("color: #888888; font-size: 11px; margin-top: 10px;")
         layout.addWidget(help_text)
@@ -668,11 +689,11 @@ class AdvancedModOptionsDialog(QDialog):
         """Get the configured options (excluding enabled field)"""
         options = {}
 
-        # Load order - convert back to simple string arrays for TOML format
-        options["load_before"] = self._convert_dependencies_to_string_format(
+        # Load order - format correctly based on mod type
+        options["load_before"] = self._format_dependencies_for_saving(
             self.load_before_widget.get_dependencies()
         )
-        options["load_after"] = self._convert_dependencies_to_string_format(
+        options["load_after"] = self._format_dependencies_for_saving(
             self.load_after_widget.get_dependencies()
         )
 
