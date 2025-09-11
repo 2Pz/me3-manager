@@ -43,14 +43,11 @@ class ProfileHandler:
         active_profile = self.config_manager.get_active_profile(self.game_name)
         if not active_profile:
             return
-
-        gp = self.game_page  # Short alias
+        gp = self.game_page
         gp.profile_menu_button.setText(active_profile["name"])
         gp.profile_menu.clear()
-
         all_profiles = self.config_manager.get_profiles_for_game(self.game_name)
         active_profile_id = active_profile["id"]
-
         for profile in all_profiles:
             action = QAction(profile["name"], gp)
             action.setData(profile["id"])
@@ -58,15 +55,12 @@ class ProfileHandler:
             action.setChecked(profile["id"] == active_profile_id)
             action.triggered.connect(self.on_profile_selected_from_menu)
             gp.profile_menu.addAction(action)
-
         gp.profile_menu.addSeparator()
-
         manage_action = QAction(
             QIcon(resource_path("resources/icon/profiles.svg")),
             tr("manage_profiles"),
             gp,
         )
-        # Note: We connect to this class's method, not GamePage's
         manage_action.triggered.connect(self.open_profile_manager)
         gp.profile_menu.addAction(manage_action)
 
@@ -88,8 +82,6 @@ class ProfileHandler:
         layout = QHBoxLayout(dialog)
         layout.setSpacing(15)
 
-        # ... (The entire dialog creation and logic from the original method follows)
-        # ... (All references to `self` are changed to `self.game_page` or `self` as appropriate)
         left_layout = QVBoxLayout()
         search_bar = QLineEdit()
         search_bar.setPlaceholderText(tr("search_profiles_placeholder"))

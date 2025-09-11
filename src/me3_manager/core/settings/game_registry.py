@@ -10,6 +10,7 @@ class GameRegistry:
     """Manages game configurations and registry."""
 
     # Default game configurations
+
     DEFAULT_GAMES = {
         "Elden Ring": {
             "mods_dir": "eldenring-mods",
@@ -62,18 +63,13 @@ class GameRegistry:
         self._initialize_games()
         self._initialize_game_order()
         self._initialize_game_paths()
-
         # Ensure that if defaults were just added, they are saved immediately.
         self.settings_manager.save_settings()
 
     def _initialize_games(self):
         """Initialize games configuration, using defaults only if no games are saved."""
-        # The 'games' setting can exist but be empty (e.g., {}). We should populate defaults
-        # in that case. The pythonic `if self.settings_manager.get("games")` checks for
-        # both None and an empty dictionary.
         if self.settings_manager.get("games"):
             return
-
         # If no games configuration exists or it's empty, populate with defaults.
         self.settings_manager.set("games", self.DEFAULT_GAMES.copy(), auto_save=False)
 
@@ -83,19 +79,12 @@ class GameRegistry:
         if self.settings_manager.get("game_order"):
             saved_order = self.settings_manager.get("game_order", [])
             available_games = list(self.get_all_games().keys())
-
-            # Create a new order that preserves the saved order but removes non-existent games.
             pruned_order = [game for game in saved_order if game in available_games]
-
-            # Add any new games that are not in the saved order to the end.
             for game in available_games:
                 if game not in pruned_order:
                     pruned_order.append(game)
-
             self.settings_manager.set("game_order", pruned_order, auto_save=False)
             return
-
-        # If no 'game_order' exists or it's empty, populate it with the default order.
         self.settings_manager.set(
             "game_order", self.DEFAULT_GAME_ORDER.copy(), auto_save=False
         )
@@ -145,26 +134,21 @@ class GameRegistry:
         """
         games = self.settings_manager.get("games", {})
 
-        # Check if game already exists
+        # Check if game already existsif name in games:
+
         if name in games:
             return False
-
-        # Add new game
         games[name] = {
             "mods_dir": mods_dir,
             "profile": profile,
             "cli_id": cli_id,
             "executable": executable,
         }
-
         self.settings_manager.set("games", games)
-
-        # Add to game order
         game_order = self.settings_manager.get("game_order", [])
         if name not in game_order:
             game_order.append(name)
             self.settings_manager.set("game_order", game_order)
-
         return True
 
     def remove_game(self, name: str) -> bool:
@@ -178,23 +162,15 @@ class GameRegistry:
             True if successful
         """
         games = self.settings_manager.get("games", {})
-
         if name not in games:
             return False
-
-        # Remove from games
         del games[name]
         self.settings_manager.set("games", games)
-
-        # Remove from game order
         game_order = self.settings_manager.get("game_order", [])
         if name in game_order:
             game_order.remove(name)
             self.settings_manager.set("game_order", game_order)
-
-        # Clean up related settings
         self._clean_game_data(name)
-
         return True
 
     def update_game(self, name: str, **kwargs) -> bool:
@@ -209,16 +185,12 @@ class GameRegistry:
             True if successful
         """
         games = self.settings_manager.get("games", {})
-
         if name not in games:
             return False
-
-        # Update only valid keys
         valid_keys = ["mods_dir", "profile", "cli_id", "executable"]
         for key, value in kwargs.items():
             if key in valid_keys:
                 games[name][key] = value
-
         self.settings_manager.set("games", games)
         return True
 
@@ -242,11 +214,8 @@ class GameRegistry:
             True if successful
         """
         available_games = set(self.get_all_games().keys())
-
-        # Validate that all games in new order exist
         if set(new_order) != available_games:
             return False
-
         self.settings_manager.set("game_order", new_order)
         return True
 
@@ -272,12 +241,10 @@ class GameRegistry:
             path: Executable path or None to clear
         """
         exe_paths = self.settings_manager.get("game_exe_paths", {})
-
         if path:
             exe_paths[game_name] = path
         else:
             exe_paths.pop(game_name, None)
-
         self.settings_manager.set("game_exe_paths", exe_paths)
 
     def get_game_cli_id(self, game_name: str) -> Optional[str]:
@@ -339,7 +306,6 @@ class GameRegistry:
         Args:
             game_name: Name of the game to clean
         """
-        # Remove from various settings
         settings_to_clean = [
             "profiles",
             "active_profiles",
@@ -348,14 +314,11 @@ class GameRegistry:
             "custom_config_paths",
             "me3_config_paths",
         ]
-
         for setting_key in settings_to_clean:
             setting_data = self.settings_manager.get(setting_key, {})
             if isinstance(setting_data, dict) and game_name in setting_data:
                 del setting_data[game_name]
                 self.settings_manager.set(setting_key, setting_data, auto_save=False)
-
-        # Save all changes at once
         self.settings_manager.save_settings()
 
     def restore_default_game(self, game_name: str) -> bool:
@@ -370,11 +333,9 @@ class GameRegistry:
         """
         if game_name not in self.DEFAULT_GAMES:
             return False
-
         games = self.settings_manager.get("games", {})
         games[game_name] = self.DEFAULT_GAMES[game_name].copy()
         self.settings_manager.set("games", games)
-
         return True
 
     def is_default_game(self, game_name: str) -> bool:

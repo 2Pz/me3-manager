@@ -29,12 +29,9 @@ class ConfigFacade:
         """Initialize the facade with all necessary components."""
         # Initialize ME3 info manager
         self.me3_info_manager = ME3InfoManager()
-        # Keep legacy attribute for backward compatibility
         self.me3_info = self.me3_info_manager
-
         # Determine settings file path
         settings_file = self._get_initial_settings_path()
-
         # Initialize core components
         self.settings_manager = SettingsManager(settings_file)
         self.ui_settings = UISettings(self.settings_manager)
@@ -43,19 +40,12 @@ class ConfigFacade:
             self.settings_manager, self.game_registry, self.me3_info_manager
         )
         self.file_watcher_handler = FileWatcher()
-
         # Legacy compatibility attributes
         self.config_root = self.path_manager.config_root
         self.settings_file = settings_file
-        self.file_watcher = QFileSystemWatcher()  # Legacy Qt watcher
-
-        # Direct access to commonly used settings (for compatibility)
+        self.file_watcher = QFileSystemWatcher()
         self._sync_legacy_attributes()
-
-        # Ensure directories exist
         self.path_manager.ensure_directories()
-
-        # Setup file watcher
         self.setup_file_watcher()
 
     def _get_initial_settings_path(self) -> Path:
@@ -65,8 +55,6 @@ class ConfigFacade:
             profile_dir = self.me3_info_manager.get_profile_directory()
             if profile_dir:
                 return Path(profile_dir).parent / "manager_settings.json"
-
-        # Use platform-specific paths for ME3 config
         if sys.platform == "win32":
             localappdata = os.environ.get("LOCALAPPDATA")
             if localappdata:
@@ -89,12 +77,10 @@ class ConfigFacade:
                 config_root = Path(xdg_config) / "me3" / "profiles"
             else:
                 config_root = Path.home() / ".config" / "me3" / "profiles"
-
         return config_root.parent / "manager_settings.json"
 
     def _sync_legacy_attributes(self):
         """Sync legacy attributes for backward compatibility."""
-        # Direct attribute access (legacy support)
         self.games = self.game_registry.get_all_games()
         self.game_order = self.game_registry.get_game_order()
         self.game_exe_paths = self.settings_manager.get("game_exe_paths", {})
@@ -106,7 +92,6 @@ class ConfigFacade:
         self.me3_config_paths = self.settings_manager.get("me3_config_paths", {})
         self.profiles = self.settings_manager.get("profiles", {})
         self.active_profiles = self.settings_manager.get("active_profiles", {})
-
         # Legacy custom path attributes (these are now handled differently)
         self.custom_profile_paths = {}
         self.custom_mods_paths = {}
@@ -124,8 +109,8 @@ class ConfigFacade:
         # Sync current attributes back to settings
         self.settings_manager.update(
             {
-                "games": self.games,
-                "game_order": self.game_order,
+                "games": self.game_registry.get_all_games(),
+                "game_order": self.game_registry.get_game_order(),
                 "game_exe_paths": self.game_exe_paths,
                 "tracked_external_mods": self.tracked_external_mods,
                 "profiles": self.profiles,
@@ -135,8 +120,6 @@ class ConfigFacade:
             }
         )
         self.settings_manager.save_settings()
-
-    # Game Management (delegated to GameRegistry)
 
     def add_game(
         self, name: str, mods_dir: str, profile: str, cli_id: str, executable: str
@@ -149,6 +132,7 @@ class ConfigFacade:
             self._sync_legacy_attributes()
             self.path_manager.ensure_directories(name)
             self.setup_file_watcher()
+            self._save_settings()
         return success
 
     def remove_game(self, name: str):
@@ -157,6 +141,7 @@ class ConfigFacade:
         if success:
             self._sync_legacy_attributes()
             self.setup_file_watcher()
+            self._save_settings()
         return success
 
     def update_game(self, name: str, **kwargs):
@@ -165,6 +150,7 @@ class ConfigFacade:
         if success:
             self._sync_legacy_attributes()
             self.path_manager.ensure_directories(name)
+            self._save_settings()
         return success
 
     def get_game_cli_id(self, game_name: str) -> Optional[str]:
@@ -183,6 +169,7 @@ class ConfigFacade:
         """Set custom executable path for a game."""
         self.game_registry.set_game_exe_path(game_name, path)
         self._sync_legacy_attributes()
+        self._save_settings()
 
     def get_game_order(self) -> List[str]:
         """Get game order."""
@@ -193,9 +180,8 @@ class ConfigFacade:
         success = self.game_registry.set_game_order(new_order)
         if success:
             self._sync_legacy_attributes()
+            self._save_settings()
         return success
-
-    # UI Settings (delegated to UISettings)
 
     def get_mods_per_page(self) -> int:
         """Get mods per page setting."""
@@ -222,7 +208,6 @@ class ConfigFacade:
         self.ui_settings.set_auto_launch_steam(enabled)
 
     # Path Management (delegated to PathManager)
-
     def get_mods_dir(self, game_name: str) -> Path:
         """Get mods directory for a game."""
         return self.path_manager.get_mods_dir(game_name)
@@ -255,24 +240,19 @@ class ConfigFacade:
         self.path_manager.ensure_directories()
 
     # File Watcher (delegated to FileWatcher)
-
     def setup_file_watcher(self):
         """Setup file watcher for all games."""
         self.file_watcher_handler.setup_global(
             self.path_manager, self.settings_manager, self.game_registry
         )
-
-        # Also update legacy QFileSystemWatcher for compatibility
         current_dirs = self.file_watcher.directories()
         if current_dirs:
             self.file_watcher.removePaths(current_dirs)
-
         new_dirs = self.file_watcher_handler.get_watched_directories()
         if new_dirs:
             self.file_watcher.addPaths(new_dirs)
 
     # Profile Management
-
     def get_profiles_for_game(self, game_name: str) -> List[Dict]:
         """Get all profiles for a game."""
         profiles = self.settings_manager.get("profiles", {})
@@ -281,11 +261,29 @@ class ConfigFacade:
     def get_active_profile(self, game_name: str) -> Optional[Dict]:
         """Get active profile for a game."""
         profiles = self.get_profiles_for_game(game_name)
-        active_id = self.active_profiles.get(game_name, "default")
+        if not profiles:
+            default_mods_path = self.path_manager.get_mods_dir(game_name)
+            default_profile_file_path = self.path_manager.get_profile_path(game_name)
+            new_profile = {
+                "id": "default",
+                "name": "Default",
+                "profile_path": str(default_profile_file_path),
+                "mods_path": str(default_mods_path),
+            }
+            default_mods_path.mkdir(parents=True, exist_ok=True)
+            if game_name not in self.profiles:
+                self.profiles[game_name] = []
+            self.profiles[game_name].append(new_profile)
+            self.active_profiles[game_name] = "default"
+            self._save_settings()
+            return new_profile
 
+        active_id = self.active_profiles.get(game_name, "default")
         for profile in profiles:
             if profile.get("id") == active_id:
                 return profile
+        if profiles:
+            return profiles[0]
         return None
 
     def set_active_profile(self, game_name: str, profile_id: str):
@@ -299,26 +297,19 @@ class ConfigFacade:
     ) -> Optional[str]:
         """Add a new profile for a game."""
         import uuid
-        from pathlib import Path
 
         profile_id = str(uuid.uuid4())
         mods_dir = Path(mods_path)
         mods_dir.mkdir(parents=True, exist_ok=True)
-
         # Create profile file
         safe_filename = "".join(
             c for c in name if c.isalnum() or c in (" ", "_")
         ).rstrip()
         profile_file_path = mods_dir / f"{safe_filename.replace(' ', '_')}.me3"
-
-        # Create profile content (this would be handled by ProfileManager in full refactor)
-        # For now, create minimal profile
         profile_file_path.touch()
-
         # Add to profiles
         if game_name not in self.profiles:
             self.profiles[game_name] = []
-
         new_profile = {
             "id": profile_id,
             "name": name,
@@ -326,29 +317,24 @@ class ConfigFacade:
             "mods_path": str(mods_dir),
         }
         self.profiles[game_name].append(new_profile)
-
         if make_active:
             self.set_active_profile(game_name, profile_id)
         else:
             self._save_settings()
-
         return profile_id
 
     def delete_profile(self, game_name: str, profile_id: str):
         """Delete a profile."""
         if profile_id == "default":
             return
-
         # Remove from profiles
         if game_name in self.profiles:
             self.profiles[game_name] = [
                 p for p in self.profiles[game_name] if p.get("id") != profile_id
             ]
-
-        # Reset active if needed
+            # Reset active if needed
         if self.active_profiles.get(game_name) == profile_id:
             self.active_profiles[game_name] = "default"
-
         self._save_settings()
 
     def update_profile(self, game_name: str, profile_id: str, new_name: str):
@@ -363,10 +349,7 @@ class ConfigFacade:
 
     def _get_default_games(self) -> dict:
         """Get default game configurations."""
-        # Delegate to GameRegistry for the actual default games
         return self.game_registry.DEFAULT_GAMES
-
-    # External Mod Tracking
 
     def track_external_mod(self, game_name: str, mod_path: str):
         """Track an external mod."""
@@ -408,8 +391,6 @@ class ConfigFacade:
                     del self.tracked_external_mods[game_name][active_profile_id]
                 self._save_settings()
 
-    # ME3 Integration
-
     def is_me3_installed(self) -> bool:
         """Check if ME3 is installed."""
         return self.me3_info_manager.is_me3_installed()
@@ -435,8 +416,6 @@ class ConfigFacade:
         self.me3_info_manager.refresh_info()
         self.path_manager.refresh_config_root()
         self.config_root = self.path_manager.config_root
-
-    # Additional methods needed by mod_manager
 
     def _parse_toml_config(self, config_path):
         """Parse TOML config file (needed by mod_manager)."""
