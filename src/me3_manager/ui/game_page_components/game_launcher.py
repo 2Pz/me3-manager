@@ -80,7 +80,7 @@ class GameLauncher:
 
     def _handle_me3_not_installed(self) -> bool:
         """Shows a dialog prompting the user to install ME3 and returns if successful."""
-        # --- FIX: The import is moved here, inside the method. ---
+
         from me3_manager.ui.main_window import HelpAboutDialog
 
         reply = QMessageBox.question(
@@ -99,7 +99,6 @@ class GameLauncher:
         return False
 
     def _launch_with_custom_exe(self, exe_path: str, cli_id: str, profile_path: str):
-        # ... (rest of the file is unchanged)
         """Handles the specific logic for launching with a custom executable."""
         main_window = self.game_page.window()
         if hasattr(main_window, "terminal"):
