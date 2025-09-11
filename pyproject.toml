@@ -40,9 +40,18 @@ select = [
   "E9",
   "F",
   "I", # isort
+  "B", # flake8-bugbear
   "LOG", # flake8-logging
   "G", # flake8-logging-format
+  "PIE", # flake8-pie
   "T20", # flake8-print
+  "UP", # pyupgrade
+]
+ignore = [
+  # Allow `pass` (more obvious that it's a placeholder)
+  "PIE790",
+  # Allow redundant mode="r" arg for open()
+  "UP015",
 ]
 
 [tool.ruff.lint.per-file-ignores]

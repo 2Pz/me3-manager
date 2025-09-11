@@ -7,7 +7,7 @@ and generating the `ModItem` widgets for display.
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtGui import QIcon
 
@@ -92,7 +92,7 @@ class ModListHandler:
         gp.update_profile_dropdown()
 
     def apply_filters(
-        self, reset_page: bool = True, source_mods: Optional[Dict[str, Any]] = None
+        self, reset_page: bool = True, source_mods: dict[str, Any] | None = None
     ):
         """Filters the mod list based on search text and category."""
         gp = self.game_page

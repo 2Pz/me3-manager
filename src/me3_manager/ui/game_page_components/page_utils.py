@@ -10,7 +10,7 @@ import subprocess
 import sys
 from collections import deque
 from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QDesktopServices
@@ -76,7 +76,7 @@ class PageUtils:
         folder_path = Path(mod_path).parent
         _open_path(self.game_page, folder_path)
 
-    def is_valid_drop(self, paths: List[Path]) -> bool:
+    def is_valid_drop(self, paths: list[Path]) -> bool:
         """Checks if the dropped files/folders are valid for installation."""
         paths_to_check = deque(paths)
         while paths_to_check:

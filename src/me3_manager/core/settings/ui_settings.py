@@ -3,7 +3,7 @@ UI settings management for ME3 Manager.
 Handles all user interface related configuration.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class UISettings:
@@ -110,7 +110,7 @@ class UISettings:
         ui_settings["auto_launch_steam"] = enabled
         self.settings_manager.set("ui_settings", ui_settings)
 
-    def get_window_geometry(self) -> Optional[Dict[str, int]]:
+    def get_window_geometry(self) -> dict[str, int] | None:
         """
         Get saved window geometry.
 
@@ -120,7 +120,7 @@ class UISettings:
         ui_settings = self.settings_manager.get("ui_settings", {})
         return ui_settings.get("window_geometry")
 
-    def set_window_geometry(self, geometry: Dict[str, int]) -> None:
+    def set_window_geometry(self, geometry: dict[str, int]) -> None:
         """
         Save window geometry.
 
@@ -131,7 +131,7 @@ class UISettings:
         ui_settings["window_geometry"] = geometry
         self.settings_manager.set("ui_settings", ui_settings)
 
-    def get_splitter_state(self) -> Optional[bytes]:
+    def get_splitter_state(self) -> bytes | None:
         """
         Get saved splitter state.
 
@@ -184,7 +184,7 @@ class UISettings:
         ui_settings["theme"] = theme
         self.settings_manager.set("ui_settings", ui_settings)
 
-    def get_all_ui_settings(self) -> Dict[str, Any]:
+    def get_all_ui_settings(self) -> dict[str, Any]:
         """
         Get all UI settings.
 

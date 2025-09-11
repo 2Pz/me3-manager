@@ -1,6 +1,5 @@
 # ui/draggable_game_button.py
 
-from typing import List
 
 from PyQt6.QtCore import QMimeData, QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QDrag, QPainter, QPixmap
@@ -132,7 +131,7 @@ class DraggableGameContainer(QWidget):
             # Update layout
             self._reorder_widgets()
 
-    def set_game_order(self, new_order: List[str]):
+    def set_game_order(self, new_order: list[str]):
         """Set the order of game buttons"""
         self.game_order = new_order.copy()
         self._reorder_widgets()
@@ -194,6 +193,6 @@ class DraggableGameContainer(QWidget):
         self._reorder_widgets()
         self.game_order_changed.emit(self.game_order.copy())
 
-    def get_game_order(self) -> List[str]:
+    def get_game_order(self) -> list[str]:
         """Get current game order"""
         return self.game_order.copy()

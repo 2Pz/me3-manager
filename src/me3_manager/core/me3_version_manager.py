@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 import zipfile
-from typing import Callable, Optional, Tuple
+from collections.abc import Callable
 
 import requests
 from PyQt6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, pyqtSignal
@@ -125,7 +125,7 @@ class ME3LinuxInstaller(QObject):
         super().__init__()
         self.installer_url = installer_url
         self._prepare_command = prepare_command_func
-        self.env_vars = env_vars if env_vars else {}
+        self.env_vars = env_vars or {}
 
     def run(self):
         """Executes the installer script by piping curl's output to a shell."""
@@ -208,7 +208,7 @@ class ME3VersionManager:
         """Remove ANSI color codes from text."""
         return re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])").sub("", text)
 
-    def _fetch_github_version_python(self) -> Optional[str]:
+    def _fetch_github_version_python(self) -> str | None:
         """Uses Python's requests to fetch the latest ME3 release version from GitHub."""
         api_url = "https://api.github.com/repos/garyttierney/me3/releases/latest"
         try:
@@ -224,7 +224,7 @@ class ME3VersionManager:
             return None
         return None
 
-    def _fetch_github_release_info(self) -> Tuple[Optional[str], Optional[str]]:
+    def _fetch_github_release_info(self) -> tuple[str | None, str | None]:
         """
         Fetch latest stable GitHub release information.
 
@@ -493,7 +493,7 @@ class ME3VersionManager:
         self.thread.start()
         self.progress_dialog.show()
 
-    def _fetch_github_release_info_zip(self) -> Tuple[Optional[str], Optional[str]]:
+    def _fetch_github_release_info_zip(self) -> tuple[str | None, str | None]:
         """
         Fetch GitHub release information for ZIP distribution.
 
@@ -875,9 +875,8 @@ class ME3CustomInstaller(QObject):
                 for path in paths:
                     # Normalize path separators and check if it ends with me3\bin or garyttierney\me3\bin
                     normalized_path = path.replace("/", "\\").rstrip("\\").lower()
-                    if not (
-                        normalized_path.endswith("\\me3\\bin")
-                        or normalized_path.endswith("\\garyttierney\\me3\\bin")
+                    if not normalized_path.endswith(
+                        "\\me3\\bin", "\\garyttierney\\me3\\bin"
                     ):
                         cleaned_paths.append(path)
                     else:
@@ -949,9 +948,8 @@ class ME3CustomInstaller(QObject):
             cleaned_system_paths = []
             for path in current_process_paths:
                 normalized_path = path.replace("/", "\\").rstrip("\\").lower()
-                if not (
-                    normalized_path.endswith("\\me3\\bin")
-                    or normalized_path.endswith("\\garyttierney\\me3\\bin")
+                if not normalized_path.endswith(
+                    "\\me3\\bin", "\\garyttierney\\me3\\bin"
                 ):
                     cleaned_system_paths.append(path)
 

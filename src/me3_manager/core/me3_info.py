@@ -4,7 +4,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from me3_manager.utils.status import Status
 
@@ -18,10 +17,10 @@ class ME3InfoManager:
     """
 
     def __init__(self):
-        self._info_cache: Optional[Dict[str, str]] = None
-        self._is_installed: Optional[bool] = None
+        self._info_cache: dict[str, str] | None = None
+        self._is_installed: bool | None = None
 
-    def _prepare_command(self, cmd: List[str]) -> List[str]:
+    def _prepare_command(self, cmd: list[str]) -> list[str]:
         """
         Prepares a command for execution, handling platform specifics.
         Uses the same approach as the UI terminal for maximum compatibility.
@@ -88,7 +87,7 @@ class ME3InfoManager:
         else:
             return Status.NOT_INSTALLED
 
-    def get_me3_info(self) -> Optional[Dict[str, str]]:
+    def get_me3_info(self) -> dict[str, str] | None:
         """Get ME3 installation information using 'me3 info' command."""
         if not self.is_me3_installed():
             return None
@@ -130,7 +129,7 @@ class ME3InfoManager:
             log.error("Error getting ME3 info: %s", e)
             return None
 
-    def _parse_me3_info(self, output: str) -> Dict[str, str]:
+    def _parse_me3_info(self, output: str) -> dict[str, str]:
         """
         Parse the output of 'me3 info', compatible with both old and new formats.
         Updated to handle the bullet-point format with indented values.
@@ -215,35 +214,35 @@ class ME3InfoManager:
 
         return info
 
-    def get_profile_directory(self) -> Optional[Path]:
+    def get_profile_directory(self) -> Path | None:
         """Get the ME3 profile directory path."""
         info = self.get_me3_info()
         if info and "profile_directory" in info:
             return Path(info["profile_directory"])
         return None
 
-    def get_logs_directory(self) -> Optional[Path]:
+    def get_logs_directory(self) -> Path | None:
         """Get the ME3 logs directory path."""
         info = self.get_me3_info()
         if info and "logs_directory" in info:
             return Path(info["logs_directory"])
         return None
 
-    def get_steam_path(self) -> Optional[Path]:
+    def get_steam_path(self) -> Path | None:
         """Get the Steam installation path if provided."""
         info = self.get_me3_info()
         if info and "steam_path" in info and info["steam_path"] != "<none>":
             return Path(info["steam_path"])
         return None
 
-    def get_installation_prefix(self) -> Optional[Path]:
+    def get_installation_prefix(self) -> Path | None:
         """Get the ME3 installation prefix path."""
         info = self.get_me3_info()
         if info and "installation_prefix" in info:
             return Path(info["installation_prefix"])
         return None
 
-    def get_version(self) -> Optional[str]:
+    def get_version(self) -> str | None:
         """Get the ME3 version, using 'me3 info' with a fallback to '--version'."""
         info = self.get_me3_info()
         if info and "version" in info:
@@ -296,12 +295,12 @@ class ME3InfoManager:
         steam_status = info.get("steam_status", "").lower()
         return steam_status in ["not found", "missing", "unavailable"]
 
-    def get_installation_status(self) -> Optional[str]:
+    def get_installation_status(self) -> str | None:
         """Get the installation status."""
         info = self.get_me3_info()
         return info.get("installation_status") if info else None
 
-    def get_me3_config_paths(self) -> List[Path]:
+    def get_me3_config_paths(self) -> list[Path]:
         """Get ME3 configuration search paths from 'me3 info' output."""
         info = self.get_me3_info()
         if not info:
@@ -353,7 +352,7 @@ class ME3InfoManager:
             log.error("Error getting ME3 config paths: %s", e)
             return []
 
-    def find_existing_config(self) -> Optional[Path]:
+    def find_existing_config(self) -> Path | None:
         """
         Search through all config paths with error handling and return the first found config file.
         Returns None if no config file is found.
@@ -383,7 +382,7 @@ class ME3InfoManager:
 
         return None
 
-    def get_primary_config_path(self) -> Optional[Path]:
+    def get_primary_config_path(self) -> Path | None:
         """
         Get the primary ME3 config path for creation when me3.toml not found.
         First tries to find an existing config, then falls back to the first accessible path.
@@ -419,7 +418,7 @@ class ME3InfoManager:
         # Fallback to first path if all else fails
         return paths[0] if paths else None
 
-    def get_available_config_paths(self) -> List[Path]:
+    def get_available_config_paths(self) -> list[Path]:
         """
         Get all available config paths that can be used for creating a config file.
         Returns paths where we have write permission.
@@ -446,7 +445,7 @@ class ME3InfoManager:
 
         return available_paths
 
-    def cleanup_other_configs(self, keep_config_path: Path) -> List[Path]:
+    def cleanup_other_configs(self, keep_config_path: Path) -> list[Path]:
         """
         Remove all other me3.toml files from search paths, keeping only the specified one.
         Returns a list of paths that were successfully deleted.

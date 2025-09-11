@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
@@ -30,8 +30,8 @@ class DependencyWidget(QWidget):
 
     def __init__(
         self,
-        dependency_data: Dict[str, Any] = None,
-        available_mods: List[str] = None,
+        dependency_data: dict[str, Any] = None,
+        available_mods: list[str] = None,
         parent_list_widget=None,
     ):
         super().__init__()
@@ -96,7 +96,7 @@ class DependencyWidget(QWidget):
             self.mod_combo.setCurrentText(self.current_selection)
         self.mod_combo.blockSignals(False)
 
-    def get_dependency_data(self) -> Dict[str, Any]:
+    def get_dependency_data(self) -> dict[str, Any]:
         return {
             "id": self.mod_combo.currentText().strip(),
             "optional": self.optional_check.isChecked(),
@@ -109,8 +109,8 @@ class DependencyListWidget(QWidget):
     def __init__(
         self,
         title: str,
-        dependencies: List[Dict[str, Any]] = None,
-        available_mods: List[str] = None,
+        dependencies: list[dict[str, Any]] = None,
+        available_mods: list[str] = None,
     ):
         super().__init__()
         self.available_mods = available_mods or []
@@ -157,7 +157,7 @@ class DependencyListWidget(QWidget):
             if w.mod_combo.currentText().strip()
         }
 
-    def get_available_mods_for_widget(self, current_widget) -> List[str]:
+    def get_available_mods_for_widget(self, current_widget) -> list[str]:
         used_in_this_list = {
             w.mod_combo.currentText().strip()
             for w in self.dependency_widgets
@@ -171,7 +171,7 @@ class DependencyListWidget(QWidget):
         all_used = used_in_this_list | used_in_other_list
         return [mod for mod in self.available_mods if mod not in all_used]
 
-    def add_dependency(self, dependency_data: Dict[str, Any] = None):
+    def add_dependency(self, dependency_data: dict[str, Any] = None):
         dep_widget = DependencyWidget(dependency_data, self.available_mods, self)
         dep_widget.removed.connect(lambda: self.remove_dependency(dep_widget))
         self.dependency_widgets.append(dep_widget)
@@ -192,7 +192,7 @@ class DependencyListWidget(QWidget):
             for widget in self.other_list_widget.dependency_widgets:
                 widget.update_available_mods()
 
-    def get_dependencies(self) -> List[Dict[str, Any]]:
+    def get_dependencies(self) -> list[dict[str, Any]]:
         return [
             w.get_dependency_data()
             for w in self.dependency_widgets
@@ -208,8 +208,8 @@ class AdvancedModOptionsDialog(QDialog):
         mod_path: str,
         mod_name: str,
         is_folder_mod: bool,
-        current_options: Dict[str, Any],
-        available_mods: List[str],
+        current_options: dict[str, Any],
+        available_mods: list[str],
         parent=None,
     ):
         super().__init__(parent)
@@ -254,8 +254,8 @@ class AdvancedModOptionsDialog(QDialog):
         return converted
 
     def _format_dependencies_for_saving(
-        self, dependencies: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, dependencies: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         Formats dependencies for saving.
         Based on observed parser behavior, BOTH packages and natives require the Dependent object format.
@@ -268,7 +268,7 @@ class AdvancedModOptionsDialog(QDialog):
                 formatted_deps.append({"id": dep_id, "optional": is_optional})
         return formatted_deps
 
-    def get_options(self) -> Dict[str, Any]:
+    def get_options(self) -> dict[str, Any]:
         """Get the configured options (excluding enabled field)"""
         options = {}
 

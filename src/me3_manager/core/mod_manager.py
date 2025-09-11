@@ -8,7 +8,7 @@ import shutil
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class ModType(Enum):
@@ -34,8 +34,8 @@ class ModInfo:
     is_external: bool
     has_regulation: bool = False
     regulation_active: bool = False
-    advanced_options: Dict[str, Any] = None
-    parent_package: Optional[str] = None  # For nested mods, the parent package name
+    advanced_options: dict[str, Any] = None
+    parent_package: str | None = None  # For nested mods, the parent package name
 
     def __post_init__(self):
         if self.advanced_options is None:
@@ -86,7 +86,7 @@ class ImprovedModManager:
             return ""
         return str(Path(path_str)).replace("\\", "/")
 
-    def get_all_mods(self, game_name: str) -> Dict[str, ModInfo]:
+    def get_all_mods(self, game_name: str) -> dict[str, ModInfo]:
         """
         Get all mods for a game with improved logic.
         Returns a dictionary mapping mod paths to ModInfo objects.
@@ -155,8 +155,8 @@ class ImprovedModManager:
                 return self._normalize_path(str(mod_path_obj.resolve()))
 
     def _find_native_entry(
-        self, natives: List[Dict], config_key: str
-    ) -> Tuple[Optional[Dict], int]:
+        self, natives: list[dict], config_key: str
+    ) -> tuple[dict | None, int]:
         """
         Find a native entry by config key with normalized path comparison.
         Returns (entry, index) or (None, -1) if not found.
@@ -174,9 +174,9 @@ class ImprovedModManager:
         self,
         game_name: str,
         mods_dir: Path,
-        enabled_status: Dict,
-        advanced_options: Dict,
-    ) -> Dict[str, ModInfo]:
+        enabled_status: dict,
+        advanced_options: dict,
+    ) -> dict[str, ModInfo]:
         """Scan filesystem for internal mods (DLLs and packages)"""
         mods = {}
 
@@ -257,7 +257,7 @@ class ImprovedModManager:
 
         return False
 
-    def _get_active_regulation_mod(self, mods_dir: Path) -> Optional[str]:
+    def _get_active_regulation_mod(self, mods_dir: Path) -> str | None:
         """Find which mod currently has the active regulation.bin file"""
         for folder in mods_dir.iterdir():
             if folder.is_dir() and (folder / "regulation.bin").exists():
@@ -268,9 +268,9 @@ class ImprovedModManager:
         self,
         game_name: str,
         mods_dir: Path,
-        enabled_status: Dict,
-        advanced_options: Dict,
-    ) -> Dict[str, ModInfo]:
+        enabled_status: dict,
+        advanced_options: dict,
+    ) -> dict[str, ModInfo]:
         """Scan for nested mods within package folders."""
         nested_mods = {}
 
@@ -314,8 +314,8 @@ class ImprovedModManager:
         return nested_mods
 
     def _get_external_mods(
-        self, game_name: str, enabled_status: Dict, advanced_options: Dict
-    ) -> Dict[str, ModInfo]:
+        self, game_name: str, enabled_status: dict, advanced_options: dict
+    ) -> dict[str, ModInfo]:
         """Get tracked external mods"""
         mods = {}
 
@@ -363,8 +363,8 @@ class ImprovedModManager:
         return mods
 
     def _parse_enabled_status(
-        self, config_data: Dict, game_name: str
-    ) -> Dict[str, bool]:
+        self, config_data: dict, game_name: str
+    ) -> dict[str, bool]:
         """Parse enabled status from profile config - presence means enabled"""
         enabled_status = {}
 
@@ -393,7 +393,7 @@ class ImprovedModManager:
 
         return enabled_status
 
-    def _parse_advanced_options(self, config_data: Dict) -> Dict[str, Dict]:
+    def _parse_advanced_options(self, config_data: dict) -> dict[str, dict]:
         """Parse advanced options from profile config"""
         advanced_options = {}
 
@@ -430,7 +430,7 @@ class ImprovedModManager:
         return advanced_options
 
     def _cleanup_orphaned_entries(
-        self, game_name: str, current_mods: Dict[str, ModInfo]
+        self, game_name: str, current_mods: dict[str, ModInfo]
     ):
         """Clean up orphaned entries from profile and tracking"""
         profile_path = self.config_manager.get_profile_path(game_name)
@@ -481,7 +481,7 @@ class ImprovedModManager:
 
     def set_mod_enabled(
         self, game_name: str, mod_path: str, enabled: bool
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Set mod enabled status with improved logic.
         Returns (success, message)
@@ -513,8 +513,8 @@ class ImprovedModManager:
             return False, f"Error setting mod status: {str(e)}"
 
     def _set_native_enabled(
-        self, config_data: Dict, mod_path: str, enabled: bool, game_name: str
-    ) -> Tuple[bool, str]:
+        self, config_data: dict, mod_path: str, enabled: bool, game_name: str
+    ) -> tuple[bool, str]:
         """Set enabled status for a native (DLL) mod with consistent path handling"""
         natives = config_data.get("natives", [])
 
@@ -545,8 +545,8 @@ class ImprovedModManager:
                 return True, "Mod was already disabled"
 
     def _set_package_enabled(
-        self, config_data: Dict, mod_name: str, enabled: bool, game_name: str
-    ) -> Tuple[bool, str]:
+        self, config_data: dict, mod_name: str, enabled: bool, game_name: str
+    ) -> tuple[bool, str]:
         """Set enabled status for a package (folder) mod with improved logic"""
         packages = config_data.get("packages", [])
 
@@ -599,7 +599,7 @@ class ImprovedModManager:
                 # Nothing to disable
                 return True, "Package was already disabled"
 
-    def set_regulation_active(self, game_name: str, mod_name: str) -> Tuple[bool, str]:
+    def set_regulation_active(self, game_name: str, mod_name: str) -> tuple[bool, str]:
         """
         Set which mod should have the active regulation.bin file.
         Only one regulation file can be active at a time.
@@ -633,7 +633,7 @@ class ImprovedModManager:
         except Exception as e:
             return False, f"Error setting regulation active: {str(e)}"
 
-    def add_external_mod(self, game_name: str, mod_path: str) -> Tuple[bool, str]:
+    def add_external_mod(self, game_name: str, mod_path: str) -> tuple[bool, str]:
         """
         Add an external mod with robust error handling.
         Returns (success, message)
@@ -687,7 +687,7 @@ class ImprovedModManager:
         except Exception as e:
             return False, f"Error adding external mod: {str(e)}"
 
-    def remove_mod(self, game_name: str, mod_path: str) -> Tuple[bool, str]:
+    def remove_mod(self, game_name: str, mod_path: str) -> tuple[bool, str]:
         """
         Remove a mod completely with robust error handling.
         Returns (success, message)
@@ -745,7 +745,7 @@ class ImprovedModManager:
             return False, f"Error removing mod: {str(e)}"
 
     def _write_improved_config(
-        self, config_path: Path, config_data: Dict[str, Any], game_name: str
+        self, config_path: Path, config_data: dict[str, Any], game_name: str
     ):
         """Write TOML config file using tomlkit for proper formatting"""
         # Import TomlProfileWriter here to avoid circular imports

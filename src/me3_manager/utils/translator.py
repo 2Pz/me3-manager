@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from typing import Dict
 
 from PyQt6.QtCore import QLocale
 
@@ -16,13 +15,13 @@ class Translator:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(Translator, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
         if not self._initialized:
             self.current_language = "en"
-            self.translations: Dict[str, Dict[str, str]] = {}
+            self.translations: dict[str, dict[str, str]] = {}
             self._load_translations()
             self._initialized = True
 
@@ -97,7 +96,7 @@ class Translator:
 
         return translation
 
-    def get_available_languages(self) -> Dict[str, str]:
+    def get_available_languages(self) -> dict[str, str]:
         """Get available languages with their names"""
         result = {}
         for lang_code in self.translations.keys():
