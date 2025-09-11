@@ -19,6 +19,7 @@ class ME3InfoManager:
     def __init__(self):
         self._info_cache: dict[str, str] | None = None
         self._is_installed: bool | None = None
+        self._info_output_raw: str | None = None
 
     def _prepare_command(self, cmd: list[str]) -> list[str]:
         """
@@ -121,7 +122,9 @@ class ME3InfoManager:
                 )
                 return None
 
-            info = self._parse_me3_info(result.stdout)
+            # Cache the raw output for other parsers to use
+            self._info_output_raw = result.stdout
+            info = self._parse_me3_info(self._info_output_raw)
             self._info_cache = info
             return info
 
@@ -300,56 +303,44 @@ class ME3InfoManager:
         info = self.get_me3_info()
         return info.get("installation_status") if info else None
 
+    def _parse_config_paths(self, output: str) -> list[Path]:
+        """Parse configuration search paths from 'me3 info' output."""
+        if not output:
+            return []
+
+        config_paths = []
+        lines = output.split("\n")
+        in_config_section = False
+
+        for line in lines:
+            if "● Configuration search paths" in line:
+                in_config_section = True
+                continue
+            elif line.startswith("●") and in_config_section:
+                # New section started, stop parsing
+                break
+            elif in_config_section and ":" in line:
+                # Extract path after the number and colon
+                path_match = re.search(r"\d+:\s*(.+)", line.strip())
+                if path_match:
+                    path_str = path_match.group(1).strip()
+                    config_paths.append(Path(path_str))
+        return config_paths
+
     def get_me3_config_paths(self) -> list[Path]:
-        """Get ME3 configuration search paths from 'me3 info' output."""
-        info = self.get_me3_info()
-        if not info:
+        """Get ME3 configuration search paths from cached 'me3 info' output."""
+        # Ensure info is fetched and cached. This will populate self._info_output_raw
+        if self.get_me3_info() is None:
+            return []
+
+        if self._info_output_raw is None:
+            log.error("ME3 info was fetched, but raw output is missing from cache.")
             return []
 
         try:
-            startupinfo = None
-            if sys.platform == "win32":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
-            command = self._prepare_command(["me3", "info"])
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-                startupinfo=startupinfo,
-                timeout=15,
-                encoding="utf-8",
-                errors="replace",
-            )
-
-            if result.returncode != 0 or not result.stdout:
-                return []
-
-            # Parse configuration search paths
-            config_paths = []
-            lines = result.stdout.split("\n")
-            in_config_section = False
-
-            for line in lines:
-                if "● Configuration search paths" in line:
-                    in_config_section = True
-                    continue
-                elif line.startswith("●") and in_config_section:
-                    # New section started, stop parsing
-                    break
-                elif in_config_section and ":" in line:
-                    # Extract path after the number and colon
-                    path_match = re.search(r"\d+:\s*(.+)", line.strip())
-                    if path_match:
-                        path_str = path_match.group(1).strip()
-                        config_paths.append(Path(path_str))
-
-            return config_paths
-
+            return self._parse_config_paths(self._info_output_raw)
         except Exception as e:
-            log.error("Error getting ME3 config paths: %s", e)
+            log.error("Error parsing ME3 config paths from cached output: %s", e)
             return []
 
     def find_existing_config(self) -> Path | None:
@@ -547,3 +538,4 @@ class ME3InfoManager:
         """Clear cached info to force refresh on next access."""
         self._info_cache = None
         self._is_installed = None
+        self._info_output_raw = None
