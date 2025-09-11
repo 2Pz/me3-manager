@@ -63,22 +63,24 @@ class GameRegistry:
         self._initialize_game_order()
         self._initialize_game_paths()
 
+        # Ensure that if defaults were just added, they are saved immediately.
+        self.settings_manager.save_settings()
+
     def _initialize_games(self):
         """Initialize games configuration, using defaults only if no games are saved."""
-        # If the 'games' key exists, the user has a saved configuration.
-        # We must trust it and not merge with defaults, as this would
-        # re-introduce games the user has intentionally deleted.
-        if self.settings_manager.get("games") is not None:
+        # The 'games' setting can exist but be empty (e.g., {}). We should populate defaults
+        # in that case. The pythonic `if self.settings_manager.get("games")` checks for
+        # both None and an empty dictionary.
+        if self.settings_manager.get("games"):
             return
 
-        # If no 'games' configuration exists (e.g., first run), populate with defaults.
+        # If no games configuration exists or it's empty, populate with defaults.
         self.settings_manager.set("games", self.DEFAULT_GAMES.copy(), auto_save=False)
 
     def _initialize_game_order(self):
         """Initialize game order, using defaults only if no order is saved."""
-        # Similar to games, if a game_order exists, we respect it.
-        # Pruning the order to match existing games is still a good idea.
-        if self.settings_manager.get("game_order") is not None:
+        # If a game_order exists and is not empty, respect it.
+        if self.settings_manager.get("game_order"):
             saved_order = self.settings_manager.get("game_order", [])
             available_games = list(self.get_all_games().keys())
 
@@ -93,14 +95,14 @@ class GameRegistry:
             self.settings_manager.set("game_order", pruned_order, auto_save=False)
             return
 
-        # If no 'game_order' exists, populate it with the default order.
+        # If no 'game_order' exists or it's empty, populate it with the default order.
         self.settings_manager.set(
             "game_order", self.DEFAULT_GAME_ORDER.copy(), auto_save=False
         )
 
     def _initialize_game_paths(self):
         """Ensure game executable paths dictionary exists."""
-        if not self.settings_manager.has_key("game_exe_paths"):
+        if self.settings_manager.get("game_exe_paths") is None:
             self.settings_manager.set("game_exe_paths", {}, auto_save=False)
 
     def get_all_games(self) -> Dict[str, Dict[str, str]]:
