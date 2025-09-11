@@ -5,15 +5,45 @@ Handles writing profile files with clean array of tables syntax using tomlkit.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import tomlkit
+from tomlkit.items import Array
 
 log = logging.getLogger(__name__)
 
 
 class TomlProfileWriter:
     """Handles writing TOML profile files with clean formatting using tomlkit."""
+
+    @staticmethod
+    def _create_dependency_array(dependencies: List[Dict[str, Any]]) -> Optional[Array]:
+        """
+        Creates a tomlkit Array of inline tables for dependencies.
+        This format is required by the ModEngine parser for both natives and packages.
+        """
+        if not dependencies:
+            return None
+
+        dep_array = tomlkit.array()
+        for dep in dependencies:
+            if isinstance(dep, dict) and dep.get("id"):
+                inline_table = tomlkit.inline_table()
+                inline_table["id"] = dep["id"]
+                # Only add 'optional' if it's explicitly true to keep the TOML clean.
+                if dep.get("optional") is True:
+                    inline_table["optional"] = True
+                else:
+                    # Per the schema, optional is required. Default to false if not present or false.
+                    inline_table["optional"] = False
+                dep_array.append(inline_table)
+            elif isinstance(dep, str):  # Legacy support for simple strings
+                inline_table = tomlkit.inline_table()
+                inline_table["id"] = dep
+                inline_table["optional"] = False
+                dep_array.append(inline_table)
+
+        return dep_array
 
     @staticmethod
     def write_profile(
@@ -53,77 +83,32 @@ class TomlProfileWriter:
                 if isinstance(native, dict):
                     native_table = tomlkit.table()
 
-                    # Add path (required)
                     if "path" in native:
                         native_table["path"] = native["path"]
+                    if native.get("optional"):
+                        native_table["optional"] = True
 
-                    # Add optional fields in a consistent order
-                    if "optional" in native and native["optional"]:
-                        native_table["optional"] = native["optional"]
+                    if "load_before" in native:
+                        dep_array = TomlProfileWriter._create_dependency_array(
+                            native["load_before"]
+                        )
+                        if dep_array:
+                            native_table["load_before"] = dep_array
+                    if "load_after" in native:
+                        dep_array = TomlProfileWriter._create_dependency_array(
+                            native["load_after"]
+                        )
+                        if dep_array:
+                            native_table["load_after"] = dep_array
 
-                    # Handle load_before as simple string array
-                    if "load_before" in native and native["load_before"]:
-                        load_before_array = tomlkit.array()
-                        for dep in native["load_before"]:
-                            if isinstance(dep, dict):
-                                # Extract the id from the dependency object
-                                dep_id = dep.get("id", "")
-                                if dep_id:
-                                    load_before_array.append(dep_id)
-                            else:
-                                # Simple string format
-                                load_before_array.append(str(dep))
-                        native_table["load_before"] = load_before_array
-
-                    # Handle load_after as simple string array
-                    if "load_after" in native and native["load_after"]:
-                        load_after_array = tomlkit.array()
-                        for dep in native["load_after"]:
-                            if isinstance(dep, dict):
-                                # Extract the id from the dependency object
-                                dep_id = dep.get("id", "")
-                                if dep_id:
-                                    load_after_array.append(dep_id)
-                            else:
-                                # Simple string format
-                                load_after_array.append(str(dep))
-                        native_table["load_after"] = load_after_array
-
-                    # Handle initializer - add it after load arrays to maintain order
-                    if "initializer" in native:
-                        initializer = native["initializer"]
-                        if isinstance(initializer, dict):
-                            if "function" in initializer:
-                                native_table["initializer.function"] = initializer[
-                                    "function"
-                                ]
-                            elif "delay" in initializer:
-                                delay_data = initializer["delay"]
-                                if isinstance(delay_data, dict):
-                                    native_table["initializer.delay.ms"] = (
-                                        delay_data.get("ms", 1000)
-                                    )
-                                else:
-                                    # Simple delay value
-                                    native_table["initializer.delay.ms"] = delay_data
-                        else:
-                            native_table["initializer"] = initializer
-
-                    # Handle finalizer
-                    if "finalizer" in native:
-                        finalizer = native["finalizer"]
-                        if isinstance(finalizer, dict):
-                            if "function" in finalizer:
-                                native_table["finalizer.function"] = finalizer[
-                                    "function"
-                                ]
-                        else:
-                            native_table["finalizer"] = finalizer
+                    if "initializer" in native and native["initializer"]:
+                        native_table.add("initializer", native["initializer"])
+                    if "finalizer" in native and native["finalizer"]:
+                        native_table.add("finalizer", native["finalizer"])
 
                     natives_aot.append(native_table)
 
                 elif isinstance(native, str):
-                    # Simple string format
                     native_table = tomlkit.table()
                     native_table["path"] = native
                     natives_aot.append(native_table)
@@ -139,60 +124,33 @@ class TomlProfileWriter:
                 if isinstance(package, dict):
                     package_table = tomlkit.table()
 
-                    # Add id if present
                     if "id" in package:
                         package_table["id"] = package["id"]
-
-                    # Add path
                     if "path" in package:
                         package_table["path"] = package["path"]
-                    elif "source" in package:
+                    elif "source" in package:  # Legacy support
                         package_table["path"] = package["source"]
 
-                    # Handle load_before as simple string array
-                    if "load_before" in package and package["load_before"]:
-                        load_before_array = tomlkit.array()
-                        for dep in package["load_before"]:
-                            if isinstance(dep, dict):
-                                # Extract the id from the dependency object
-                                dep_id = dep.get("id", "")
-                                if dep_id:
-                                    load_before_array.append(dep_id)
-                            else:
-                                # Simple string format
-                                load_before_array.append(str(dep))
-                        package_table["load_before"] = load_before_array
-
-                    # Handle load_after as simple string array
-                    if "load_after" in package and package["load_after"]:
-                        load_after_array = tomlkit.array()
-                        for dep in package["load_after"]:
-                            if isinstance(dep, dict):
-                                # Extract the id from the dependency object
-                                dep_id = dep.get("id", "")
-                                if dep_id:
-                                    load_after_array.append(dep_id)
-                            else:
-                                # Simple string format
-                                load_after_array.append(str(dep))
-                        package_table["load_after"] = load_after_array
+                    if "load_before" in package:
+                        dep_array = TomlProfileWriter._create_dependency_array(
+                            package["load_before"]
+                        )
+                        if dep_array:
+                            package_table["load_before"] = dep_array
+                    if "load_after" in package:
+                        dep_array = TomlProfileWriter._create_dependency_array(
+                            package["load_after"]
+                        )
+                        if dep_array:
+                            package_table["load_after"] = dep_array
 
                     packages_aot.append(package_table)
 
             doc.add("packages", packages_aot)
 
-        # Write to file - but post-process to fix dotted keys
-        toml_content = tomlkit.dumps(doc)
-
-        # Post-process to remove quotes from dotted keys
-        import re
-
-        toml_content = re.sub(r'"(initializer\.function)"', r"\1", toml_content)
-        toml_content = re.sub(r'"(initializer\.delay\.ms)"', r"\1", toml_content)
-        toml_content = re.sub(r'"(finalizer\.function)"', r"\1", toml_content)
-
+        # Write to file
         with open(profile_path, "w", encoding="utf-8") as f:
-            f.write(toml_content)
+            f.write(tomlkit.dumps(doc))
 
     @staticmethod
     def format_inline_to_aot(content: str) -> str:
