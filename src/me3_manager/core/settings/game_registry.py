@@ -64,39 +64,39 @@ class GameRegistry:
         self._initialize_game_paths()
 
     def _initialize_games(self):
-        """Initialize games configuration with defaults and saved customizations."""
-        saved_games = self.settings_manager.get("games", {})
+        """Initialize games configuration, using defaults only if no games are saved."""
+        # If the 'games' key exists, the user has a saved configuration.
+        # We must trust it and not merge with defaults, as this would
+        # re-introduce games the user has intentionally deleted.
+        if self.settings_manager.get("games") is not None:
+            return
 
-        # Start with default games
-        merged_games = {}
-        for game_key, default_info in self.DEFAULT_GAMES.items():
-            merged_games[game_key] = default_info.copy()
-            # Apply any saved customizations
-            if game_key in saved_games:
-                merged_games[game_key].update(saved_games[game_key])
-
-        # Save the merged configuration
-        self.settings_manager.set("games", merged_games, auto_save=False)
+        # If no 'games' configuration exists (e.g., first run), populate with defaults.
+        self.settings_manager.set("games", self.DEFAULT_GAMES.copy(), auto_save=False)
 
     def _initialize_game_order(self):
-        """Initialize game order, merging saved order with available games."""
-        saved_order = self.settings_manager.get("game_order", self.DEFAULT_GAME_ORDER)
-        available_games = list(self.get_all_games().keys())
+        """Initialize game order, using defaults only if no order is saved."""
+        # Similar to games, if a game_order exists, we respect it.
+        # Pruning the order to match existing games is still a good idea.
+        if self.settings_manager.get("game_order") is not None:
+            saved_order = self.settings_manager.get("game_order", [])
+            available_games = list(self.get_all_games().keys())
 
-        # Merge saved order with available games
-        merged_order = []
+            # Create a new order that preserves the saved order but removes non-existent games.
+            pruned_order = [game for game in saved_order if game in available_games]
 
-        # First, add games from saved order that still exist
-        for game in saved_order:
-            if game in available_games:
-                merged_order.append(game)
+            # Add any new games that are not in the saved order to the end.
+            for game in available_games:
+                if game not in pruned_order:
+                    pruned_order.append(game)
 
-        # Then add any new games not in saved order
-        for game in available_games:
-            if game not in merged_order:
-                merged_order.append(game)
+            self.settings_manager.set("game_order", pruned_order, auto_save=False)
+            return
 
-        self.settings_manager.set("game_order", merged_order, auto_save=False)
+        # If no 'game_order' exists, populate it with the default order.
+        self.settings_manager.set(
+            "game_order", self.DEFAULT_GAME_ORDER.copy(), auto_save=False
+        )
 
     def _initialize_game_paths(self):
         """Ensure game executable paths dictionary exists."""

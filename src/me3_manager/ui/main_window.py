@@ -328,6 +328,7 @@ class ModEngine3Manager(QMainWindow):
     def show_game_management_dialog(self):
         """Show the game management dialog"""
         dialog = GameManagementDialog(self.config_manager, self)
+        dialog.games_changed.connect(self.refresh_sidebar)
         dialog.exec()
 
     def refresh_sidebar(self):
@@ -380,8 +381,6 @@ class ModEngine3Manager(QMainWindow):
         self.game_container.set_game_order(game_order)
 
         # 5. Rebuild the game pages in the content area
-        from me3_manager.ui.game_page_components import GamePage
-
         # Iterate through the ordered list to add pages sequentially
         for game_name in game_order:
             if game_name in self.config_manager.games:

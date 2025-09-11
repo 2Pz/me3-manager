@@ -1,4 +1,4 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QDialog,
@@ -19,6 +19,8 @@ from me3_manager.utils.translator import tr
 
 class GameManagementDialog(QDialog):
     """Dialog for managing games - add, remove, reorder"""
+
+    games_changed = pyqtSignal()
 
     def __init__(self, config_manager, parent=None):
         super().__init__(parent)
@@ -138,7 +140,7 @@ class GameManagementDialog(QDialog):
         dialog = AddGameDialog(self.config_manager, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.populate_games_list()
-            self.parent().refresh_sidebar()
+            self.games_changed.emit()
 
     def remove_game(self):
         """Remove the selected game"""
@@ -160,7 +162,7 @@ class GameManagementDialog(QDialog):
             try:
                 self.config_manager.remove_game(game_name)
                 self.populate_games_list()
-                self.parent().refresh_sidebar()
+                self.games_changed.emit()
                 QMessageBox.information(
                     self, tr("SUCCESS"), tr("remove_game_success", game_name=game_name)
                 )
@@ -207,7 +209,7 @@ class GameManagementDialog(QDialog):
             )
 
             self.populate_games_list()
-            self.parent().refresh_sidebar()
+            self.games_changed.emit()
             QMessageBox.information(
                 self,
                 tr("SUCCESS"),
