@@ -40,7 +40,11 @@ select = [
   "E9",
   "F",
   "I", # isort
-  # "T20", # flake8-print
   "LOG", # flake8-logging
   "G", # flake8-logging-format
+  "T20", # flake8-print
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Ok to use print() in standalone scripts
+"scripts/*" = ["T20"]

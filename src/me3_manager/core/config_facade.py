@@ -3,6 +3,7 @@ Configuration facade for backward compatibility.
 Provides the same interface as the old ConfigManager while delegating to new components.
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -14,6 +15,8 @@ from me3_manager.core.me3_info import ME3InfoManager
 from me3_manager.core.paths import FileWatcher, PathManager
 from me3_manager.core.profiles import TomlProfileWriter
 from me3_manager.core.settings import GameRegistry, SettingsManager, UISettings
+
+log = logging.getLogger(__name__)
 
 
 class ConfigFacade:
@@ -455,7 +458,7 @@ class ConfigFacade:
             with open(config_path, "rb") as f:
                 return tomllib.load(f)
         except Exception as e:
-            print(f"Error parsing TOML config: {e}")
+            log.error("Error parsing TOML config %s: %s", config_path, e)
             return {
                 "profileVersion": "v1",
                 "natives": [],
@@ -496,9 +499,11 @@ class ConfigFacade:
                 # Parse and rewrite with new format
                 config_data = self._parse_toml_config(profile_path)
                 TomlProfileWriter.write_profile(profile_path, config_data)
-                print(f"Converted {profile_path.name} to new array of tables format")
+                log.debug(
+                    "Converted %s to new array of tables format", profile_path.name
+                )
         except Exception as e:
-            print(f"Error checking/reformatting profile {profile_path}: {e}")
+            log.error("Error checking/reformatting profile %s: %s", profile_path, e)
 
     def sync_profile_with_filesystem(self, game_name):
         """Sync profile with filesystem (needed by main_window)."""
@@ -566,7 +571,7 @@ class ConfigFacade:
             with open(profile_path, "r", encoding="utf-8") as f:
                 return f.read()
         except IOError as e:
-            print(f"Error reading profile file {profile_path}: {e}")
+            log.error("Error reading profile %s: %s", profile_path, e)
             return ""
 
     def save_profile_content(self, game_name: str, content: str):
@@ -576,7 +581,7 @@ class ConfigFacade:
             with open(profile_path, "w", encoding="utf-8") as f:
                 f.write(content)
         except IOError as e:
-            print(f"Error writing to profile file {profile_path}: {e}")
+            log.error("Error writing to profile %s: %s", profile_path, e)
             raise
 
     def get_me3_game_settings(self, game_name: str) -> dict:
@@ -602,7 +607,7 @@ class ConfigFacade:
             return game_section
 
         except Exception as e:
-            print(f"Error reading ME3 game settings for {game_name}: {e}")
+            log.error("Error reading ME3 game settings for %s: %s", game_name, e)
             return {}
 
     def set_me3_game_settings(self, game_name: str, settings: dict) -> bool:
@@ -610,7 +615,7 @@ class ConfigFacade:
         try:
             config_path = self.get_me3_config_path(game_name)
             if not config_path:
-                print(f"No ME3 config path available for {game_name}")
+                log.debug("No ME3 config path available for %s", game_name)
                 return False
 
             config_path_obj = Path(config_path)
@@ -624,7 +629,7 @@ class ConfigFacade:
                     with open(config_path_obj, "rb") as f:
                         config_data = tomllib.load(f)
                 except Exception as e:
-                    print(f"Warning: Could not parse existing ME3 config: {e}")
+                    log.warning("Could not parse existing ME3 config: %s", e)
                     config_data = {}
 
             # Ensure game section exists
@@ -657,5 +662,5 @@ class ConfigFacade:
             return True
 
         except Exception as e:
-            print(f"Error saving ME3 game settings for {game_name}: {e}")
+            log.error("Error saving ME3 game settings for %s: %s", game_name, e)
             return False

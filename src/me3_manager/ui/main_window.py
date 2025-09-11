@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import subprocess
@@ -32,6 +33,8 @@ from me3_manager.ui.terminal import EmbeddedTerminal
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.status import Status
 from me3_manager.utils.translator import tr
+
+log = logging.getLogger(__name__)
 
 
 class HelpAboutDialog(QDialog):
@@ -590,7 +593,7 @@ class ModEngine3Manager(QMainWindow):
             # Trigger a full refresh of the application state
             self.perform_global_refresh()
 
-        # print(f"ME3 version updated: {old_version} -> {self.me3_version}")
+        log.info("ME3 version updated: %s -> %s", old_version, self.me3_version)
 
     def switch_game(self, game_name: str):
         for name, button in self.game_buttons.items():
@@ -653,7 +656,7 @@ class ModEngine3Manager(QMainWindow):
     def auto_launch_steam_if_enabled(self):
         if self.config_manager.get_auto_launch_steam():
             if not self.config_manager.launch_steam_silently():
-                print("Failed to launch Steam (or it's already running).")
+                log.warning("Failed to launch Steam (or it's already running)")
 
     def show_settings_dialog(self):
         dialog = SettingsDialog(self)
