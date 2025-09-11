@@ -224,40 +224,21 @@ class ME3VersionManager:
             return None
         return None
 
-    def _fetch_github_release_info(
-        self, release_type: str
-    ) -> Tuple[Optional[str], Optional[str]]:
+    def _fetch_github_release_info(self) -> Tuple[Optional[str], Optional[str]]:
         """
-        Fetch GitHub release information.
-
-        Args:
-            release_type: 'latest' for stable release or 'prerelease' for pre-release
+        Fetch latest stable GitHub release information.
 
         Returns:
             Tuple of (version_tag, download_url)
         """
         asset_name = "me3_installer.exe" if sys.platform == "win32" else "installer.sh"
         repo_api_base = "https://api.github.com/repos/garyttierney/me3/releases"
+        api_url = f"{repo_api_base}/latest"
 
         try:
-            if release_type == "latest":
-                api_url = f"{repo_api_base}/latest"
-                response = requests.get(api_url, timeout=10)
-                response.raise_for_status()
-                release_data = response.json()
-            elif release_type == "prerelease":
-                api_url = repo_api_base
-                response = requests.get(api_url, timeout=10)
-                response.raise_for_status()
-                release_data = None
-                for release in response.json():
-                    if release.get("prerelease", False):
-                        release_data = release
-                        break
-                if release_data is None:
-                    return None, None
-            else:
-                return None, None
+            response = requests.get(api_url, timeout=10)
+            response.raise_for_status()
+            release_data = response.json()
 
             version_tag = release_data.get("tag_name")
             for asset in release_data.get("assets", []):
@@ -341,7 +322,7 @@ class ME3VersionManager:
                 tr("update_failed_text", clean_output=clean_output),
             )
 
-    def download_windows_installer(self, release_type: str = "latest"):
+    def download_windows_installer(self):
         """Download Windows ME3 installer."""
         if sys.platform != "win32":
             QMessageBox.warning(
@@ -349,12 +330,12 @@ class ME3VersionManager:
             )
             return
 
-        version, download_url = self._fetch_github_release_info(release_type)
+        version, download_url = self._fetch_github_release_info()
         if not download_url:
             QMessageBox.warning(
                 self.parent,
                 tr("ERROR"),
-                f"Could not fetch {release_type} release information from GitHub.",
+                "Could not fetch latest release information from GitHub.",
             )
             return
 
@@ -453,7 +434,7 @@ class ME3VersionManager:
         else:
             QMessageBox.critical(self.parent, tr("download_failed"), message)
 
-    def custom_install_windows_me3(self, release_type: str = "latest"):
+    def custom_install_windows_me3(self):
         """Download and install ME3 portable distribution for Windows."""
         if sys.platform != "win32":
             QMessageBox.warning(
@@ -462,12 +443,12 @@ class ME3VersionManager:
             return
 
         # Get the ZIP download URL
-        version, zip_url = self._fetch_github_release_info_zip(release_type)
+        version, zip_url = self._fetch_github_release_info_zip()
         if not zip_url:
             QMessageBox.warning(
                 self.parent,
                 tr("ERROR"),
-                f"Could not fetch {release_type} release information from GitHub.",
+                "Could not fetch latest release information from GitHub.",
             )
             return
 
@@ -512,40 +493,21 @@ class ME3VersionManager:
         self.thread.start()
         self.progress_dialog.show()
 
-    def _fetch_github_release_info_zip(
-        self, release_type: str
-    ) -> Tuple[Optional[str], Optional[str]]:
+    def _fetch_github_release_info_zip(self) -> Tuple[Optional[str], Optional[str]]:
         """
         Fetch GitHub release information for ZIP distribution.
-
-        Args:
-            release_type: 'latest' for stable release or 'prerelease' for pre-release
 
         Returns:
             Tuple of (version_tag, zip_download_url)
         """
         asset_name = "me3-windows-amd64.zip"
         repo_api_base = "https://api.github.com/repos/garyttierney/me3/releases"
+        api_url = f"{repo_api_base}/latest"
 
         try:
-            if release_type == "latest":
-                api_url = f"{repo_api_base}/latest"
-                response = requests.get(api_url, timeout=10)
-                response.raise_for_status()
-                release_data = response.json()
-            elif release_type == "prerelease":
-                api_url = repo_api_base
-                response = requests.get(api_url, timeout=10)
-                response.raise_for_status()
-                release_data = None
-                for release in response.json():
-                    if release.get("prerelease", False):
-                        release_data = release
-                        break
-                if release_data is None:
-                    return None, None
-            else:
-                return None, None
+            response = requests.get(api_url, timeout=10)
+            response.raise_for_status()
+            release_data = response.json()
 
             version_tag = release_data.get("tag_name")
             for asset in release_data.get("assets", []):
@@ -585,9 +547,7 @@ class ME3VersionManager:
         else:
             QMessageBox.warning(self.parent, tr("installation_failed"), message)
 
-    def install_linux_me3(
-        self, release_type: str = "latest", custom_installer_url: str = None
-    ):
+    def install_linux_me3(self, custom_installer_url: str = None):
         """Install or update ME3 on Linux using installer script."""
         if sys.platform == "win32":
             QMessageBox.warning(
@@ -599,8 +559,8 @@ class ME3VersionManager:
             installer_url = custom_installer_url
             script_type = "custom"
         else:
-            version, installer_url = self._fetch_github_release_info(release_type)
-            script_type = release_type
+            version, installer_url = self._fetch_github_release_info()
+            script_type = "latest"
 
         if not installer_url:
             QMessageBox.warning(
@@ -699,21 +659,13 @@ class ME3VersionManager:
 
     def get_available_versions(self) -> dict:
         """Get information about available ME3 versions."""
-        stable_version, stable_url = self._fetch_github_release_info("latest")
-        prerelease_version, prerelease_url = self._fetch_github_release_info(
-            "prerelease"
-        )
+        stable_version, stable_url = self._fetch_github_release_info()
 
         return {
             "stable": {
                 "version": stable_version,
                 "url": stable_url,
                 "available": bool(stable_url),
-            },
-            "prerelease": {
-                "version": prerelease_version,
-                "url": prerelease_url,
-                "available": bool(prerelease_url),
             },
         }
 
@@ -737,15 +689,9 @@ class ME3VersionManager:
             "current_version": current_version_tag,
             "stable_available": available_versions["stable"]["available"],
             "stable_version": available_versions["stable"]["version"],
-            "prerelease_available": available_versions["prerelease"]["available"],
-            "prerelease_version": available_versions["prerelease"]["version"],
             "has_stable_update": (
                 available_versions["stable"]["available"]
                 and available_versions["stable"]["version"] != current_version_tag
-            ),
-            "has_prerelease_update": (
-                available_versions["prerelease"]["available"]
-                and available_versions["prerelease"]["version"] != current_version_tag
             ),
         }
 

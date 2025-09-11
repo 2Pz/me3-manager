@@ -189,7 +189,7 @@ class HelpAboutDialog(QDialog):
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
         # self.stable_button.setObjectName("DownloadStableButton")
-        self.stable_button.clicked.connect(lambda: self.handle_download("latest"))
+        self.stable_button.clicked.connect(self.handle_download)
         if not versions_info["stable"]["available"]:
             self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
@@ -200,22 +200,10 @@ class HelpAboutDialog(QDialog):
             custom_btn_text += f" ({versions_info['stable']['version']})"
         self.custom_button = QPushButton(custom_btn_text)
         self.custom_button.setObjectName("DownloadStableButton")
-        self.custom_button.clicked.connect(lambda: self.handle_custom_install("latest"))
+        self.custom_button.clicked.connect(self.handle_custom_install)
         if not versions_info["stable"]["available"]:
             self.custom_button.setDisabled(True)
         layout.addWidget(self.custom_button)
-
-        # Pre-release installer button
-        btn_text = f"{tr('pre-release_installer_button_win')}"
-        if versions_info["prerelease"]["version"]:
-            btn_text += f" ({versions_info['prerelease']['version']})"
-        self.prerelease_button = QPushButton(btn_text)
-        self.prerelease_button.clicked.connect(
-            lambda: self.handle_download("prerelease")
-        )
-        if not versions_info["prerelease"]["available"]:
-            self.prerelease_button.setDisabled(True)
-        layout.addWidget(self.prerelease_button)
 
     def setup_linux_buttons(self, layout):
         """Creates buttons for Linux/macOS, highlighting the stable official script."""
@@ -228,26 +216,14 @@ class HelpAboutDialog(QDialog):
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
         self.stable_button.setObjectName("DownloadStableButton")
-        self.stable_button.clicked.connect(lambda: self.handle_linux_install("latest"))
+        self.stable_button.clicked.connect(self.handle_linux_install)
         if not versions_info["stable"]["available"]:
             self.stable_button.setDisabled(True)
         layout.addWidget(self.stable_button)
 
-        # Pre-release installer button
-        btn_text = tr("pre-release_installer_button_linux")
-        if versions_info["prerelease"]["version"]:
-            btn_text += f" ({versions_info['prerelease']['version']})"
-        self.prerelease_button = QPushButton(btn_text)
-        self.prerelease_button.clicked.connect(
-            lambda: self.handle_linux_install("prerelease")
-        )
-        if not versions_info["prerelease"]["available"]:
-            self.prerelease_button.setDisabled(True)
-        layout.addWidget(self.prerelease_button)
-
-    def handle_custom_install(self, release_type):
+    def handle_custom_install(self):
         """Handle custom Windows ME3 installation using the version manager."""
-        self.version_manager.custom_install_windows_me3(release_type)
+        self.version_manager.custom_install_windows_me3()
         self.accept()
 
     def handle_update_cli(self):
@@ -255,14 +231,14 @@ class HelpAboutDialog(QDialog):
         self.version_manager.update_me3_cli()
         self.accept()
 
-    def handle_download(self, release_type):
+    def handle_download(self):
         """Handle Windows installer download using the version manager."""
-        self.version_manager.download_windows_installer(release_type)
+        self.version_manager.download_windows_installer()
         self.accept()
 
-    def handle_linux_install(self, release_type):
+    def handle_linux_install(self):
         """Handle Linux ME3 installation using the version manager."""
-        self.version_manager.install_linux_me3(release_type)
+        self.version_manager.install_linux_me3()
         self.accept()
 
 
@@ -436,9 +412,9 @@ class ModEngine3Manager(QMainWindow):
 
             if reply == QMessageBox.StandardButton.Yes:
                 if sys.platform == "win32":
-                    self.version_manager.download_windows_installer("latest")
+                    self.version_manager.download_windows_installer()
                 else:
-                    self.version_manager.install_linux_me3("latest")
+                    self.version_manager.install_linux_me3()
 
     def _prepare_command(self, cmd: list) -> list:
         """Enhanced command preparation with better environment handling."""
@@ -673,19 +649,19 @@ class ModEngine3Manager(QMainWindow):
         """Update ME3 CLI using the version manager."""
         self.version_manager.update_me3_cli()
 
-    def download_me3_installer(self, release_type="latest"):
+    def download_me3_installer(self):
         """Download ME3 installer using the version manager."""
         if sys.platform == "win32":
-            self.version_manager.download_windows_installer(release_type)
+            self.version_manager.download_windows_installer()
         else:
             QMessageBox.information(
                 self, tr("platform_info"), tr("platform_info_desc_linux")
             )
 
-    def install_me3_linux(self, release_type="latest"):
+    def install_me3_linux(self):
         """Install ME3 on Linux using the version manager."""
         if sys.platform != "win32":
-            self.version_manager.install_linux_me3(release_type)
+            self.version_manager.install_linux_me3()
         else:
             QMessageBox.information(
                 self, tr("platform_info"), tr("platform_info_desc_win")
