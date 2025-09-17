@@ -102,9 +102,38 @@ class TomlProfileWriter:
                             native_table["load_after"] = dep_array
 
                     if "initializer" in native and native["initializer"]:
-                        native_table.add("initializer", native["initializer"])
+                        # Use dotted key notation instead of nested tables
+                        initializer = native["initializer"]
+                        if isinstance(initializer, dict):
+                            for key, value in initializer.items():
+                                if isinstance(value, dict):
+                                    # Handle nested structures like delay.ms
+                                    for nested_key, nested_value in value.items():
+                                        # Use string key - post-processing will remove quotes
+                                        dotted_key = f"initializer.{key}.{nested_key}"
+                                        native_table[dotted_key] = nested_value
+                                else:
+                                    dotted_key = f"initializer.{key}"
+                                    native_table[dotted_key] = value
+                        else:
+                            native_table["initializer"] = initializer
+
                     if "finalizer" in native and native["finalizer"]:
-                        native_table.add("finalizer", native["finalizer"])
+                        # Use dotted key notation instead of nested tables
+                        finalizer = native["finalizer"]
+                        if isinstance(finalizer, dict):
+                            for key, value in finalizer.items():
+                                if isinstance(value, dict):
+                                    # Handle nested structures like delay.ms
+                                    for nested_key, nested_value in value.items():
+                                        # Use string key - post-processing will remove quotes
+                                        dotted_key = f"finalizer.{key}.{nested_key}"
+                                        native_table[dotted_key] = nested_value
+                                else:
+                                    dotted_key = f"finalizer.{key}"
+                                    native_table[dotted_key] = value
+                        else:
+                            native_table["finalizer"] = finalizer
 
                     natives_aot.append(native_table)
 
@@ -150,7 +179,15 @@ class TomlProfileWriter:
 
         # Write to file
         with open(profile_path, "w", encoding="utf-8") as f:
-            f.write(tomlkit.dumps(doc))
+            toml_content = tomlkit.dumps(doc)
+            # Post-process to remove quotes from dotted keys
+            import re
+
+            # Remove quotes from dotted keys like "initializer.delay.ms" = value
+            toml_content = re.sub(
+                r'"((?:initializer|finalizer)\.[\w.]+)"\s*=', r"\1 =", toml_content
+            )
+            f.write(toml_content)
 
     @staticmethod
     def format_inline_to_aot(content: str) -> str:
