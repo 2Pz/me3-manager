@@ -8,12 +8,14 @@ import os
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import QFileSystemWatcher
+from PySide6.QtCore import QFileSystemWatcher
 
 from me3_manager.core.me3_info import ME3InfoManager
+from me3_manager.core.mod_manager import ImprovedModManager
 from me3_manager.core.paths import FileWatcher, PathManager
-from me3_manager.core.profiles import TomlProfileWriter
+from me3_manager.core.profiles.profile_manager import ProfileManager
 from me3_manager.core.settings import GameRegistry, SettingsManager, UISettings
+from me3_manager.domain.models import GameConfig, Profile
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +41,8 @@ class ConfigFacade:
             self.settings_manager, self.game_registry, self.me3_info_manager
         )
         self.file_watcher_handler = FileWatcher()
+        # New mod manager for enable/disable and queries
+        self.mod_manager = ImprovedModManager(self)
         # Legacy compatibility attributes
         self.config_root = self.path_manager.config_root
         self.settings_file = settings_file
@@ -80,6 +84,7 @@ class ConfigFacade:
 
     def _sync_legacy_attributes(self):
         """Sync legacy attributes for backward compatibility."""
+        # Keep legacy fields for code that still reads attributes directly
         self.games = self.game_registry.get_all_games()
         self.game_order = self.game_registry.get_game_order()
         self.game_exe_paths = self.settings_manager.get("game_exe_paths", {})
@@ -97,6 +102,54 @@ class ConfigFacade:
         self.stored_custom_profile_paths = {}
         self.stored_custom_mods_paths = {}
 
+    # Clean accessors (preferred over legacy attributes)
+
+    def get_all_games(self) -> dict[str, dict[str, str]]:
+        """Get all registered games (live view from registry)."""
+        return self.game_registry.get_all_games()
+
+    def has_game(self, game_name: str) -> bool:
+        """Check if a game exists in the registry."""
+        return self.game_registry.get_game(game_name) is not None
+
+    def get_game_info(self, game_name: str) -> dict[str, str] | None:
+        """Get a single game's configuration."""
+        return self.game_registry.get_game(game_name)
+
+    def get_game_mods_dir_name(self, game_name: str) -> str | None:
+        """Get the mods directory name for a game (e.g., 'eldenring-mods')."""
+        return self.game_registry.get_game_mods_dir(game_name)
+
+    # Typed convenience methods (non-breaking additions)
+
+    def get_game_configs(self) -> list[GameConfig]:
+        games = self.game_registry.get_all_games()
+        return [
+            GameConfig(
+                name=name,
+                mods_dir=cfg.get("mods_dir", ""),
+                profile=cfg.get("profile", ""),
+                cli_id=cfg.get("cli_id", ""),
+                executable=cfg.get("executable", ""),
+            )
+            for name, cfg in games.items()
+        ]
+
+    def get_profiles_for_game_typed(self, game_name: str) -> list[Profile]:
+        profiles = self.settings_manager.get("profiles", {}).get(game_name, [])
+        result: list[Profile] = []
+        for p in profiles:
+            pid = p.get("id", "")
+            name = p.get("name", "")
+            profile_path = p.get("profile_path", "")
+            mods_path = p.get("mods_path", "")
+            result.append(
+                Profile(
+                    id=pid, name=name, profile_path=profile_path, mods_path=mods_path
+                )
+            )
+        return result
+
     # Settings Management (delegated)
 
     def _load_settings(self) -> dict:
@@ -105,19 +158,19 @@ class ConfigFacade:
 
     def _save_settings(self):
         """Legacy method for saving settings."""
-        # Sync current attributes back to settings
-        self.settings_manager.update(
-            {
-                "games": self.game_registry.get_all_games(),
-                "game_order": self.game_registry.get_game_order(),
-                "game_exe_paths": self.game_exe_paths,
-                "tracked_external_mods": self.tracked_external_mods,
-                "profiles": self.profiles,
-                "active_profiles": self.active_profiles,
-                "custom_config_paths": self.custom_config_paths,
-                "me3_config_paths": self.me3_config_paths,
-            }
-        )
+        # Only persist fields that are intended to be user-editable and not derived
+        payload = {
+            "games": self.game_registry.get_all_games(),
+            "game_order": self.game_registry.get_game_order(),
+            "game_exe_paths": self.game_exe_paths,
+            "tracked_external_mods": self.tracked_external_mods,
+            "profiles": self.profiles,
+            "active_profiles": self.active_profiles,
+            "custom_config_paths": self.custom_config_paths,
+            "me3_config_paths": self.me3_config_paths,
+        }
+        self.settings_manager.update(payload)
+        # update() auto-saves; explicit save ensures durability in legacy paths
         self.settings_manager.save_settings()
 
     def add_game(
@@ -418,40 +471,11 @@ class ConfigFacade:
 
     def _parse_toml_config(self, config_path):
         """Parse TOML config file (needed by mod_manager)."""
-        # This would be better handled by ProfileManager in full refactor
-        # For now, provide basic TOML parsing
-        import tomllib
-        from pathlib import Path
-
-        config_path = Path(config_path)
-        if not config_path.exists():
-            return {
-                "profileVersion": "v1",
-                "natives": [],
-                "packages": [],
-                "supports": [],
-            }
-
-        try:
-            with open(config_path, "rb") as f:
-                return tomllib.load(f)
-        except Exception as e:
-            log.error("Error parsing TOML config %s: %s", config_path, e)
-            return {
-                "profileVersion": "v1",
-                "natives": [],
-                "packages": [],
-                "supports": [],
-            }
+        return ProfileManager.read_profile(Path(config_path))
 
     def _write_toml_config(self, config_path, config_data):
         """Write TOML config file using tomlkit for proper formatting."""
-        from pathlib import Path
-
-        config_path = Path(config_path)
-
-        # Use the new TomlProfileWriter with array of tables syntax
-        TomlProfileWriter.write_profile(config_path, config_data)
+        ProfileManager.write_profile(Path(config_path), config_data)
 
     def validate_and_prune_profiles(self):
         """Validate and prune profiles (needed by main_window)."""
@@ -461,27 +485,7 @@ class ConfigFacade:
 
     def check_and_reformat_profile(self, profile_path):
         """Check and reformat profile to use new array of tables syntax."""
-        from pathlib import Path
-
-        profile_path = Path(profile_path)
-        if not profile_path.exists():
-            return
-
-        try:
-            # Read the current content
-            with open(profile_path, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            # Check if it's using old inline format
-            if "natives = [" in content and "{path" in content:
-                # Parse and rewrite with new format
-                config_data = self._parse_toml_config(profile_path)
-                TomlProfileWriter.write_profile(profile_path, config_data)
-                log.debug(
-                    "Converted %s to new array of tables format", profile_path.name
-                )
-        except Exception as e:
-            log.error("Error checking/reformatting profile %s: %s", profile_path, e)
+        ProfileManager.ensure_format(Path(profile_path))
 
     def sync_profile_with_filesystem(self, game_name):
         """Sync profile with filesystem (needed by main_window)."""
@@ -504,8 +508,11 @@ class ConfigFacade:
 
     def set_mod_enabled(self, game_name, mod_path, enabled):
         """Set mod enabled status (needed by UI components)."""
-        # This would be handled by ModManager in full refactor
-        pass
+        try:
+            success, _ = self.mod_manager.set_mod_enabled(game_name, mod_path, enabled)
+            return success
+        except Exception:
+            return False
 
     def delete_mod(self, game_name, mod_path):
         """Delete a mod (needed by UI components)."""

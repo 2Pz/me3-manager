@@ -1,9 +1,9 @@
 import re
 from pathlib import Path
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
+from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -25,13 +25,11 @@ class IniSyntaxHighlighter(QSyntaxHighlighter):
         super().__init__(parent)
         self.highlighting_rules = []
 
-        # Section format [Section] - main sections in bold blue
         section_format = QTextCharFormat()
         section_format.setForeground(QColor("#569cd6"))
         section_format.setFontWeight(QFont.Weight.Bold)
         self.highlighting_rules.append((re.compile(r"\[[^\n\]]+\]"), section_format))
 
-        # Key format Key=... - keys in lighter blue
         key_format = QTextCharFormat()
         key_format.setForeground(QColor("#9cdcfe"))
         key_format.setFontWeight(QFont.Weight.Normal)
@@ -39,13 +37,11 @@ class IniSyntaxHighlighter(QSyntaxHighlighter):
             (re.compile(r"^[^\s=;#]+(?=\s*=)", re.MULTILINE), key_format)
         )
 
-        # String values in quotes - orange for quoted strings
         quoted_string_format = QTextCharFormat()
         quoted_string_format.setForeground(QColor("#ce9178"))
         self.highlighting_rules.append((re.compile(r'"[^"]*"'), quoted_string_format))
         self.highlighting_rules.append((re.compile(r"'[^']*'"), quoted_string_format))
 
-        # Boolean values - special highlighting for true/false/yes/no/on/off
         boolean_format = QTextCharFormat()
         boolean_format.setForeground(QColor("#569cd6"))
         boolean_format.setFontWeight(QFont.Weight.Bold)
@@ -54,41 +50,35 @@ class IniSyntaxHighlighter(QSyntaxHighlighter):
             (re.compile(boolean_pattern, re.IGNORECASE | re.MULTILINE), boolean_format)
         )
 
-        # Numeric values - highlight numbers
         number_format = QTextCharFormat()
-        number_format.setForeground(QColor("#b5cea8"))  # Light green for numbers
+        number_format.setForeground(QColor("#b5cea8"))
         number_pattern = r"=\s*([-+]?(?:\d*\.?\d+)(?:[eE][-+]?\d+)?)\s*(?:[;#]|$)"
         self.highlighting_rules.append(
             (re.compile(number_pattern, re.MULTILINE), number_format)
         )
 
-        # General values - catch remaining values after =
         value_format = QTextCharFormat()
-        value_format.setForeground(QColor("#d4d4d4"))  # Light gray for other values
+        value_format.setForeground(QColor("#d4d4d4"))
         self.highlighting_rules.append(
             (re.compile(r"=\s*([^;\r\n#]+?)(?:\s*[;#]|$)", re.MULTILINE), value_format)
         )
 
-        # Comment format ;... or #... - comments in green italic
         comment_format = QTextCharFormat()
         comment_format.setForeground(QColor("#6a9955"))
         comment_format.setFontItalic(True)
         self.highlighting_rules.append((re.compile(r"[;#].*"), comment_format))
 
-        # Equals sign - subtle highlighting
         equals_format = QTextCharFormat()
         equals_format.setForeground(QColor("#d4d4d4"))
         self.highlighting_rules.append((re.compile(r"="), equals_format))
 
     def highlightBlock(self, text):
-        # Apply highlighting rules in order
         for pattern, format in self.highlighting_rules:
             for match in pattern.finditer(text):
-                # For patterns that capture groups, highlight only the captured group
                 if match.groups():
-                    start, end = match.span(1)  # Highlight the first captured group
+                    start, end = match.span(1)
                 else:
-                    start, end = match.span()  # Highlight the entire match
+                    start, end = match.span()
                 self.setFormat(start, end - start, format)
 
 
@@ -97,7 +87,6 @@ class ConfigEditorDialog(QDialog):
 
     def __init__(self, mod_name: str, config_path: Path, parent=None):
         super().__init__(parent)
-        # *** FIX: Store the initial path to detect changes later ***
         self.initial_path = config_path
         self.current_path = config_path
 
@@ -109,7 +98,6 @@ class ConfigEditorDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
 
-        # Path display and browse
         path_layout = QHBoxLayout()
         self.path_edit = QLineEdit(str(self.current_path))
         self.path_edit.setReadOnly(True)
@@ -122,7 +110,6 @@ class ConfigEditorDialog(QDialog):
         path_layout.addWidget(browse_btn)
         layout.addLayout(path_layout)
 
-        # Text editor
         self.editor = QTextEdit()
         self.editor.setFont(QFont("Consolas", 12))
         self.editor.setStyleSheet(
@@ -131,18 +118,15 @@ class ConfigEditorDialog(QDialog):
         self.highlighter = IniSyntaxHighlighter(self.editor.document())
         layout.addWidget(self.editor)
 
-        # Buttons
         button_layout = QHBoxLayout()
         self.status_label = QLabel("")
         button_layout.addWidget(self.status_label)
         button_layout.addStretch()
 
-        # A "Save" button that does NOT close the dialog
         save_btn = QPushButton(tr("save_button"))
         save_btn.clicked.connect(self.save_text_only)
         button_layout.addWidget(save_btn)
 
-        # A "Close" button that intelligently accepts or rejects
         close_btn = QPushButton(tr("close_button"))
         close_btn.clicked.connect(self.finalize_and_close)
         button_layout.addWidget(close_btn)
@@ -169,21 +153,14 @@ class ConfigEditorDialog(QDialog):
             )
 
     def save_text_only(self):
-        """Saves only the text content to the current path without closing."""
         if not self.current_path:
-            QMessageBox.warning(
-                self,
-                tr("save_error"),
-                tr("save_error_msg"),
-            )
+            QMessageBox.warning(self, tr("save_error"), tr("save_error_msg"))
             return
-
         try:
             self.current_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.current_path, "w", encoding="utf-8") as f:
                 f.write(self.editor.toPlainText())
             self.status_label.setText(tr("config_saved", path=self.current_path))
-            # Clear the status message after 3 seconds
             QTimer.singleShot(3000, lambda: self.status_label.setText(""))
         except Exception as e:
             QMessageBox.critical(
@@ -193,24 +170,15 @@ class ConfigEditorDialog(QDialog):
             )
 
     def finalize_and_close(self):
-        """
-        Closes the dialog. If the path was changed, it signals 'Accepted'
-        so the main window can save the new path permanently.
-        """
         if self.current_path != self.initial_path:
-            # The path was changed, so signal success.
             self.accept()
         else:
-            # The path was not changed, so just close normally.
             self.reject()
 
     def browse_for_config(self):
         start_dir = str(self.current_path.parent if self.current_path else Path.cwd())
         file_name, _ = QFileDialog.getOpenFileName(
-            self,
-            tr("select_config_file"),
-            start_dir,
-            tr("ini_files_filter"),
+            self, tr("select_config_file"), start_dir, tr("ini_files_filter")
         )
         if file_name:
             new_path = Path(file_name)

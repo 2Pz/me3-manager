@@ -9,7 +9,7 @@ and generating the `ModItem` widgets for display.
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtGui import QIcon
+from PySide6.QtGui import QIcon
 
 from me3_manager.core.mod_manager import ModStatus, ModType
 from me3_manager.ui.mod_item import ModItem

@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from me3_manager.utils.path_utils import PathUtils
+
 
 class PathManager:
     """Manages all path resolution and directory operations."""
@@ -267,9 +269,7 @@ class PathManager:
         Returns:
             Normalized path string
         """
-        if not path_str:
-            return ""
-        return str(Path(path_str)).replace("\\", "/")
+        return PathUtils.normalize(path_str)
 
     def is_external_mod(self, game_name: str, mod_path: str) -> bool:
         """

@@ -8,9 +8,12 @@ import zipfile
 from collections.abc import Callable
 
 import requests
-from PyQt6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
+from PySide6.QtCore import QObject, QStandardPaths, Qt, QThread, QTimer, Signal
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QProgressDialog
 
+from me3_manager.services.me3_service import Me3Service
+from me3_manager.utils.command_runner import CommandRunner
+from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.status import Status
 from me3_manager.utils.translator import tr
 
@@ -23,8 +26,8 @@ log = logging.getLogger(__name__)
 class ME3Downloader(QObject):
     """Handles downloading ME3 installer files in a separate thread (for Windows)."""
 
-    download_progress = pyqtSignal(int)
-    download_finished = pyqtSignal(int, str, str)  # status_code, message, file_path
+    download_progress = Signal(int)
+    download_finished = Signal(int, str, str)  # status_code, message, file_path
 
     def __init__(self, url: str, save_path: str):
         super().__init__()
@@ -70,7 +73,7 @@ class ME3Downloader(QObject):
 class ME3Updater(QObject):
     """Runs 'me3 update' command in a separate thread to prevent UI freezing."""
 
-    update_finished = pyqtSignal(int, int, str)  # status_code, return_code, output
+    update_finished = Signal(int, int, str)  # status_code, return_code, output
 
     def __init__(self, prepare_command_func: Callable[[list], list]):
         super().__init__()
@@ -84,18 +87,13 @@ class ME3Updater(QObject):
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
             cmd = self._prepare_command(["me3", "update"])
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False,
-                startupinfo=startupinfo,
-                timeout=120,
+            returncode, stdout, stderr = CommandRunner.run(
+                cmd, timeout=120, capture_output=True, text=True
             )
 
-            output = (result.stdout.strip() + "\n" + result.stderr.strip()).strip()
-            status_code = Status.SUCCESS if result.returncode == 0 else Status.FAILED
-            self.update_finished.emit(status_code, result.returncode, output)
+            output = ((stdout or "").strip() + "\n" + (stderr or "").strip()).strip()
+            status_code = Status.SUCCESS if returncode == 0 else Status.FAILED
+            self.update_finished.emit(status_code, returncode, output)
 
         except FileNotFoundError:
             self.update_finished.emit(
@@ -114,7 +112,7 @@ class ME3Updater(QObject):
 class ME3LinuxInstaller(QObject):
     """Runs ME3 installer script in a separate thread for Linux."""
 
-    install_finished = pyqtSignal(int, int, str)  # status_code, return_code, output
+    install_finished = Signal(int, int, str)  # status_code, return_code, output
 
     def __init__(
         self,
@@ -148,19 +146,15 @@ class ME3LinuxInstaller(QObject):
                 cmd = command_string
                 use_shell = True
 
-            result = subprocess.run(
-                cmd,
-                shell=use_shell,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=150,
-                env=env,
+            returncode, stdout, stderr = CommandRunner.run(
+                cmd, shell=use_shell, timeout=150, env=env
             )
 
-            output = (result.stdout.strip() + "\n" + result.stderr.strip()).strip()
-            status_code = Status.SUCCESS if result.returncode == 0 else Status.FAILED
-            self.install_finished.emit(status_code, result.returncode, output)
+            out_s = (stdout or "").strip()
+            err_s = (stderr or "").strip()
+            output = (out_s + "\n" + err_s).strip()
+            status_code = Status.SUCCESS if returncode == 0 else Status.FAILED
+            self.install_finished.emit(status_code, returncode, output)
 
         except subprocess.TimeoutExpired:
             self.install_finished.emit(
@@ -172,7 +166,7 @@ class ME3LinuxInstaller(QObject):
             )
 
 
-class ME3VersionManager:
+class ME3VersionManager(QObject):
     """
     Centralized manager for ME3 version checking, updating, and installation.
     Handles both Windows and Linux platforms.
@@ -185,10 +179,12 @@ class ME3VersionManager:
         path_manager,
         refresh_callback: Callable[[], None],
     ):
+        super().__init__(parent_widget)
         self.parent = parent_widget
         self.config_manager = config_manager
         self.path_manager = path_manager
         self.refresh_callback = refresh_callback
+        self.me3_service = Me3Service()
         self.progress_dialog = None
         self.thread = None
         self.worker = None
@@ -199,10 +195,7 @@ class ME3VersionManager:
 
     def _prepare_command(self, cmd: list) -> list:
         """Enhanced command preparation with better environment handling."""
-        if sys.platform == "linux" and os.environ.get("FLATPAK_ID"):
-            # For Flatpak, we need to spawn the command on the host system
-            return ["flatpak-spawn", "--host"] + cmd
-        return cmd
+        return PlatformUtils.prepare_command(cmd)
 
     def _strip_ansi_codes(self, text: str) -> str:
         """Remove ANSI color codes from text."""
@@ -225,39 +218,24 @@ class ME3VersionManager:
         return None
 
     def _fetch_github_release_info(self) -> tuple[str | None, str | None]:
-        """
-        Fetch latest stable GitHub release information.
-
-        Returns:
-            Tuple of (version_tag, download_url)
-        """
+        """Fetch latest stable GitHub release information via service."""
         asset_name = "me3_installer.exe" if sys.platform == "win32" else "installer.sh"
-        repo_api_base = "https://api.github.com/repos/garyttierney/me3/releases"
-        api_url = f"{repo_api_base}/latest"
-
-        try:
-            response = requests.get(api_url, timeout=10)
-            response.raise_for_status()
-            release_data = response.json()
-
-            version_tag = release_data.get("tag_name")
-            for asset in release_data.get("assets", []):
-                if asset.get("name") == asset_name:
-                    return version_tag, asset.get("browser_download_url")
-
-        except requests.RequestException:
-            return None, None
-
-        return None, None
+        release = self.me3_service.fetch_latest_release()
+        version_tag = self.me3_service.get_latest_version_tag(release)
+        url = self.me3_service.get_asset_url(release, asset_name)
+        return version_tag, url
 
     def _open_file_or_directory(self, path: str, run_file: bool = False):
         """Open a file or directory using the system's default application."""
         try:
-            target_path = path if run_file else os.path.dirname(path)
-            if sys.platform == "win32":
-                os.startfile(target_path)
-            else:  # Linux
-                subprocess.run(["xdg-open", target_path], check=True)
+            if not PlatformUtils.open_path(path, run_file=run_file):
+                QMessageBox.warning(
+                    self.parent,
+                    tr("ERROR"),
+                    tr(
+                        "could_not_perform_action", e="Desktop service rejected request"
+                    ),
+                )
         except Exception as e:
             QMessageBox.warning(
                 self.parent, tr("ERROR"), tr("could_not_perform_action", e=e)
@@ -494,30 +472,12 @@ class ME3VersionManager:
         self.progress_dialog.show()
 
     def _fetch_github_release_info_zip(self) -> tuple[str | None, str | None]:
-        """
-        Fetch GitHub release information for ZIP distribution.
-
-        Returns:
-            Tuple of (version_tag, zip_download_url)
-        """
+        """Fetch GitHub release information for ZIP distribution via service."""
         asset_name = "me3-windows-amd64.zip"
-        repo_api_base = "https://api.github.com/repos/garyttierney/me3/releases"
-        api_url = f"{repo_api_base}/latest"
-
-        try:
-            response = requests.get(api_url, timeout=10)
-            response.raise_for_status()
-            release_data = response.json()
-
-            version_tag = release_data.get("tag_name")
-            for asset in release_data.get("assets", []):
-                if asset.get("name") == asset_name:
-                    return version_tag, asset.get("browser_download_url")
-
-        except requests.RequestException:
-            return None, None
-
-        return None, None
+        release = self.me3_service.fetch_latest_release()
+        version_tag = self.me3_service.get_latest_version_tag(release)
+        url = self.me3_service.get_asset_url(release, asset_name)
+        return version_tag, url
 
     def _cancel_custom_install(self):
         """Cancel the current custom installation."""
@@ -699,8 +659,8 @@ class ME3VersionManager:
 class ME3CustomInstaller(QObject):
     """Handles downloading and installing ME3 portable distribution for Windows."""
 
-    download_progress = pyqtSignal(int)
-    install_finished = pyqtSignal(int, int, str)  # status_code, return_code, message
+    download_progress = Signal(int)
+    install_finished = Signal(int, int, str)  # status_code, return_code, message
 
     def __init__(self, url: str, temp_path: str, path_manager):
         super().__init__()

@@ -6,16 +6,14 @@ ME3 executable, handling custom executable paths, and constructing the command
 to run the game via terminal or subprocess.
 """
 
-import os
 import shlex
 import subprocess
-import sys
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QProcess
-from PyQt6.QtWidgets import QMessageBox
+from PySide6.QtCore import QProcess
+from PySide6.QtWidgets import QMessageBox
 
+from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
 if TYPE_CHECKING:
@@ -145,7 +143,9 @@ class GameLauncher:
         )
         terminal.process.readyReadStandardOutput.connect(terminal.handle_stdout)
         terminal.process.finished.connect(terminal.process_finished)
-        terminal.process.start("me3", args)
+        # Use centralized list command prep for QProcess
+        program, qargs = PlatformUtils.prepare_list_command_for_qprocess(["me3"] + args)
+        terminal.process.start(program, qargs)
 
     def _launch_in_terminal(self, command_args, terminal):
         """Launch the game command in the integrated terminal."""
@@ -166,24 +166,6 @@ class GameLauncher:
 
     def _launch_direct(self, command_args):
         """Launch the game command directly via a subprocess."""
-        if sys.platform != "win32":
-            is_flatpak = os.path.exists("/.flatpak-info") or "/app/" in os.environ.get(
-                "PATH", ""
-            )
-            if is_flatpak and command_args[0] == "me3":
-                user_home = os.path.expanduser("~")
-                me3_path = f"{user_home}/.local/bin/me3"
-                flatpak_args = ["flatpak-spawn", "--host", me3_path] + command_args[1:]
-                subprocess.Popen(flatpak_args)
-            else:
-                user_shell = os.environ.get("SHELL", "/bin/bash")
-                if not Path(user_shell).exists():
-                    user_shell = "/bin/bash"
-                try:
-                    me3_command_str = shlex.join(command_args)
-                except AttributeError:  # For Python < 3.8
-                    me3_command_str = " ".join(shlex.quote(arg) for arg in command_args)
-                final_command_list = [user_shell, "-l", "-c", me3_command_str]
-                subprocess.Popen(final_command_list)
-        else:
-            subprocess.Popen(command_args)
+        # Use centralized subprocess preparation
+        prepared = PlatformUtils.prepare_command(command_args)
+        subprocess.Popen(prepared)

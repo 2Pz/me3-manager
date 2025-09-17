@@ -8,9 +8,9 @@ main GamePage class clean.
 
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QFont, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QFont, QIcon
+from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -159,6 +159,12 @@ class UiBuilder:
                 "icon": "note.svg",
                 "tooltip": tr("edit_profile_tooltip"),
                 "callback": self.game_page.open_profile_editor,
+            },
+            {
+                "attr": "export_setup_btn",
+                "icon": "zip.svg",
+                "tooltip": tr("export_setup_tooltip"),
+                "callback": self.game_page.export_mods_setup,
             },
         ]
 

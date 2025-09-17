@@ -10,6 +10,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
+from me3_manager.utils.path_utils import PathUtils
+
 
 class ModType(Enum):
     DLL = "dll"
@@ -53,38 +56,14 @@ class ImprovedModManager:
 
     def __init__(self, config_manager):
         self.config_manager = config_manager
-        self.acceptable_folders = [
-            "_backup",
-            "_unknown",
-            "action",
-            "asset",
-            "chr",
-            "cutscene",
-            "event",
-            "font",
-            "map",
-            "material",
-            "menu",
-            "movie",
-            "msg",
-            "other",
-            "param",
-            "parts",
-            "script",
-            "sd",
-            "sfx",
-            "shader",
-            "sound",
-        ]
+        self.acceptable_folders = ACCEPTABLE_FOLDERS
 
     def _normalize_path(self, path_str: str) -> str:
         """
         Normalize path to use forward slashes consistently.
         This fixes the path consistency issue between enable/disable operations.
         """
-        if not path_str:
-            return ""
-        return str(Path(path_str)).replace("\\", "/")
+        return PathUtils.normalize(path_str)
 
     def get_all_mods(self, game_name: str) -> dict[str, ModInfo]:
         """
