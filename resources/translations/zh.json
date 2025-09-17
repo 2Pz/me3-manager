@@ -351,6 +351,8 @@
   "new_profile_name_title": "新配置文件名称",
   "new_profile_name_desc": "输入新配置文件的名称:",
   "select_folder_for_profile_title": "为新配置文件选择文件夹",
+  "folder_in_use_desc": "所选文件夹“{folder_name}”已被另一个配置文件使用。\n\n每个配置文件都必须拥有其独立的模组文件夹。\n\n请选择或创建一个不同的文件夹。",
+  "folder_in_use_title": "文件夹已被使用",
   "rename_profile_title": "重命名配置文件",
   "enter_new_name_desc": "输入新名称:",
   "confirm_delete_title": "确认删除",
