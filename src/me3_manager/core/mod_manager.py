@@ -804,19 +804,15 @@ class ImprovedModManager:
                     target_entry = pkg
                     break
         else:  # Native DLL mod
-            mod_path_obj = Path(mod_path)
-            mods_dir = self.config_manager.get_mods_dir(game_name)
-            config_key = ""
-            try:
-                relative_path = mod_path_obj.relative_to(mods_dir)
-                mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-                config_key = self._normalize_path(f"{mods_dir_name}/{relative_path}")
-            except ValueError:  # External mod
-                config_key = self._normalize_path(str(mod_path_obj.resolve()))
+            # Use the same helper function for consistent config key generation
+            config_key = self._get_config_key_for_mod(mod_path, game_name)
 
             natives = config_data.get("natives", [])
+
             for native in natives:
-                if self._normalize_path(native.get("path", "")) == config_key:
+                native_path = self._normalize_path(native.get("path", ""))
+
+                if native_path == config_key:
                     target_entry = native
                     break
 
@@ -834,6 +830,7 @@ class ImprovedModManager:
                     del target_entry[key]
 
             # Add the new options back, but ONLY if they are not the default value.
+
             for key, value in new_options.items():
                 if key == "optional" and value is True:
                     target_entry[key] = True
@@ -846,4 +843,5 @@ class ImprovedModManager:
                     target_entry[key] = value
 
             # Write the entire modified configuration back to disk
+
             self._write_improved_config(profile_path, config_data, game_name)
