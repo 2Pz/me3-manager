@@ -188,29 +188,45 @@ class ProfileHandler:
                 dialog, tr("new_profile_name_title"), tr("new_profile_name_desc")
             )
             if ok and name.strip():
+                # Get the default directory to start the file dialog in
                 default_profiles_dir = (
                     Path(self.config_manager.get_profile_path(self.game_name))
                     .expanduser()
                     .parent
                 )
                 default_profiles_dir.mkdir(parents=True, exist_ok=True)
-                profile_dir = QFileDialog.getExistingDirectory(
+
+                profile_dir_str = QFileDialog.getExistingDirectory(
                     dialog,
                     tr("select_folder_for_profile_title"),
                     str(default_profiles_dir),
                 )
-                if profile_dir:
-                    profile_path = Path(profile_dir)
-                    if profile_path == default_profiles_dir:
-                        mods_dir = default_profiles_dir / f"{name.strip()}-mods"
-                        mods_dir.mkdir(exist_ok=True)
-                        self.config_manager.add_profile(
-                            self.game_name, name.strip(), str(mods_dir)
+
+                if profile_dir_str:
+                    selected_path = Path(profile_dir_str).resolve()
+
+                    all_profiles = self.config_manager.get_profiles_for_game(
+                        self.game_name
+                    )
+                    existing_mod_paths = {
+                        Path(p["mods_path"]).resolve()
+                        for p in all_profiles
+                        if "mods_path" in p
+                    }
+
+                    if selected_path in existing_mod_paths:
+                        QMessageBox.warning(
+                            dialog,
+                            tr("folder_in_use_title"),
+                            tr("folder_in_use_desc", folder_name=selected_path.name),
                         )
-                    else:
-                        self.config_manager.add_profile(
-                            self.game_name, name.strip(), profile_dir
-                        )
+                        return  # Abort the operation
+
+                    # Step 4: If the path is not in use, proceed with creating the profile.
+                    self.config_manager.add_profile(
+                        self.game_name, name.strip(), profile_dir_str
+                    )
+
                     refresh_list()
 
         def on_rename():

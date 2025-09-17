@@ -351,6 +351,8 @@
   "new_profile_name_title": "New Profile Name",
   "new_profile_name_desc": "Enter a name for the new profile:",
   "select_folder_for_profile_title": "Select a Folder for the New Profile",
+  "folder_in_use_desc": "The selected folder {folder_name} is already being used by another profile.\n\nEach profile must have its own unique folder for its mods.\n\nPlease choose or create a different folder.",
+  "folder_in_use_title": "Folder Already in Use",
   "rename_profile_title": "Rename Profile",
   "enter_new_name_desc": "Enter new name:",
   "confirm_delete_title": "Confirm Delete",
