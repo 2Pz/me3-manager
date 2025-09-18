@@ -585,11 +585,19 @@ class ConfigFacade:
             with open(config_path_obj, "rb") as f:
                 config_data = tomllib.load(f)
 
-            # Look for game-specific settings in [game.gamename] section
-            game_section = config_data.get("game", {}).get(game_name, {})
+            # Determine slug key used in TOML
+            slug = self._get_game_slug(game_name)
 
-            # Return the game-specific settings
-            return game_section
+            game_table = config_data.get("game", {})
+
+            # Prefer slug key (e.g., eldenring) then fall back to display name
+            if isinstance(game_table, dict):
+                if slug in game_table:
+                    return game_table.get(slug, {}) or {}
+                if game_name in game_table:
+                    return game_table.get(game_name, {}) or {}
+
+            return {}
 
         except Exception as e:
             log.error("Error reading ME3 game settings for %s: %s", game_name, e)
@@ -618,25 +626,36 @@ class ConfigFacade:
                     config_data = {}
 
             # Ensure game section exists
-            if "game" not in config_data:
-                config_data["game"] = {}
+            game_table = config_data.get("game")
+            if not isinstance(game_table, dict):
+                game_table = {}
+                config_data["game"] = game_table
 
-            if game_name not in config_data["game"]:
-                config_data["game"][game_name] = {}
+            slug = self._get_game_slug(game_name)
 
-            # Update game-specific settings
+            # Migrate legacy key if present (e.g., "Elden Ring" -> "eldenring")
+            if game_name in game_table and slug not in game_table:
+                game_table[slug] = game_table.pop(game_name) or {}
+
+            if slug not in game_table:
+                game_table[slug] = {}
+
+            # Update game-specific settings on slug key
             for key, value in settings.items():
                 if value is None:
-                    # Remove the setting if value is None
-                    config_data["game"][game_name].pop(key, None)
+                    game_table[slug].pop(key, None)
                 else:
-                    config_data["game"][game_name][key] = value
+                    game_table[slug][key] = value
+
+            # Also remove any lingering legacy key section if empty
+            if game_name in game_table and not game_table.get(game_name):
+                game_table.pop(game_name, None)
 
             # Clean up empty sections
-            if not config_data["game"][game_name]:
-                del config_data["game"][game_name]
-            if not config_data["game"]:
-                del config_data["game"]
+            if not game_table.get(slug):
+                game_table.pop(slug, None)
+            if not game_table:
+                config_data.pop("game", None)
 
             # Save back to file
             import tomli_w
@@ -649,3 +668,27 @@ class ConfigFacade:
         except Exception as e:
             log.error("Error saving ME3 game settings for %s: %s", game_name, e)
             return False
+
+    def _get_game_slug(self, game_name: str) -> str:
+        """Derive canonical game slug used in TOML sections.
+
+        Prefer deriving from mods_dir (e.g., eldenring-mods -> eldenring). If not
+        available, use the game's cli_id. As a final fallback, lowercase and
+        strip spaces from the display name.
+        """
+        try:
+            game_info = self.game_registry.get_game(game_name) or {}
+            mods_dir = game_info.get("mods_dir")
+            if isinstance(mods_dir, str) and mods_dir.endswith("-mods"):
+                return mods_dir[:-5].lower()
+
+            cli_id = game_info.get("cli_id")
+            if isinstance(cli_id, str) and cli_id:
+                # Some existing cli_id values may contain dashes like "elden-ring".
+                # Normalize to remove non-alphanumerics for TOML section key.
+                return "".join(ch for ch in cli_id.lower() if ch.isalnum())
+
+            # Fallback: remove non-alphanumerics and lowercase from display name
+            return "".join(ch for ch in game_name.lower() if ch.isalnum())
+        except Exception:
+            return "".join(ch for ch in game_name.lower() if ch.isalnum())
