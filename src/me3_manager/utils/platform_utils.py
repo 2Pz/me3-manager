@@ -64,7 +64,9 @@ class PlatformUtils:
                 target = info.absoluteFilePath()
 
             # Prefer fallback in PyInstaller/Flatpak where Qt may lie about success
-            if sys.platform == "linux" and (PlatformUtils._is_pyinstaller() or PlatformUtils.is_flatpak()):
+            if sys.platform == "linux" and (
+                PlatformUtils._is_pyinstaller() or PlatformUtils.is_flatpak()
+            ):
                 if PlatformUtils._fallback_open_local(target):
                     return True
                 url = QUrl.fromLocalFile(target)
@@ -91,7 +93,9 @@ class PlatformUtils:
             # Normalize using QDir
             target_dir = QDir.cleanPath(target_dir)
             # Prefer fallback in PyInstaller/Flatpak where Qt may lie about success
-            if sys.platform == "linux" and (PlatformUtils._is_pyinstaller() or PlatformUtils.is_flatpak()):
+            if sys.platform == "linux" and (
+                PlatformUtils._is_pyinstaller() or PlatformUtils.is_flatpak()
+            ):
                 if PlatformUtils._fallback_open_local(target_dir):
                     return True
                 url = QUrl.fromLocalFile(target_dir)
