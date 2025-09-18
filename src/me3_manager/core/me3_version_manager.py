@@ -835,7 +835,9 @@ class ME3CustomInstaller(QObject):
                 for path in paths:
                     # Normalize path separators and check if it ends with me3\bin or garyttierney\me3\bin
                     normalized_path = path.replace("/", "\\").rstrip("\\").lower()
-                    if not normalized_path.endswith(("\\me3\\bin", "\\garyttierney\\me3\\bin")):
+                    if not normalized_path.endswith(
+                        ("\\me3\\bin", "\\garyttierney\\me3\\bin")
+                    ):
                         cleaned_paths.append(path)
                     else:
                         log.debug("Removed existing ME3 path from user PATH: %s", path)
@@ -906,7 +908,9 @@ class ME3CustomInstaller(QObject):
             cleaned_system_paths = []
             for path in current_process_paths:
                 normalized_path = path.replace("/", "\\").rstrip("\\").lower()
-                if not normalized_path.endswith(("\\me3\\bin", "\\garyttierney\\me3\\bin")):
+                if not normalized_path.endswith(
+                    ("\\me3\\bin", "\\garyttierney\\me3\\bin")
+                ):
                     cleaned_system_paths.append(path)
 
             # Combine user PATH with cleaned system PATH (user PATH takes precedence)
