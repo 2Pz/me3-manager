@@ -51,7 +51,7 @@ class DraggableGameButton(QPushButton):
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setOpacity(0.7)
-        self.render(painter)
+        self.render(painter, QPoint())
         painter.end()
         drag.setPixmap(pixmap)
 
