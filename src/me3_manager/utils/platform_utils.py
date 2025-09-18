@@ -1,6 +1,8 @@
 import os
 import shlex
 import sys
+import shutil
+import subprocess
 
 from PySide6.QtCore import QDir, QFileInfo, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -61,8 +63,17 @@ class PlatformUtils:
             else:
                 target = info.absoluteFilePath()
 
-            url = QUrl.fromLocalFile(target)
-            return QDesktopServices.openUrl(url)
+            # Prefer fallback in PyInstaller/Flatpak where Qt may lie about success
+            if sys.platform == "linux" and (PlatformUtils._is_pyinstaller() or PlatformUtils.is_flatpak()):
+                if PlatformUtils._fallback_open_local(target):
+                    return True
+                url = QUrl.fromLocalFile(target)
+                return QDesktopServices.openUrl(url)
+            else:
+                url = QUrl.fromLocalFile(target)
+                if QDesktopServices.openUrl(url):
+                    return True
+                return PlatformUtils._fallback_open_local(target)
         except Exception:
             return False
 
@@ -79,8 +90,17 @@ class PlatformUtils:
             )
             # Normalize using QDir
             target_dir = QDir.cleanPath(target_dir)
-            url = QUrl.fromLocalFile(target_dir)
-            return QDesktopServices.openUrl(url)
+            # Prefer fallback in PyInstaller/Flatpak where Qt may lie about success
+            if sys.platform == "linux" and (PlatformUtils._is_pyinstaller() or PlatformUtils.is_flatpak()):
+                if PlatformUtils._fallback_open_local(target_dir):
+                    return True
+                url = QUrl.fromLocalFile(target_dir)
+                return QDesktopServices.openUrl(url)
+            else:
+                url = QUrl.fromLocalFile(target_dir)
+                if QDesktopServices.openUrl(url):
+                    return True
+                return PlatformUtils._fallback_open_local(target_dir)
         except Exception:
             return False
 
@@ -92,7 +112,10 @@ class PlatformUtils:
         """
         try:
             url = QUrl(url_str)
-            return QDesktopServices.openUrl(url)
+            if QDesktopServices.openUrl(url):
+                return True
+            # Best-effort textual URL fallback
+            return PlatformUtils._fallback_open_textual(url_str)
         except Exception:
             return False
 
@@ -145,3 +168,114 @@ class PlatformUtils:
             [shlex.quote(program)] + [shlex.quote(a) for a in rest]
         )
         return "bash", ["-l", "-c", shell_command]
+
+    # -------- Fallback helpers --------
+    @staticmethod
+    def _is_pyinstaller() -> bool:
+        """Detect PyInstaller onefile/onedir runtime."""
+        return bool(getattr(sys, "_MEIPASS", None)) or os.environ.get(
+            "PYINSTALLER_BOOTLOADER"
+        )
+
+    @staticmethod
+    def _sanitized_env_for_desktop_open() -> dict:
+        """Return an environment safe for launching host desktop apps."""
+        env = os.environ.copy()
+        # PyInstaller/Qt variables that can break system apps
+        for key in (
+            "LD_LIBRARY_PATH",
+            "QT_PLUGIN_PATH",
+            "QT_QPA_PLATFORM_PLUGIN_PATH",
+            "PYTHONHOME",
+            "PYTHONPATH",
+            "PYINSTALLER_BOOTLOADER",
+        ):
+            env.pop(key, None)
+
+        # Ensure XDG_DATA_DIRS is sane for icon/mime resolution
+        env.setdefault("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
+        return env
+
+    @staticmethod
+    def _fallback_open_local(target: str) -> bool:
+        """
+        Try to open a local path using common desktop tools with a sanitized env.
+        Uses flatpak-spawn --host when inside Flatpak.
+        """
+        if not target:
+            return False
+
+        # Build both URI and plain path variants
+        file_uri = QUrl.fromLocalFile(target).toString()
+        candidates: list[list[str]] = []
+        # Prefer xdg-open; fall back to gio/kde/gnome variants
+        for exe in ("xdg-open", "/usr/bin/xdg-open"):
+            if shutil.which(exe) or os.path.exists(exe):
+                candidates.append([exe, file_uri])
+                candidates.append([exe, target])
+                break
+        for exe in ("gio", "/usr/bin/gio"):
+            if shutil.which(exe) or os.path.exists(exe):
+                candidates.append([exe, "open", file_uri])
+                candidates.append([exe, "open", target])
+                break
+        for exe in ("kde-open5", "/usr/bin/kde-open5", "kde-open", "/usr/bin/kde-open"):
+            if shutil.which(exe) or os.path.exists(exe):
+                candidates.append([exe, target])
+                break
+        for exe in ("gnome-open", "/usr/bin/gnome-open"):
+            if shutil.which(exe) or os.path.exists(exe):
+                candidates.append([exe, target])
+                break
+
+        if not candidates:
+            return False
+
+        env = PlatformUtils._sanitized_env_for_desktop_open()
+        for cmd in candidates:
+            try:
+                final_cmd = cmd
+                if sys.platform == "linux" and PlatformUtils.is_flatpak():
+                    final_cmd = ["flatpak-spawn", "--host"] + cmd
+                subprocess.Popen(
+                    final_cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=env,
+                    start_new_session=True,
+                )
+                return True
+            except Exception:
+                continue
+        return False
+
+    @staticmethod
+    def _fallback_open_textual(url_or_text: str) -> bool:
+        """
+        Fallback for non-file URLs using xdg-open/gio where possible.
+        """
+        if not url_or_text:
+            return False
+        env = PlatformUtils._sanitized_env_for_desktop_open()
+        candidates: list[list[str]] = []
+        if shutil.which("xdg-open"):
+            candidates.append(["xdg-open", url_or_text])
+        if shutil.which("gio"):
+            candidates.append(["gio", "open", url_or_text])
+
+        for cmd in candidates:
+            try:
+                final_cmd = cmd
+                if sys.platform == "linux" and PlatformUtils.is_flatpak():
+                    final_cmd = ["flatpak-spawn", "--host"] + cmd
+                subprocess.Popen(
+                    final_cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=env,
+                    start_new_session=True,
+                )
+                return True
+            except Exception:
+                continue
+        return False
