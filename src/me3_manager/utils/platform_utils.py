@@ -1,8 +1,8 @@
 import os
 import shlex
-import sys
 import shutil
 import subprocess
+import sys
 
 from PySide6.QtCore import QDir, QFileInfo, QUrl
 from PySide6.QtGui import QDesktopServices
