@@ -7,21 +7,12 @@ charset-normalizer==3.4.3
     # via requests
 idna==3.10
     # via requests
-pyside6==6.9.2
-    # via me3-manager
-pyside6-addons==6.9.2
-    # via pyside6
 pyside6-essentials==6.9.2
-    # via
-    #   pyside6
-    #   pyside6-addons
+    # via me3-manager
 requests==2.32.5
     # via me3-manager
 shiboken6==6.9.2
-    # via
-    #   pyside6
-    #   pyside6-addons
-    #   pyside6-essentials
+    # via pyside6-essentials
 tomli-w==1.2.0
     # via me3-manager
 tomlkit==0.13.3
