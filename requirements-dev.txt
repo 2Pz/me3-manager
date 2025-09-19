@@ -26,12 +26,14 @@ packaging==25.0 ; sys_platform == 'linux' or sys_platform == 'win32'
 pyinstaller==6.15.0 ; sys_platform == 'linux'
 pyinstaller-hooks-contrib==2025.8 ; sys_platform == 'linux'
     # via pyinstaller
-pyqt6==6.9.1
+pyside6==6.9.2
     # via me3-manager
-pyqt6-qt6==6.9.2
-    # via pyqt6
-pyqt6-sip==13.10.2
-    # via pyqt6
+pyside6-addons==6.9.2
+    # via pyside6
+pyside6-essentials==6.9.2
+    # via
+    #   pyside6
+    #   pyside6-addons
 requests==2.32.5
     # via me3-manager
 ruff==0.12.12
@@ -40,6 +42,11 @@ setuptools==80.9.0 ; sys_platform == 'linux' or sys_platform == 'win32'
     #   cx-freeze
     #   pyinstaller
     #   pyinstaller-hooks-contrib
+shiboken6==6.9.2
+    # via
+    #   pyside6
+    #   pyside6-addons
+    #   pyside6-essentials
 striprtf==0.0.29 ; sys_platform == 'win32'
     # via cx-freeze
 tomli-w==1.2.0
