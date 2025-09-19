@@ -28,6 +28,7 @@ class TomlHighlighter(QSyntaxHighlighter):
             "profileVersion",
             "savefile",
             "start_online",
+            "disable_arxan",
             "natives",
             "supports",
             "packages",

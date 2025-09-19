@@ -74,6 +74,9 @@ class TomlProfileWriter:
         if "start_online" in config_data:
             doc.add("start_online", config_data["start_online"])
 
+        if "disable_arxan" in config_data:
+            doc.add("disable_arxan", config_data["disable_arxan"])
+
         # Add natives section
         natives = config_data.get("natives", [])
         if natives:

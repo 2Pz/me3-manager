@@ -129,6 +129,27 @@ class ProfileSettingsDialog(QDialog):
 
         layout.addWidget(online_group)
 
+        # Compatibility Settings group
+        compat_group = QGroupBox(tr("compatibility_settings_group"))
+        compat_group.setStyleSheet(self._get_group_style())
+        compat_layout = QFormLayout(compat_group)
+        compat_layout.setSpacing(12)
+
+        # Disable Arxan checkbox
+        self.disable_arxan_cb = QCheckBox(tr("disable_arxan_checkbox"))
+        self.disable_arxan_cb.setStyleSheet(self._get_checkbox_style())
+        compat_layout.addRow(tr("disable_arxan_label"), self.disable_arxan_cb)
+
+        # Disable Arxan info
+        disable_arxan_info = QLabel(tr("disable_arxan_info"))
+        disable_arxan_info.setStyleSheet(
+            "color: #ffaa00; font-size: 11px; margin-top: 8px;"
+        )
+        disable_arxan_info.setWordWrap(True)
+        compat_layout.addWidget(disable_arxan_info)
+
+        layout.addWidget(compat_group)
+
         layout.addStretch()
 
         # Buttons
@@ -182,11 +203,16 @@ class ProfileSettingsDialog(QDialog):
                 start_online = config_data.get("start_online", False)
                 self.start_online_cb.setChecked(bool(start_online))
 
+                # Load disable_arxan setting
+                disable_arxan = config_data.get("disable_arxan", False)
+                self.disable_arxan_cb.setChecked(bool(disable_arxan))
+
                 self.current_settings = config_data
             else:
                 # Profile doesn't exist, use defaults
                 self.custom_savefile_cb.setChecked(False)
                 self.start_online_cb.setChecked(False)
+                self.disable_arxan_cb.setChecked(False)
                 self.on_custom_savefile_toggled(False)
                 self.current_settings = {}
 
@@ -245,6 +271,9 @@ class ProfileSettingsDialog(QDialog):
 
             # Update start_online setting
             updated_config["start_online"] = self.start_online_cb.isChecked()
+
+            # Update disable_arxan setting
+            updated_config["disable_arxan"] = self.disable_arxan_cb.isChecked()
 
             # Write the updated profile
             profile_path = self.config_manager.get_profile_path(self.game_name)

@@ -55,6 +55,8 @@ class ExportService:
             data["savefile"] = profile_data["savefile"]
         if "start_online" in profile_data:
             data["start_online"] = profile_data["start_online"]
+        if "disable_arxan" in profile_data:
+            data["disable_arxan"] = profile_data["disable_arxan"]
 
         # Natives (files)
         natives = []
