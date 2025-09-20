@@ -30,6 +30,7 @@ class UISettings:
             "theme": "default",
             "window_geometry": None,
             "splitter_state": None,
+            "default_profile_version": "v1",
         }
 
         # Add missing defaults
@@ -192,6 +193,20 @@ class UISettings:
             Dictionary of all UI settings
         """
         return self.settings_manager.get("ui_settings", {}).copy()
+
+    # Profile version default
+    def get_default_profile_version(self) -> str:
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        val = str(ui_settings.get("default_profile_version", "v1")).lower()
+        return "v2" if val == "v2" else "v1"
+
+    def set_default_profile_version(self, version: str) -> None:
+        normalized = str(version).lower()
+        if normalized not in ("v1", "v2"):
+            normalized = "v1"
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        ui_settings["default_profile_version"] = normalized
+        self.settings_manager.set("ui_settings", ui_settings)
 
     def reset_to_defaults(self) -> None:
         """Reset all UI settings to defaults."""

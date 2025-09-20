@@ -2,7 +2,7 @@ import json
 import logging
 import os
 
-from PyQt6.QtCore import QLocale
+from PySide6.QtCore import QLocale
 
 from me3_manager.utils.resource_path import resource_path
 

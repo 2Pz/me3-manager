@@ -1,14 +1,10 @@
 import logging
-import os
 import re
-import subprocess
 import sys
 
-from PyQt6.QtCore import Qt, QTimer, QUrl, pyqtSlot
-from PyQt6.QtGui import QDesktopServices, QFont, QIcon
-from PyQt6.QtWidgets import (
-    QDialog,
-    QFrame,
+from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QFont, QIcon
+from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -22,224 +18,23 @@ from PyQt6.QtWidgets import (
 from me3_manager import __version__ as VERSION
 from me3_manager.core.config_facade import ConfigFacade
 from me3_manager.core.me3_version_manager import ME3VersionManager
+from me3_manager.services.steam_service import SteamService
+from me3_manager.ui.app_controller import AppController
+from me3_manager.ui.dialogs.game_management_dialog import GameManagementDialog
+from me3_manager.ui.dialogs.help_about_dialog import HelpAboutDialog
+from me3_manager.ui.dialogs.settings_dialog import SettingsDialog
 from me3_manager.ui.draggable_game_button import (
     DraggableGameButton,
     DraggableGameContainer,
 )
-from me3_manager.ui.game_management_dialog import GameManagementDialog
 from me3_manager.ui.game_page import GamePage
-from me3_manager.ui.settings_dialog import SettingsDialog
 from me3_manager.ui.terminal import EmbeddedTerminal
+from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.status import Status
 from me3_manager.utils.translator import tr
 
 log = logging.getLogger(__name__)
-
-
-class HelpAboutDialog(QDialog):
-    """A custom dialog for Help, About, and maintenance actions."""
-
-    def __init__(self, main_window, initial_setup=False):
-        super().__init__(main_window)
-        self.main_window = main_window
-        self.version_manager = self.main_window.version_manager
-        self.setMinimumWidth(550)
-        self.setStyleSheet("""
-            QDialog { background-color: #252525; color: #ffffff; }
-            QLabel { background-color: transparent; }
-            QPushButton {
-                background-color: #2d2d2d; border: 1px solid #3d3d3d;
-                padding: 10px 16px; border-radius: 4px;
-            }
-            QPushButton:hover { background-color: #3d3d3d; }
-            QPushButton:disabled { background-color: #2a2a2a; color: #555555; border-color: #333333; }
-            #TitleLabel { font-size: 18px; font-weight: bold; }
-            #VersionLabel { color: #aaaaaa; }
-            #HeaderLabel { font-size: 14px; font-weight: bold; margin-top: 15px; margin-bottom: 5px; }
-            #DownloadStableButton { background-color: #0078d4; border: none; }
-            #DownloadStableButton:hover { background-color: #005a9e; }
-            #KoFiButton { background-color: #0078d4; border: none; font-weight: bold; }
-            #KoFiButton:hover { background-color: #106ebe; }
-            #VideoLinkLabel { color: #0078d4; text-decoration: underline; }
-            #VideoLinkLabel:hover { color: #005a9e; }
-            #WarningLabel { color: #ff4d4d; font-size: 16px; font-weight: bold; }
-            #WarningInfoLabel { color: #f0c674; margin-bottom: 5px; }
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(10)
-
-        title = QLabel(tr("app_title"))
-        title.setObjectName("TitleLabel")
-        layout.addWidget(title)
-
-        versions_text = f"{tr('manager_version', version=VERSION)}  |  {tr('me3_cli_version', version=self.main_window.me3_version)}"
-        version_label = QLabel(versions_text)
-        version_label.setObjectName("VersionLabel")
-        layout.addWidget(version_label)
-
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        layout.addWidget(line)
-
-        self.close_button = QPushButton()
-
-        if initial_setup:
-            self.setWindowTitle(tr("me3_required_title"))
-
-            warning_layout = QVBoxLayout()
-            warning_layout.setSpacing(5)
-
-            warning_label = QLabel(tr("me3_not_installed"))
-            warning_label.setObjectName("WarningLabel")
-            warning_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            warning_layout.addWidget(warning_label)
-
-            warning_info_label = QLabel(tr("me3_not_installed_desc"))
-            warning_info_label.setObjectName("WarningInfoLabel")
-            warning_info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            warning_info_label.setWordWrap(True)
-            warning_layout.addWidget(warning_info_label)
-
-            layout.addLayout(warning_layout)
-            self.close_button.setText(tr("install_later"))
-        else:
-            self.setWindowTitle(tr("help_about_title"))
-            description = QLabel(tr("help_about_label"))
-            description.setWordWrap(True)
-            layout.addWidget(description)
-            self.close_button.setText(tr("close_button"))
-
-        video_header = QLabel(tr("tutorial_label"))
-        video_header.setObjectName("HeaderLabel")
-        layout.addWidget(video_header)
-
-        if sys.platform == "win32":
-            video_link = QLabel(
-                f'<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">{tr("win_tutorial_title")}</a>'
-            )
-        else:
-            # For Linux, use the same video link but with a different text
-            # since the installation process is different.
-            video_link = QLabel(
-                f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>'
-            )
-        video_link.setObjectName("VideoLinkLabel")
-        video_link.setOpenExternalLinks(True)
-        video_link.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextBrowserInteraction
-        )
-        layout.addWidget(video_link)
-
-        actions_header = QLabel(tr("actions_label"))
-        actions_header.setObjectName("HeaderLabel")
-        layout.addWidget(actions_header)
-
-        actions_layout = QVBoxLayout()
-        actions_layout.setSpacing(8)
-
-        if sys.platform == "win32":
-            self.setup_windows_buttons(actions_layout)
-        else:
-            self.setup_linux_buttons(actions_layout)
-
-        layout.addLayout(actions_layout)
-        layout.addStretch()
-
-        button_box_layout = QHBoxLayout()
-
-        support_button = QPushButton(tr("support_me"))
-        support_button.setObjectName("KoFiButton")
-        support_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        support_button.clicked.connect(self.open_kofi_link)
-        button_box_layout.addWidget(support_button)
-
-        button_box_layout.addStretch()
-
-        self.close_button.clicked.connect(self.accept)
-        button_box_layout.addWidget(self.close_button)
-
-        layout.addLayout(button_box_layout)
-
-    def open_kofi_link(self):
-        url = QUrl("https://ko-fi.com/2pz123")
-        QDesktopServices.openUrl(url)
-
-    def setup_windows_buttons(self, layout):
-        # Update ME3 button
-        self.update_cli_button = QPushButton(tr("update_me3_button"))
-        self.update_cli_button.clicked.connect(self.handle_update_cli)
-        if (
-            self.main_window.config_manager.me3_info_manager.get_me3_installation_status()
-            == Status.NOT_INSTALLED
-        ):
-            self.update_cli_button.setDisabled(True)
-            self.update_cli_button.setToolTip(tr("me3_not_installed_tip"))
-        layout.addWidget(self.update_cli_button)
-
-        # Get version info using the centralized version manager
-        versions_info = self.version_manager.get_available_versions()
-
-        # Stable installer button
-        btn_text = f"{tr('stable_installer_button_win')}"
-        if versions_info["stable"]["version"]:
-            btn_text += f" ({versions_info['stable']['version']})"
-        self.stable_button = QPushButton(btn_text)
-        # self.stable_button.setObjectName("DownloadStableButton")
-        self.stable_button.clicked.connect(self.handle_download)
-        if not versions_info["stable"]["available"]:
-            self.stable_button.setDisabled(True)
-        layout.addWidget(self.stable_button)
-
-        # Custom installer button
-        custom_btn_text = f"{tr('custom_installer_button_win')}"
-        if versions_info["stable"]["version"]:
-            custom_btn_text += f" ({versions_info['stable']['version']})"
-        self.custom_button = QPushButton(custom_btn_text)
-        self.custom_button.setObjectName("DownloadStableButton")
-        self.custom_button.clicked.connect(self.handle_custom_install)
-        if not versions_info["stable"]["available"]:
-            self.custom_button.setDisabled(True)
-        layout.addWidget(self.custom_button)
-
-    def setup_linux_buttons(self, layout):
-        """Creates buttons for Linux/macOS, highlighting the stable official script."""
-        # Get version info using the centralized version manager
-        versions_info = self.version_manager.get_available_versions()
-
-        # Stable installer button (Official & Recommended)
-        btn_text = tr("stable_installer_button_linux")
-        if versions_info["stable"]["version"]:
-            btn_text += f" ({versions_info['stable']['version']})"
-        self.stable_button = QPushButton(btn_text)
-        self.stable_button.setObjectName("DownloadStableButton")
-        self.stable_button.clicked.connect(self.handle_linux_install)
-        if not versions_info["stable"]["available"]:
-            self.stable_button.setDisabled(True)
-        layout.addWidget(self.stable_button)
-
-    def handle_custom_install(self):
-        """Handle custom Windows ME3 installation using the version manager."""
-        self.version_manager.custom_install_windows_me3()
-        self.accept()
-
-    def handle_update_cli(self):
-        """Handle ME3 CLI update using the version manager."""
-        self.version_manager.update_me3_cli()
-        self.accept()
-
-    def handle_download(self):
-        """Handle Windows installer download using the version manager."""
-        self.version_manager.download_windows_installer()
-        self.accept()
-
-    def handle_linux_install(self):
-        """Handle Linux ME3 installation using the version manager."""
-        self.version_manager.install_linux_me3()
-        self.accept()
 
 
 class ModEngine3Manager(QMainWindow):
@@ -260,21 +55,11 @@ class ModEngine3Manager(QMainWindow):
 
         self.init_ui()
 
-        self.refresh_timer = QTimer(self)
-        self.refresh_timer.setSingleShot(True)
-        self.refresh_timer.timeout.connect(self.perform_global_refresh)
-
-        # Connect BOTH directory and file change signals to the same refresh slot.
-        self.config_manager.file_watcher.directoryChanged.connect(
-            self.schedule_global_refresh
-        )
-        self.config_manager.file_watcher.fileChanged.connect(
-            self.schedule_global_refresh
-        )
-
-        self.check_me3_installation()
-        self.auto_launch_steam_if_enabled()
-        self.check_for_me3_updates_if_enabled()
+        # App-level controller orchestration
+        self.steam_service = SteamService()
+        self.app_controller = AppController(self, self.config_manager)
+        self.app_controller.wire_file_watcher()
+        self.app_controller.run_startup_checks()
 
     def add_game(self, game_name: str):
         if game_name in self.game_buttons:
@@ -418,17 +203,23 @@ class ModEngine3Manager(QMainWindow):
 
     def _prepare_command(self, cmd: list) -> list:
         """Enhanced command preparation with better environment handling."""
-        if sys.platform == "linux" and os.environ.get("FLATPAK_ID"):
-            return ["flatpak-spawn", "--host"] + cmd
-        return cmd
+        return PlatformUtils.prepare_command(cmd)
 
     def open_file_or_directory(self, path: str, run_file: bool = False):
         try:
-            target_path = path if run_file else os.path.dirname(path)
-            if sys.platform == "win32":
-                os.startfile(target_path)
-            else:  # Linux
-                subprocess.run(["xdg-open", target_path], check=True)
+            ok = (
+                PlatformUtils.open_dir(path)
+                if not run_file
+                else PlatformUtils.open_path(path, run_file=True)
+            )
+            if not ok:
+                QMessageBox.warning(
+                    self,
+                    tr("ERROR"),
+                    tr(
+                        "could_not_perform_action", e="Desktop service rejected request"
+                    ),
+                )
         except Exception as e:
             QMessageBox.warning(self, tr("ERROR"), tr("could_not_perform_action", e=e))
 
@@ -585,14 +376,18 @@ class ModEngine3Manager(QMainWindow):
         # We can call setup_file_watcher() from config_manager to ensure paths are up-to-date.
         self.config_manager.setup_file_watcher()
 
-    @pyqtSlot(str)
+    @Slot(str)
     def schedule_global_refresh(self, path: str):
         """
         This method is triggered by the QFileSystemWatcher. It starts a
         debounced timer to perform a full refresh, preventing rapid-fire updates.
         """
 
-        self.refresh_timer.start(500)
+        # Delegate to controller's debounced timer
+        if hasattr(self, "app_controller"):
+            self.app_controller.schedule_global_refresh(500)
+        else:
+            pass
 
     def perform_global_refresh(self):
         """
@@ -630,7 +425,13 @@ class ModEngine3Manager(QMainWindow):
 
     def auto_launch_steam_if_enabled(self):
         if self.config_manager.get_auto_launch_steam():
-            if not self.config_manager.launch_steam_silently():
+            # Try ME3-provided steam path first
+            steam_path = None
+            try:
+                steam_path = self.config_manager.get_steam_path()
+            except Exception:
+                steam_path = None
+            if not self.steam_service.launch(steam_path):
                 log.warning("Failed to launch Steam (or it's already running)")
 
     def show_settings_dialog(self):

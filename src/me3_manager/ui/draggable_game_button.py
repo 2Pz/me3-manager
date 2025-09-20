@@ -1,16 +1,16 @@
 # ui/draggable_game_button.py
 
 
-from PyQt6.QtCore import QMimeData, QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QDrag, QPainter, QPixmap
-from PyQt6.QtWidgets import QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QMimeData, QPoint, Qt, Signal
+from PySide6.QtGui import QDrag, QPainter, QPixmap
+from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 
 
 class DraggableGameButton(QPushButton):
     """A draggable game button that supports drag and drop reordering"""
 
     # Signal emitted when button order changes
-    order_changed = pyqtSignal(list)  # List of game names in new order
+    order_changed = Signal(list)  # List of game names in new order
 
     def __init__(self, game_name: str, parent=None):
         super().__init__(game_name, parent)
@@ -51,7 +51,7 @@ class DraggableGameButton(QPushButton):
         pixmap.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pixmap)
         painter.setOpacity(0.7)
-        self.render(painter)
+        self.render(painter, QPoint())
         painter.end()
         drag.setPixmap(pixmap)
 
@@ -100,7 +100,7 @@ class DraggableGameContainer(QWidget):
     """Container widget that manages draggable game buttons"""
 
     # Signal emitted when game order changes
-    game_order_changed = pyqtSignal(list)  # List of game names in new order
+    game_order_changed = Signal(list)  # List of game names in new order
 
     def __init__(self, parent=None):
         super().__init__(parent)

@@ -9,14 +9,14 @@ and profile settings.
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtWidgets import QDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QMessageBox
 
 from me3_manager.core.mod_manager import ModType
-from me3_manager.ui.advanced_mod_options import AdvancedModOptionsDialog
-from me3_manager.ui.config_editor import ConfigEditorDialog
-from me3_manager.ui.game_options_dialog import GameOptionsDialog
-from me3_manager.ui.profile_editor import ProfileEditor
-from me3_manager.ui.profile_settings_dialog import ProfileSettingsDialog
+from me3_manager.ui.dialogs.advanced_mod_options import AdvancedModOptionsDialog
+from me3_manager.ui.dialogs.config_editor import ConfigEditorDialog
+from me3_manager.ui.dialogs.game_options_dialog import GameOptionsDialog
+from me3_manager.ui.dialogs.profile_editor import ProfileEditor
+from me3_manager.ui.dialogs.profile_settings_dialog import ProfileSettingsDialog
 from me3_manager.utils.translator import tr
 
 if TYPE_CHECKING:

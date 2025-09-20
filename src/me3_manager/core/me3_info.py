@@ -1,10 +1,10 @@
 import logging
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+from me3_manager.utils.command_runner import CommandRunner
 from me3_manager.utils.status import Status
 
 log = logging.getLogger(__name__)
@@ -23,30 +23,9 @@ class ME3InfoManager:
 
     def _prepare_command(self, cmd: list[str]) -> list[str]:
         """
-        Prepares a command for execution, handling platform specifics.
-        Uses the same approach as the UI terminal for maximum compatibility.
+        Prepare a command for execution with platform specifics.
         """
-        if sys.platform == "linux":
-            if os.environ.get("FLATPAK_ID"):
-                return ["flatpak-spawn", "--host"] + cmd
-
-            # Use the same shell detection logic as the UI terminal
-            user_shell = os.environ.get("SHELL", "/bin/bash")
-            if not Path(user_shell).exists():
-                user_shell = "/bin/bash"
-
-            # If bash doesn't exist, fall back to sh
-            if not Path(user_shell).exists():
-                user_shell = "/bin/sh"
-
-            # Final fallback to just 'sh' (should be in PATH)
-            if not Path(user_shell).exists():
-                user_shell = "sh"
-
-            command_str = " ".join(cmd)
-            return [user_shell, "-l", "-c", command_str]
-
-        return cmd
+        return CommandRunner.prepare_command(cmd)
 
     def is_me3_installed(self) -> bool:
         """Check if ME3 is installed and accessible."""
@@ -60,18 +39,11 @@ class ME3InfoManager:
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
             command = self._prepare_command(["me3", "--version"])
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-                startupinfo=startupinfo,
-                timeout=10,
-                encoding="utf-8",
-                errors="replace",
+            returncode, stdout, _ = CommandRunner.run(
+                command, timeout=10, capture_output=True, text=True
             )
 
-            if result.returncode == 0 and result.stdout:
+            if returncode == 0 and stdout:
                 self._is_installed = True
             else:
                 self._is_installed = False
@@ -103,27 +75,20 @@ class ME3InfoManager:
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
             command = self._prepare_command(["me3", "info"])
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-                startupinfo=startupinfo,
-                timeout=15,
-                encoding="utf-8",
-                errors="replace",
+            returncode, stdout, stderr = CommandRunner.run(
+                command, timeout=15, capture_output=True, text=True
             )
 
-            if result.returncode != 0 or not result.stdout:
+            if returncode != 0 or not stdout:
                 log.error(
                     "Failed to get 'me3 info'. Exit code: %s, Stderr: %s",
-                    result.returncode,
-                    result.stderr,
+                    returncode,
+                    stderr,
                 )
                 return None
 
             # Cache the raw output for other parsers to use
-            self._info_output_raw = result.stdout
+            self._info_output_raw = stdout
             info = self._parse_me3_info(self._info_output_raw)
             self._info_cache = info
             return info
@@ -258,22 +223,15 @@ class ME3InfoManager:
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
             command = self._prepare_command(["me3", "--version"])
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-                startupinfo=startupinfo,
-                timeout=10,
-                encoding="utf-8",
-                errors="replace",
+            returncode, stdout, _ = CommandRunner.run(
+                command, timeout=10, capture_output=True, text=True
             )
 
-            if result.stdout:
-                version_match = re.search(r"(\d+\.\d+\.\d+)", result.stdout)
+            if stdout:
+                version_match = re.search(r"(\d+\.\d+\.\d+)", stdout)
                 if version_match:
                     return version_match.group(1)
-                return result.stdout.strip().split("\n")[0]
+                return stdout.strip().split("\n")[0]
 
         except Exception as e:
             log.error("Error getting version from --version command: %s", e)

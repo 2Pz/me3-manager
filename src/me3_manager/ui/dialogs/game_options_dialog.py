@@ -1,13 +1,10 @@
 import logging
-import os
-import subprocess
-import sys
 import tomllib
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QFont, QKeyEvent
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QKeyEvent
+from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QFileDialog,
@@ -22,6 +19,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.toml_config_writer import TomlConfigWriter
 from me3_manager.utils.translator import tr
 
@@ -58,22 +56,18 @@ class GameOptionsDialog(QDialog):
         self.load_current_settings()
 
     def _open_path(self, path: Path):
-        """Open a file or folder path using the system default application"""
+        """Open a folder path using PlatformUtils (Qt-based)."""
         try:
-            if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-                env = os.environ.copy()
-                env.pop("LD_LIBRARY_PATH", None)
-                env.pop("PYTHONPATH", None)
-                env.pop("PYTHONHOME", None)
-
-                if sys.platform == "win32":
-                    subprocess.Popen(["explorer", str(path)], shell=True, env=env)
-                else:
-                    subprocess.run(["xdg-open", str(path)], env=env)
-            else:
-                url = QUrl.fromLocalFile(str(path))
-                if not QDesktopServices.openUrl(url):
-                    raise Exception("QDesktopServices failed to open URL.")
+            if not PlatformUtils.open_dir(str(path)):
+                QMessageBox.warning(
+                    self,
+                    tr("open_path_error"),
+                    tr(
+                        "open_path_error_msg",
+                        path=path,
+                        e="Desktop service rejected request",
+                    ),
+                )
         except Exception as e:
             QMessageBox.warning(
                 self,
@@ -187,6 +181,15 @@ class GameOptionsDialog(QDialog):
         self.steam_dir_path_layout.addWidget(self.steam_dir_edit)
         self.steam_dir_path_layout.addWidget(self.browse_steam_btn)
         self.steam_dir_path_layout.addWidget(self.clear_steam_btn)
+
+        # Use detected path button (from ME3 info)
+        self.use_detected_btn = QPushButton(
+            tr("use_detected") if hasattr(self, "tr") else "Use detected"
+        )
+        self.use_detected_btn.setStyleSheet(self._get_button_style())
+        self.use_detected_btn.clicked.connect(self.on_use_detected_steam_dir)
+        self.use_detected_btn.setEnabled(True)
+        self.steam_dir_path_layout.addWidget(self.use_detected_btn)
 
         # Create a widget to contain the steam directory path layout so we can hide it
         self.steam_dir_widget = QWidget()
@@ -358,6 +361,8 @@ class GameOptionsDialog(QDialog):
         self.steam_dir_edit.setEnabled(checked)
         self.browse_steam_btn.setEnabled(checked)
         self.clear_steam_btn.setEnabled(checked)
+        if hasattr(self, "use_detected_btn"):
+            self.use_detected_btn.setEnabled(checked)
 
         if not checked:
             self.steam_dir_edit.clear()
@@ -373,37 +378,27 @@ class GameOptionsDialog(QDialog):
             self.exe_path_edit.clear()
 
     def browse_steam_directory(self):
-        """Browse for Steam installation directory"""
-        # Try to find Steam's default installation path as starting point
-        import platform
-
-        system = platform.system()
-
-        default_steam_paths = []
-        if system == "Windows":
-            default_steam_paths = [
-                Path("C:/Program Files (x86)/Steam"),
-                Path("C:/Program Files/Steam"),
-                Path("D:/Steam"),
-                Path("E:/Steam"),
-            ]
-        elif system == "Linux":
-            home = Path.home()
-            default_steam_paths = [
-                home / ".steam" / "steam",
-                home / ".local" / "share" / "Steam",
-            ]
-
-        # Find first existing default path
+        """Browse for Steam installation directory (seeded from me3 info)."""
+        # Prefer steam path reported by ME3
         start_dir = str(Path.home())
-        for path in default_steam_paths:
-            if path.exists():
-                start_dir = str(path.parent)
-                break
+        try:
+            if hasattr(self.config_manager, "get_steam_path"):
+                me3_steam_path = self.config_manager.get_steam_path()
+                if me3_steam_path:
+                    # If ME3 returns a file path, use its parent; else use directory as is
+                    start_dir = (
+                        str(me3_steam_path.parent)
+                        if me3_steam_path.is_file()
+                        else str(me3_steam_path)
+                    )
+        except Exception:
+            start_dir = str(Path.home())
 
         dir_name = QFileDialog.getExistingDirectory(
             self,
-            "Select Steam Installation Directory",
+            tr("select_steam_dir_title")
+            if hasattr(self, "tr")
+            else "Select Steam Installation Directory",
             start_dir,
             QFileDialog.Option.ShowDirsOnly,
         )
@@ -423,7 +418,6 @@ class GameOptionsDialog(QDialog):
                     tr("steam_validation_message", steam_path=steam_path),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 )
-
                 if reply == QMessageBox.StandardButton.No:
                     return
 
@@ -432,6 +426,38 @@ class GameOptionsDialog(QDialog):
     def clear_steam_directory(self):
         """Clear the Steam directory path"""
         self.steam_dir_edit.clear()
+
+    def on_use_detected_steam_dir(self):
+        """Quick-fill steam directory from ME3 info if available."""
+        try:
+            if hasattr(self.config_manager, "get_steam_path"):
+                steam_path = self.config_manager.get_steam_path()
+            else:
+                steam_path = None
+            if steam_path:
+                # If file provided, use parent; else directory itself
+                target = steam_path.parent if steam_path.is_file() else steam_path
+                self.steam_dir_edit.setText(str(target))
+                if not self.steam_dir_cb.isChecked():
+                    self.steam_dir_cb.setChecked(True)
+            else:
+                QMessageBox.information(
+                    self,
+                    tr("steam_not_detected_title")
+                    if hasattr(self, "tr")
+                    else "Steam not detected",
+                    tr("steam_not_detected_message")
+                    if hasattr(self, "tr")
+                    else "ME3 did not report a Steam path.",
+                )
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                tr("steam_detection_error_title")
+                if hasattr(self, "tr")
+                else "Detection error",
+                str(e),
+            )
 
     def open_config_folder(self):
         """Open the folder containing the ME3 config file"""
@@ -503,7 +529,7 @@ class GameOptionsDialog(QDialog):
                 return
 
             # Show dialog to let user choose from available paths
-            from PyQt6.QtWidgets import (
+            from PySide6.QtWidgets import (
                 QDialog,
                 QHBoxLayout,
                 QLabel,

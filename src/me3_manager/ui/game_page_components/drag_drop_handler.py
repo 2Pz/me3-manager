@@ -8,9 +8,9 @@ validating dropped content, and initiating the mod installation process.
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtWidgets import QMessageBox
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtWidgets import QMessageBox
 
 from me3_manager.utils.translator import tr
 
@@ -112,7 +112,28 @@ class DragDropHandler:
         if items_for_bundling:
             # A single directory that is not a config folder. Treat as a mod package.
             if len(items_for_bundling) == 1 and items_for_bundling[0].is_dir():
-                self.game_page.install_root_mod_package(items_for_bundling[0])
+                only_dir = items_for_bundling[0]
+                # Detect if this directory looks like a container of multiple mods.
+                contains_child_mods = False
+                try:
+                    for child in only_dir.iterdir():
+                        if child.is_dir() and self.game_page._is_valid_mod_folder(
+                            child
+                        ):
+                            contains_child_mods = True
+                            break
+                        if child.is_file() and child.suffix.lower() == ".dll":
+                            contains_child_mods = True
+                            break
+                except Exception:
+                    contains_child_mods = False
+
+                if contains_child_mods and hasattr(
+                    self.game_page, "install_mods_folder_root"
+                ):
+                    self.game_page.install_mods_folder_root(only_dir)
+                else:
+                    self.game_page.install_root_mod_package(only_dir)
             else:
                 # Multiple files/folders, or a single file. Bundle them.
                 self.game_page.install_loose_items(items_for_bundling)

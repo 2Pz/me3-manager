@@ -8,9 +8,9 @@ selection dropdown menu and operating the comprehensive "Manage Profiles" dialog
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QAction, QActionGroup, QIcon
+from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -37,6 +37,7 @@ class ProfileHandler:
         self.game_page = game_page
         self.config_manager = game_page.config_manager
         self.game_name = game_page.game_name
+        self.profile_action_group: QActionGroup | None = None
 
     def update_profile_dropdown(self):
         """Updates the profile dropdown button text and its menu items."""
@@ -46,6 +47,10 @@ class ProfileHandler:
         gp = self.game_page
         gp.profile_menu_button.setText(active_profile["name"])
         gp.profile_menu.clear()
+        # Create an exclusive action group for profiles
+        self.profile_action_group = QActionGroup(gp)
+        self.profile_action_group.setExclusive(True)
+        self.profile_action_group.triggered.connect(self.on_profile_action_triggered)
         all_profiles = self.config_manager.get_profiles_for_game(self.game_name)
         active_profile_id = active_profile["id"]
         for profile in all_profiles:
@@ -53,7 +58,7 @@ class ProfileHandler:
             action.setData(profile["id"])
             action.setCheckable(True)
             action.setChecked(profile["id"] == active_profile_id)
-            action.triggered.connect(self.on_profile_selected_from_menu)
+            self.profile_action_group.addAction(action)
             gp.profile_menu.addAction(action)
         gp.profile_menu.addSeparator()
         manage_action = QAction(
@@ -64,15 +69,15 @@ class ProfileHandler:
         manage_action.triggered.connect(self.open_profile_manager)
         gp.profile_menu.addAction(manage_action)
 
-    def on_profile_selected_from_menu(self):
+    def on_profile_action_triggered(self, action: QAction):
         """Handles when a profile is chosen from the dropdown menu."""
-        action = self.game_page.sender()
-        if isinstance(action, QAction) and action.isChecked():
+        if isinstance(action, QAction):
             profile_id = action.data()
             self.config_manager.set_active_profile(self.game_name, profile_id)
             self.game_page.load_mods()
+            self.update_profile_dropdown()
 
-    def open_profile_manager(self):
+    def open_profile_manager(self, checked: bool = False):
         """Creates and shows the 'Manage Profiles' dialog."""
         dialog = QDialog(self.game_page)
         dialog.setWindowTitle(tr("manage_profiles_title", game_name=self.game_name))

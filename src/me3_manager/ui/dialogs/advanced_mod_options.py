@@ -1,8 +1,8 @@
 from typing import Any
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
@@ -26,7 +26,7 @@ from me3_manager.utils.translator import tr
 class DependencyWidget(QWidget):
     """Widget for managing a single dependency (load_before/load_after)"""
 
-    removed = pyqtSignal()
+    removed = Signal()
 
     def __init__(
         self,

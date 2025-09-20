@@ -1,11 +1,12 @@
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtWidgets import QWidget
 
 from me3_manager.core.mod_manager import ImprovedModManager
+from me3_manager.services.export_service import ExportService
 from me3_manager.ui.game_page_components.dialog_handler import DialogHandler
 from me3_manager.ui.game_page_components.drag_drop_handler import DragDropHandler
 from me3_manager.ui.game_page_components.game_launcher import GameLauncher
@@ -17,6 +18,7 @@ from me3_manager.ui.game_page_components.pagination_handler import PaginationHan
 from me3_manager.ui.game_page_components.profile_handler import ProfileHandler
 from me3_manager.ui.game_page_components.style import GamePageStyle
 from me3_manager.ui.game_page_components.ui_builder import UiBuilder
+from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.translator import tr
 
 
@@ -42,29 +44,7 @@ class GamePage(QWidget):
         self.filtered_mods: dict[str, Any] = {}
         self.all_mods_data: dict[str, Any] = {}
         self.mod_infos: dict[str, Any] = {}
-        self.acceptable_folders = [
-            "_backup",
-            "_unknown",
-            "action",
-            "asset",
-            "chr",
-            "cutscene",
-            "event",
-            "font",
-            "map",
-            "material",
-            "menu",
-            "movie",
-            "msg",
-            "other",
-            "param",
-            "parts",
-            "script",
-            "sd",
-            "sfx",
-            "shader",
-            "sound",
-        ]
+        self.acceptable_folders = ACCEPTABLE_FOLDERS
         self.setAcceptDrops(True)
 
         self.builder = UiBuilder(self)
@@ -163,6 +143,9 @@ class GamePage(QWidget):
     def install_loose_items(self, items_to_install: list[Path]):
         self.mod_installer.install_loose_items(items_to_install)
 
+    def install_mods_folder_root(self, root_dir: Path):
+        self.mod_installer.install_mods_folder_root(root_dir)
+
     # Delegated Profile Actions
 
     def update_profile_dropdown(self):
@@ -204,6 +187,29 @@ class GamePage(QWidget):
 
     def is_valid_drop(self, paths: list[Path]) -> bool:
         return self.utils.is_valid_drop(paths)
+
+    def export_mods_setup(self):
+        """Export current game's referenced mods and profile to a zip."""
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        default_name = f"{self.game_name}_mods_setup.zip"
+        target_path, _ = QFileDialog.getSaveFileName(
+            self, tr("export_dialog_title"), default_name, "Zip (*.zip)"
+        )
+        if not target_path:
+            return
+
+        ok, err = ExportService.export_profile_and_mods(
+            game_name=self.game_name,
+            config_manager=self.config_manager,
+            destination_zip=Path(target_path),
+        )
+        if ok:
+            QMessageBox.information(
+                self, tr("export_done_title"), tr("export_done_msg")
+            )
+        else:
+            QMessageBox.warning(self, tr("ERROR"), tr("export_failed_msg", error=err))
 
     # Core Page Logic & Helpers
 

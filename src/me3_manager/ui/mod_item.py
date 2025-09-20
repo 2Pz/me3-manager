@@ -1,6 +1,6 @@
-from PyQt6.QtCore import QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QIcon, QPainter, QPixmap
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QFont, QIcon, QPainter, QPixmap
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
@@ -9,13 +9,13 @@ from me3_manager.utils.translator import tr
 class ModItem(QWidget):
     """Enhanced mod widget with expandable tree support and icon-based status indicators"""
 
-    toggled = pyqtSignal(str, bool)
-    delete_requested = pyqtSignal(str)
-    open_folder_requested = pyqtSignal(str)
-    edit_config_requested = pyqtSignal(str)
-    regulation_activate_requested = pyqtSignal(str)
-    advanced_options_requested = pyqtSignal(str)
-    expand_requested = pyqtSignal(str, bool)  # New signal for expand/collapse
+    toggled = Signal(str, bool)
+    delete_requested = Signal(str)
+    open_folder_requested = Signal(str)
+    edit_config_requested = Signal(str)
+    regulation_activate_requested = Signal(str)
+    advanced_options_requested = Signal(str)
+    expand_requested = Signal(str, bool)  # New signal for expand/collapse
 
     def __init__(
         self,
@@ -70,7 +70,7 @@ class ModItem(QWidget):
         painter.fillRect(0, 0, size, size, Qt.GlobalColor.transparent)
 
         # Draw colored circle
-        from PyQt6.QtGui import QBrush, QColor
+        from PySide6.QtGui import QBrush, QColor
 
         painter.setBrush(QBrush(QColor(bg_color)))
         painter.drawEllipse(0, 0, size, size)
@@ -92,8 +92,8 @@ class ModItem(QWidget):
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        from PyQt6.QtCore import QPoint
-        from PyQt6.QtGui import QBrush, QColor, QPolygon
+        from PySide6.QtCore import QPoint
+        from PySide6.QtGui import QBrush, QColor, QPolygon
 
         # Create diamond shape
         diamond = QPolygon(

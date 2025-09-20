@@ -5,15 +5,15 @@ Monitors directories and files for changes.
 
 from pathlib import Path
 
-from PyQt6.QtCore import QFileSystemWatcher, QObject, pyqtSignal
+from PySide6.QtCore import QFileSystemWatcher, QObject, Signal
 
 
 class FileWatcher(QObject):
     """Manages file system watching for mod directories and profile files."""
 
     # Signals
-    directory_changed = pyqtSignal(str)  # Emitted when a watched directory changes
-    file_changed = pyqtSignal(str)  # Emitted when a watched file changes
+    directory_changed = Signal(str)  # Emitted when a watched directory changes
+    file_changed = Signal(str)  # Emitted when a watched file changes
 
     def __init__(self, parent=None):
         """
