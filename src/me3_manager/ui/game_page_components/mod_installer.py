@@ -431,7 +431,11 @@ class ModInstaller:
         """
         try:
             with open(profile_file, "r", encoding="utf-8") as f:
-                profile_data = tomlkit.parse(f.read())
+                raw_data = tomlkit.parse(f.read())
+                # Normalize any profile version to canonical structure
+                from me3_manager.core.profiles import ProfileConverter
+
+                profile_data = ProfileConverter.normalize(raw_data)
 
             # Ask the user to merge with existing mods or replace them.
             dialog = QDialog(self.game_page)

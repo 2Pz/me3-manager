@@ -323,6 +323,21 @@ class ConfigFacade:
                 "mods_path": str(default_mods_path),
             }
             default_mods_path.mkdir(parents=True, exist_ok=True)
+            # Write an initial profile file using default profile version
+            try:
+                default_version = self.ui_settings.get_default_profile_version()
+            except Exception:
+                default_version = "v1"
+            initial_profile = {
+                "profileVersion": default_version,
+                "natives": [],
+                "packages": [],
+                "supports": [],
+            }
+            try:
+                self._write_toml_config(default_profile_file_path, initial_profile)
+            except Exception:
+                pass
             if game_name not in self.profiles:
                 self.profiles[game_name] = []
             self.profiles[game_name].append(new_profile)
@@ -343,6 +358,18 @@ class ConfigFacade:
         self.active_profiles[game_name] = profile_id
         self._save_settings()
         self.setup_file_watcher()
+        # Align the selected profile's file to the default profile version
+        try:
+            default_version = self.ui_settings.get_default_profile_version()
+            profile_path = self.get_profile_path(game_name)
+            if profile_path.exists():
+                data = ProfileManager.read_profile(profile_path)
+                if str(data.get("profileVersion", "v1")).lower() != default_version:
+                    data["profileVersion"] = default_version
+                    ProfileManager.write_profile(profile_path, data, game_name)
+        except Exception:
+            # Non-fatal; leave existing profile as-is if conversion fails
+            pass
 
     def add_profile(
         self, game_name: str, name: str, mods_path: str, make_active: bool = False
@@ -358,7 +385,22 @@ class ConfigFacade:
             c for c in name if c.isalnum() or c in (" ", "_")
         ).rstrip()
         profile_file_path = mods_dir / f"{safe_filename.replace(' ', '_')}.me3"
-        profile_file_path.touch()
+        # Create initial profile contents using default profile version
+        try:
+            default_version = self.ui_settings.get_default_profile_version()
+        except Exception:
+            default_version = "v1"
+        initial_profile = {
+            "profileVersion": default_version,
+            "natives": [],
+            "packages": [],
+            "supports": [],
+        }
+        try:
+            self._write_toml_config(profile_file_path, initial_profile)
+        except Exception:
+            # Fallback to touching the file
+            profile_file_path.touch()
         # Add to profiles
         if game_name not in self.profiles:
             self.profiles[game_name] = []
@@ -544,8 +586,12 @@ class ConfigFacade:
         profile_path = self.get_profile_path(game_name)
         if not profile_path.exists():
             # Create default profile if it doesn't exist
+            try:
+                default_version = self.ui_settings.get_default_profile_version()
+            except Exception:
+                default_version = "v1"
             config_data = {
-                "profileVersion": "v1",
+                "profileVersion": default_version,
                 "natives": [],
                 "packages": [],
                 "supports": [],

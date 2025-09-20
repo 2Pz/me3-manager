@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from me3_manager.core.profiles.profile_converter import ProfileConverter
 from me3_manager.core.profiles.toml_profile_writer import TomlProfileWriter
 
 log = logging.getLogger(__name__)
@@ -28,7 +29,8 @@ class ProfileManager:
                     "supports": [],
                 }
             with open(profile_path, "rb") as f:
-                return tomllib.load(f)
+                raw = tomllib.load(f)
+                return ProfileConverter.normalize(raw)
         except Exception as e:
             log.error("Error reading profile %s: %s", profile_path, e)
             return {

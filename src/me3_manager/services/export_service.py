@@ -281,27 +281,98 @@ class ExportService:
                 if external_packages or external_natives:
                     try:
                         text = out_profile.read_text(encoding="utf-8")
-                        # Insert a single header note only (no itemized list),
-                        # place it before the first section ([[natives]]/[[packages]])
-                        note_line = "# Missing content not included in export"  # no colon per request
-                        insert_pos = text.find("[[")
-                        if insert_pos == -1:
-                            # Append at end with spacing
-                            if not text.endswith("\n\n"):
-                                text = text.rstrip("\n") + "\n\n"
-                            new_text = text + note_line + "\n"
+                        inline_note = " # Missing content not included in export"
+                        # Build set of expected missing 'mods/...' paths
+                        missing_paths = {
+                            p for (p, _orig) in (external_packages + external_natives)
+                        }
+
+                        # Prefer inline note on the specific missing entry lines
+                        is_v2 = (
+                            "\n[mods]\n" in text
+                            or text.strip().startswith("[mods]\n")
+                            or "\n[mods]\r\n" in text
+                        )
+                        lines = text.splitlines(True)  # keep line endings
+                        modified = False
+
+                        if is_v2:
+                            # Scan lines under [mods] and annotate the ones whose path matches a missing path
+                            in_mods = False
+                            for i, ln in enumerate(lines):
+                                stripped = ln.strip()
+                                if stripped.startswith("[") and stripped == "[mods]":
+                                    in_mods = True
+                                    continue
+                                if stripped.startswith("[") and stripped != "[mods]":
+                                    if in_mods:
+                                        in_mods = False
+                                if not in_mods:
+                                    continue
+                                # Look for path = "..."
+                                comp = stripped.replace(" ", "")
+                                for miss in list(missing_paths):
+                                    # Match either inline table {path="..."} or dotted key ident.path="..."
+                                    if (f'path="{miss}"' in comp) or (
+                                        f'.path="{miss}"' in comp
+                                    ):
+                                        # Append inline note once
+                                        if inline_note.strip() not in stripped:
+                                            if ln.endswith("\r\n"):
+                                                lines[i] = (
+                                                    ln[:-2] + inline_note + "\r\n"
+                                                )
+                                            elif ln.endswith("\n"):
+                                                lines[i] = ln[:-1] + inline_note + "\n"
+                                            else:
+                                                lines[i] = ln + inline_note
+                                            modified = True
+                                        missing_paths.remove(miss)
+                                        break
                         else:
-                            # Insert before first section boundary, leave a blank line before it
-                            before = text[:insert_pos]
-                            after = text[insert_pos:]
-                            # Ensure a blank line before the note
-                            if not before.endswith("\n\n"):
-                                if before.endswith("\n"):
-                                    before = before + "\n"
-                                else:
-                                    before = before + "\n\n"
-                            new_text = before + note_line + "\n" + after
-                        out_profile.write_text(new_text, encoding="utf-8")
+                            # v1: annotate matching path lines inside [[natives]]/[[packages]] tables
+                            for i, ln in enumerate(lines):
+                                stripped = ln.strip()
+                                if not stripped or stripped.startswith("#"):
+                                    continue
+                                for miss in list(missing_paths):
+                                    if (
+                                        stripped.startswith("path = ")
+                                        and f'"{miss}"' in stripped
+                                    ):
+                                        if inline_note.strip() not in stripped:
+                                            if ln.endswith("\r\n"):
+                                                lines[i] = (
+                                                    ln[:-2] + inline_note + "\r\n"
+                                                )
+                                            elif ln.endswith("\n"):
+                                                lines[i] = ln[:-1] + inline_note + "\n"
+                                            else:
+                                                lines[i] = ln + inline_note
+                                            modified = True
+                                        missing_paths.remove(miss)
+                                        break
+
+                        if modified:
+                            out_profile.write_text("".join(lines), encoding="utf-8")
+                        else:
+                            # Fallback: Add a single header/footer note
+                            note_line = "# Missing content not included in export"
+                            insert_pos = text.find("[[")
+                            if insert_pos == -1:
+                                if not text.endswith("\n\n"):
+                                    text = text.rstrip("\n") + "\n\n"
+                                new_text = text + note_line + "\n"
+                            else:
+                                before = text[:insert_pos]
+                                after = text[insert_pos:]
+                                if not before.endswith("\n\n"):
+                                    if before.endswith("\n"):
+                                        before = before + "\n"
+                                    else:
+                                        before = before + "\n\n"
+                                new_text = before + note_line + "\n" + after
+                            out_profile.write_text(new_text, encoding="utf-8")
                     except Exception:
                         pass
 

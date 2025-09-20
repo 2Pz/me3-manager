@@ -26,12 +26,11 @@ class TomlHighlighter(QSyntaxHighlighter):
         main_keyword_format.setFontWeight(QFont.Weight.Bold)
         main_keywords = [
             "profileVersion",
-            "savefile",
-            "start_online",
-            "disable_arxan",
             "natives",
             "supports",
             "packages",
+            "mods",
+            "game",
         ]
         self.highlighting_rules.extend(
             [
@@ -46,7 +45,6 @@ class TomlHighlighter(QSyntaxHighlighter):
         property_keyword_format.setFontWeight(QFont.Weight.Normal)
         property_keywords = [
             "path",
-            "game",
             "id",
             "source",
             "load_after",
@@ -59,6 +57,11 @@ class TomlHighlighter(QSyntaxHighlighter):
             "delay",
             "ms",
             "since",
+            # v2 game settings
+            "launch",
+            "savefile",
+            "disable_arxan",
+            "start_online",
         ]
 
         self.highlighting_rules.extend(
@@ -206,7 +209,32 @@ class ProfileEditor(QDialog):
     def save_and_accept(self):
         content = self.editor.toPlainText()
         try:
-            self.config_manager.save_profile_content(self.game_name, content)
+            # Try to parse and re-write using our version-aware writer so that
+            # switching profileVersion between v1 and v2 converts layout while
+            # preserving enabled mods.
+            import tomllib
+
+            try:
+                data = tomllib.loads(content)
+                # Normalize to canonical, then write with requested version
+                from me3_manager.core.profiles import (
+                    ProfileConverter,
+                    TomlProfileWriter,
+                )
+
+                canonical = ProfileConverter.normalize(data)
+                # Preserve requested version from the edited content if present
+                requested_version = str(
+                    data.get("profileVersion", canonical.get("profileVersion", "v1"))
+                )
+                canonical["profileVersion"] = requested_version
+
+                profile_path = self.config_manager.get_profile_path(self.game_name)
+                TomlProfileWriter.write_profile(profile_path, canonical, self.game_name)
+            except Exception:
+                # Fallback: raw write if parsing/conversion fails
+                self.config_manager.save_profile_content(self.game_name, content)
+
             self.accept()
         except Exception as e:
             QMessageBox.warning(
