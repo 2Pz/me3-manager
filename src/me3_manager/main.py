@@ -2,8 +2,8 @@ import logging
 import os
 import sys
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
 
 from me3_manager.ui.main_window import ModEngine3Manager
 from me3_manager.utils.translator import translator

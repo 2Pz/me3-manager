@@ -3,9 +3,9 @@ Profile Settings Dialog for ME3 Manager.
 Provides a user-friendly interface for configuring profile-level settings like savefile and start_online.
 """
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QKeyEvent
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QKeyEvent
+from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
@@ -46,7 +46,7 @@ class ProfileSettingsDialog(QDialog):
 
         self.setWindowTitle(tr("profile_settings_title", game_name=game_name))
         self.setModal(True)
-        self.resize(600, 400)
+        self.resize(850, 700)
 
         self.init_ui()
         self.load_current_settings()
@@ -104,7 +104,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Savefile info
         savefile_info = QLabel(tr("savefile_info"))
-        savefile_info.setStyleSheet("color: #888888; font-size: 11px; margin-top: 8px;")
+        savefile_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         savefile_info.setWordWrap(True)
         savefile_layout.addWidget(savefile_info)
 
@@ -128,6 +128,46 @@ class ProfileSettingsDialog(QDialog):
         online_layout.addWidget(online_info)
 
         layout.addWidget(online_group)
+
+        # Compatibility Settings group
+        compat_group = QGroupBox(tr("compatibility_settings_group"))
+        compat_group.setStyleSheet(self._get_group_style())
+        compat_layout = QFormLayout(compat_group)
+        compat_layout.setSpacing(12)
+
+        # Disable Arxan checkbox
+        self.disable_arxan_cb = QCheckBox(tr("disable_arxan_checkbox"))
+        self.disable_arxan_cb.setStyleSheet(self._get_checkbox_style())
+        compat_layout.addRow(tr("disable_arxan_label"), self.disable_arxan_cb)
+
+        # Disable Arxan info
+        disable_arxan_info = QLabel(tr("disable_arxan_info"))
+        disable_arxan_info.setStyleSheet(
+            "color: #ffaa00; font-size: 11px; margin-top: 8px;"
+        )
+        disable_arxan_info.setWordWrap(True)
+        compat_layout.addWidget(disable_arxan_info)
+
+        layout.addWidget(compat_group)
+
+        # Profile Version group
+        version_group = QGroupBox(tr("profile_version_group"))
+        version_group.setStyleSheet(self._get_group_style())
+        version_layout = QFormLayout(version_group)
+        version_layout.setSpacing(12)
+
+        self.version_combo = QComboBox()
+        self.version_combo.addItem("v1")
+        self.version_combo.addItem("v2")
+        self.version_combo.setStyleSheet(self._get_combobox_style())
+        version_layout.addRow(tr("default_profile_version_label"), self.version_combo)
+
+        version_info = QLabel(tr("default_profile_version_info"))
+        version_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
+        version_info.setWordWrap(True)
+        version_layout.addWidget(version_info)
+
+        layout.addWidget(version_group)
 
         layout.addStretch()
 
@@ -182,13 +222,35 @@ class ProfileSettingsDialog(QDialog):
                 start_online = config_data.get("start_online", False)
                 self.start_online_cb.setChecked(bool(start_online))
 
+                # Load disable_arxan setting
+                disable_arxan = config_data.get("disable_arxan", False)
+                self.disable_arxan_cb.setChecked(bool(disable_arxan))
+
                 self.current_settings = config_data
+                # Load default profile version from UI settings
+                try:
+                    default_version = (
+                        self.config_manager.ui_settings.get_default_profile_version()
+                    )
+                except Exception:
+                    default_version = "v1"
+                idx = 1 if default_version == "v2" else 0
+                self.version_combo.setCurrentIndex(idx)
             else:
                 # Profile doesn't exist, use defaults
                 self.custom_savefile_cb.setChecked(False)
                 self.start_online_cb.setChecked(False)
+                self.disable_arxan_cb.setChecked(False)
                 self.on_custom_savefile_toggled(False)
                 self.current_settings = {}
+                try:
+                    default_version = (
+                        self.config_manager.ui_settings.get_default_profile_version()
+                    )
+                except Exception:
+                    default_version = "v1"
+                idx = 1 if default_version == "v2" else 0
+                self.version_combo.setCurrentIndex(idx)
 
         except Exception as e:
             QMessageBox.warning(
@@ -245,6 +307,21 @@ class ProfileSettingsDialog(QDialog):
 
             # Update start_online setting
             updated_config["start_online"] = self.start_online_cb.isChecked()
+
+            # Update disable_arxan setting
+            updated_config["disable_arxan"] = self.disable_arxan_cb.isChecked()
+
+            # Persist default profile version choice
+            chosen_version = self.version_combo.currentText()
+            try:
+                self.config_manager.ui_settings.set_default_profile_version(
+                    chosen_version
+                )
+            except Exception:
+                pass
+
+            # Also set the target profileVersion for this profile write
+            updated_config["profileVersion"] = chosen_version
 
             # Write the updated profile
             profile_path = self.config_manager.get_profile_path(self.game_name)

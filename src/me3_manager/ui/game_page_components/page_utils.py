@@ -5,17 +5,14 @@ Provides miscellaneous helper functions and utility actions, such as opening fil
 explorer paths, setting custom executable paths, and validating dropped files.
 """
 
-import os
-import subprocess
 import sys
 from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QUrl
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QFileDialog, QMessageBox, QWidget
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
+from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
 if TYPE_CHECKING:
@@ -28,21 +25,10 @@ def is_frozen():
 
 
 def _open_path(parent_widget: QWidget, path: Path):
-    """Safely opens a folder path in the native file explorer."""
+    """Safely opens a folder path in the native file explorer using Qt services."""
     try:
-        if is_frozen():
-            env = os.environ.copy()
-            env.pop("LD_LIBRARY_PATH", None)
-            env.pop("PYTHONPATH", None)
-            env.pop("PYTHONHOME", None)
-            if sys.platform == "win32":
-                subprocess.Popen(["explorer", str(path)], shell=True, env=env)
-            else:
-                subprocess.run(["xdg-open", str(path)], env=env)
-        else:
-            url = QUrl.fromLocalFile(str(path))
-            if not QDesktopServices.openUrl(url):
-                raise Exception("QDesktopServices failed to open URL.")
+        if not PlatformUtils.open_dir(str(path)):
+            raise Exception("Desktop service rejected request")
     except Exception as e:
         QMessageBox.warning(
             parent_widget,

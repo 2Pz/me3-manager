@@ -1,10 +1,9 @@
 import re
 import shlex
-import sys
 
-from PyQt6.QtCore import QProcess, QSize, QTimer
-from PyQt6.QtGui import QFont, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QProcess, QSize, QTimer
+from PySide6.QtGui import QFont, QIcon
+from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QLabel,
@@ -14,6 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
 
@@ -192,7 +192,6 @@ class EmbeddedTerminal(QWidget):
             working_dir: Optional working directory
             skip_display: Skip displaying the command (already displayed elsewhere)
         """
-        import os
 
         # Handle both string commands and argument lists
         if isinstance(command, str):
@@ -219,121 +218,12 @@ class EmbeddedTerminal(QWidget):
             self.process.setWorkingDirectory(working_dir)
 
         if is_legacy_string:
-            # Handle legacy string commands with shell
-            if sys.platform == "win32":
-                self.process.start("cmd", ["/c", command])
-            else:
-                # Check if we're running in Flatpak
-                is_flatpak = os.path.exists(
-                    "/.flatpak-info"
-                ) or "/app/" in os.environ.get("PATH", "")
-
-                if is_flatpak:
-                    # Use flatpak-spawn to run on host with proper environment
-                    user_home = os.path.expanduser("~")
-                    me3_path = f"{user_home}/.local/bin/me3"
-
-                    # Construct command with full path to me3
-                    if command.startswith("me3 "):
-                        host_command = command.replace("me3 ", f"{me3_path} ", 1)
-                    else:
-                        host_command = command
-
-                    full_command = f"flatpak-spawn --host bash -l -c '{host_command}'"
-                    self.process.start("bash", ["-c", full_command])
-                    self.output.append(tr("running_on_host_status"))
-                else:
-                    # Get environment from login shell
-                    import subprocess
-
-                    from PyQt6.QtCore import QProcessEnvironment
-
-                    try:
-                        result = subprocess.run(
-                            ["bash", "-l", "-c", "env"],
-                            capture_output=True,
-                            text=True,
-                            timeout=10,
-                        )
-                        if result.returncode == 0:
-                            env = QProcessEnvironment()
-                            for line in result.stdout.strip().split("\n"):
-                                if "=" in line:
-                                    key, value = line.split("=", 1)
-                                    env.insert(key, value)
-                        else:
-                            env = QProcessEnvironment.systemEnvironment()
-                    except (
-                        subprocess.TimeoutExpired,
-                        FileNotFoundError,
-                        OSError,
-                        Exception,
-                    ):
-                        env = QProcessEnvironment.systemEnvironment()
-
-                    self.process.setProcessEnvironment(env)
-                    self.process.start("bash", ["-l", "-c", command])
+            program, args = PlatformUtils.prepare_string_command_for_qprocess(command)
+            self.process.start(program, args)
         else:
-            # Handle new argument list format
-            program = command[0]
-            args = command[1:] if len(command) > 1 else []
-
-            if sys.platform != "win32":
-                # Check if we're running in Flatpak on Linux
-                is_flatpak = os.path.exists(
-                    "/.flatpak-info"
-                ) or "/app/" in os.environ.get("PATH", "")
-
-                if is_flatpak and program == "me3":
-                    # Use flatpak-spawn for me3 commands - need shell for proper execution
-                    user_home = os.path.expanduser("~")
-                    me3_path = f"{user_home}/.local/bin/me3"
-
-                    # Create shell command to ensure proper environment
-                    shell_command = " ".join(
-                        [shlex.quote(me3_path)] + [shlex.quote(arg) for arg in args]
-                    )
-                    full_command = (
-                        f"flatpak-spawn --host bash -l -c {shlex.quote(shell_command)}"
-                    )
-                    self.process.start("bash", ["-c", full_command])
-                    self.output.append(tr("running_on_host_status"))
-                else:
-                    # Set up environment for non-flatpak Linux with shell execution
-                    import subprocess
-
-                    from PyQt6.QtCore import QProcessEnvironment
-
-                    try:
-                        result = subprocess.run(
-                            ["bash", "-l", "-c", "env"],
-                            capture_output=True,
-                            text=True,
-                            timeout=10,
-                        )
-                        if result.returncode == 0:
-                            env = QProcessEnvironment()
-                            for line in result.stdout.strip().split("\n"):
-                                if "=" in line:
-                                    key, value = line.split("=", 1)
-                                    env.insert(key, value)
-                            self.process.setProcessEnvironment(env)
-                    except (
-                        subprocess.TimeoutExpired,
-                        FileNotFoundError,
-                        OSError,
-                        Exception,
-                    ):
-                        pass  # Use default environment
-
-                    # Use shell execution to maintain login environment
-                    shell_command = " ".join(
-                        [shlex.quote(program)] + [shlex.quote(arg) for arg in args]
-                    )
-                    self.process.start("bash", ["-l", "-c", shell_command])
-            else:
-                # Windows - direct execution
-                self.process.start(program, args)
+            # Handle new argument list format (use centralized list prep)
+            program, args = PlatformUtils.prepare_list_command_for_qprocess(command)
+            self.process.start(program, args)
 
     def handle_stdout(self):
         cursor = self.output.textCursor()

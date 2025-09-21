@@ -8,8 +8,8 @@ enabling/disabling, deleting, adding external mods, and activating regulation fi
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from me3_manager.utils.translator import tr
 

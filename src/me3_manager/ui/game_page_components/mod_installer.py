@@ -13,8 +13,8 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
 import tomlkit
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
@@ -88,8 +88,8 @@ def _validate_mod_name(mod_name: str) -> bool:
 
 
 class InstallWorker(QThread):
-    progress_update = pyqtSignal(str, int, int)  # status, current, total
-    finished_signal = pyqtSignal(int, list)  # installed_count, errors
+    progress_update = Signal(str, int, int)  # status, current, total
+    finished_signal = Signal(int, list)  # installed_count, errors
 
     def __init__(self, items_to_install, mods_dir, operation_type="install"):
         super().__init__()
@@ -157,6 +157,34 @@ class InstallWorker(QThread):
                         elif dest_path.exists():
                             dest_path.unlink()
                         tmp_dst.replace(dest_path)
+
+                # If a DLL was installed, also copy same-stem config folder and files
+                try:
+                    if item_path.is_file() and item_path.suffix.lower() == ".dll":
+                        stem = item_path.stem
+                        src_dir = item_path.parent
+                        # 1) Config folder with same stem
+                        cfg_dir = src_dir / stem
+                        if cfg_dir.is_dir():
+                            dst_cfg_dir = self.mods_dir / stem
+                            if not dst_cfg_dir.exists():
+                                shutil.copytree(
+                                    cfg_dir,
+                                    dst_cfg_dir,
+                                    symlinks=False,
+                                    ignore_dangling_symlinks=True,
+                                )
+                        # 2) Common config files with same stem
+                        for ext in (".ini", ".cfg", ".toml", ".json"):
+                            src_cfg = src_dir / f"{stem}{ext}"
+                            if src_cfg.is_file():
+                                dst_cfg = self.mods_dir / src_cfg.name
+                                try:
+                                    shutil.copy2(src_cfg, dst_cfg)
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
 
                 installed += 1
             except RuntimeError as ex:
@@ -306,57 +334,96 @@ class ModInstaller:
         # Sanitize mod name
         mod_name = Path(mod_name).name
 
-        mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
-        parent = mods_dir.resolve()
-        dest_folder_path = mods_dir / mod_name
-
-        # Ensure destination is within mods directory
-        if not self._safe_within(parent, dest_folder_path):
-            QMessageBox.warning(
-                self.game_page,
-                tr("ERROR"),
-                tr("invalid_destination_path_msg", name=mod_name),
-            )
+        # Use the unified installer pathway
+        success = self.install_linked_mods([root_path])
+        if not success:
             return
 
-        if dest_folder_path.exists():
-            reply = QMessageBox.question(
-                self.game_page,
-                tr("confirm_overwrite_title"),
-                tr("mod_folder_exists_overwrite_question", mod_name=mod_name),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
+        dest_folder_path = mods_dir / root_path.name
+        try:
+            self.config_manager.add_folder_mod(
+                self.game_page.game_name, root_path.name, str(dest_folder_path)
             )
-            if reply == QMessageBox.StandardButton.No:
+            self.config_manager.set_mod_enabled(
+                self.game_page.game_name, str(dest_folder_path), True
+            )
+            self.game_page.status_label.setText(
+                tr("install_package_success_status", mod_name=root_path.name)
+            )
+            self.game_page.load_mods()
+        except Exception as e:
+            QMessageBox.warning(
+                self.game_page,
+                tr("install_error_title"),
+                tr("create_folder_mod_failed_msg", mod_name=mod_name, error=str(e)),
+            )
+
+    def install_mods_folder_root(self, root_dir: Path):
+        """Install each valid child of a dropped container folder using existing flows."""
+        try:
+            if not root_dir.is_dir():
+                return
+            if _contains_symlink(root_dir):
+                QMessageBox.warning(
+                    self.game_page, tr("ERROR"), tr("symlink_rejected_package_msg")
+                )
                 return
 
-        with TemporaryDirectory(dir=str(parent)) as tmp_root_str:
+            # Build install set using the same linked logic (DLL + same-stem folder)
+            items_to_install = set()
+            package_folders = []
+
             try:
-                tmp_root = Path(tmp_root_str)
-                tmp_dst = tmp_root / dest_folder_path.name
-                shutil.copytree(
-                    root_path, tmp_dst, symlinks=False, ignore_dangling_symlinks=True
-                )
+                for child in root_dir.iterdir():
+                    if _contains_symlink(child):
+                        continue
+                    if child.is_file() and child.suffix.lower() == ".dll":
+                        items_to_install.add(child)
+                        cfg_dir = root_dir / child.stem
+                        if cfg_dir.is_dir():
+                            items_to_install.add(cfg_dir)
+                    elif child.is_dir() and self.game_page._is_valid_mod_folder(child):
+                        # Validate/sanitize mod folder name
+                        if _validate_mod_name(child.name):
+                            items_to_install.add(child)
+                            package_folders.append(child.name)
+            except Exception:
+                pass
 
-                # Atomic replace
-                self._atomic_replace(tmp_dst, dest_folder_path)
+            if not items_to_install:
+                return
 
-                self.config_manager.add_folder_mod(
-                    self.game_page.game_name, mod_name, str(dest_folder_path)
-                )
-                self.config_manager.set_mod_enabled(
-                    self.game_page.game_name, str(dest_folder_path), True
-                )
-                self.game_page.status_label.setText(
-                    tr("install_package_success_status", mod_name=mod_name)
-                )
-                # Refresh UI to reflect new mod
-                self.game_page.load_mods()
-            except Exception as e:
-                QMessageBox.warning(
-                    self.game_page,
-                    tr("install_error_title"),
-                    tr("create_folder_mod_failed_msg", mod_name=mod_name, error=str(e)),
-                )
+            # Use existing linked installer to copy files/folders consistently
+            success = self.install_linked_mods(list(items_to_install))
+
+            if not success:
+                return
+
+            # Register and enable only the package folders (match other flows)
+            mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
+            for folder_name in package_folders:
+                dest_path = mods_dir / folder_name
+                try:
+                    self.config_manager.add_folder_mod(
+                        self.game_page.game_name, folder_name, str(dest_path)
+                    )
+                    self.config_manager.set_mod_enabled(
+                        self.game_page.game_name, str(dest_path), True
+                    )
+                except Exception:
+                    continue
+
+            # Refresh after enabling packages
+            self.game_page.load_mods()
+            self.game_page.status_label.setText(tr("status_ready"))
+        except Exception as e:
+            QMessageBox.warning(
+                self.game_page,
+                tr("install_error_title"),
+                tr("import_error_msg", error=str(e)),
+            )
+            self.game_page.status_label.setText(tr("status_ready"))
 
     def handle_profile_import(self, import_folder: Path, profile_file: Path):
         """
@@ -364,7 +431,11 @@ class ModInstaller:
         """
         try:
             with open(profile_file, "r", encoding="utf-8") as f:
-                profile_data = tomlkit.parse(f.read())
+                raw_data = tomlkit.parse(f.read())
+                # Normalize any profile version to canonical structure
+                from me3_manager.core.profiles import ProfileConverter
+
+                profile_data = ProfileConverter.normalize(raw_data)
 
             # Ask the user to merge with existing mods or replace them.
             dialog = QDialog(self.game_page)
@@ -404,165 +475,73 @@ class ModInstaller:
                 self.game_page.status_label.setText(tr("import_cancelled_status"))
                 return
 
-            # Use the profile's filename as the installed mod's name.
-            profile_mod_name = profile_file.stem
+            # Prepare to install referenced mods without persisting the .me3 file
             mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
 
-            # Copy the .me3 file to the manager's internal profiles directory.
-            profile_path = self.config_manager.get_profile_path(
-                self.game_page.game_name
-            )
-            dest_profile_path = profile_path.parent / profile_file.name
+            # Build install set using the same linked logic
+            mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
+            items_to_install = set()
+            package_folder_names: list[str] = []
 
-            # Write profile atomically to prevent partial/corrupt files
-            from me3_manager.core.profiles.toml_profile_writer import TomlProfileWriter
-
-            with TemporaryDirectory(dir=str(profile_path.parent)) as tmp_root_str:
-                tmp_root = Path(tmp_root_str)
-                tmp_profile = tmp_root / profile_file.name
-                TomlProfileWriter.write_profile(
-                    tmp_profile, profile_data, self.game_page.game_name
-                )
-                if not merge_mode and dest_profile_path.exists():
-                    dest_profile_path.unlink()
-                self._atomic_replace(tmp_profile, dest_profile_path)
-
-            # Get all top-level package folders with safe path validation
-            package_paths = []
+            # Collect package folders
             for pkg in profile_data.get("packages", []):
                 if isinstance(pkg, dict) and (pkg.get("source") or pkg.get("path")):
                     try:
-                        pkg_path = Path(pkg.get("source") or pkg.get("path"))
-                        # Validate path is safe
-                        self._safe_join(import_folder, pkg_path)
-                        package_paths.append(pkg_path)
-                    except (ValueError, Exception):
-                        continue  # Skip invalid paths
+                        pkg_rel = Path(pkg.get("source") or pkg.get("path"))
+                        pkg_abs = self._safe_join(import_folder, pkg_rel)
+                        if pkg_abs.is_dir() and _validate_mod_name(pkg_abs.name):
+                            items_to_install.add(pkg_abs)
+                            package_folder_names.append(pkg_abs.name)
+                    except Exception:
+                        continue
 
-            # Get all individual native files with safe path validation
-            native_paths = []
+            # Collect natives (DLLs) that are not inside collected package folders
             for native in profile_data.get("natives", []):
-                if isinstance(native, dict) and "path" in native:
-                    try:
-                        native_path = Path(native["path"])
-                        # Validate path is safe
-                        self._safe_join(import_folder, native_path)
-                        native_paths.append(native_path)
-                    except (ValueError, Exception):
-                        continue  # Skip invalid paths
-
-            # Build the final list of items to install, preventing nested duplicates.
-            all_mod_paths = list(package_paths)
-            for native_path in native_paths:
-                if not any(p in native_path.parents for p in package_paths):
-                    all_mod_paths.append(native_path)
-
-            imported_mods, skipped_mods = [], []
-
-            # Copy all necessary mod files and folders.
-            for mod_path in all_mod_paths:
+                if not (isinstance(native, dict) and native.get("path")):
+                    continue
                 try:
-                    source_path = self._safe_join(import_folder, mod_path)
-                except ValueError:
-                    # Invalid path in profile - track as skipped
-                    skipped_mods.append(str(mod_path))
+                    nat_rel = Path(native["path"])
+                    nat_abs = self._safe_join(import_folder, nat_rel)
+                    if not (nat_abs.is_file() and nat_abs.suffix.lower() == ".dll"):
+                        continue
+                    # Skip if DLL lives under a package folder we already plan to install
+                    if any(
+                        (import_folder / p / nat_abs.name).exists()
+                        for p in package_folder_names
+                    ):
+                        continue
+                    items_to_install.add(nat_abs)
+                    cfg_dir = nat_abs.parent / nat_abs.stem
+                    if cfg_dir.is_dir():
+                        items_to_install.add(cfg_dir)
+                except Exception:
                     continue
 
-                if not source_path.exists() or _contains_symlink(source_path):
-                    skipped_mods.append(str(mod_path))
-                    continue
+            if not items_to_install:
+                self.game_page.status_label.setText(tr("import_cancelled_status"))
+                return
 
-                # Rename main packages to the profile name; keep original names for loose files.
-                final_mod_name = (
-                    profile_mod_name if mod_path in package_paths else mod_path.name
-                )
+            # Use existing linked installer for consistent copying
+            self.install_linked_mods(list(items_to_install))
 
-                # Validate and sanitize final mod name
-                if not _validate_mod_name(final_mod_name):
-                    skipped_mods.append(str(mod_path))
-                    continue
-                final_mod_name = Path(final_mod_name).name
-
-                dest_path = mods_dir / final_mod_name
-                parent = mods_dir.resolve()
-
-                # Ensure destination is within mods directory
-                if not self._safe_within(parent, dest_path):
-                    skipped_mods.append(str(mod_path))
-                    continue
-
+            # Register and enable only the package folders
+            for folder_name in package_folder_names:
+                dest_path = mods_dir / folder_name
                 try:
-                    with TemporaryDirectory(dir=str(parent)) as tmp_root_str:
-                        tmp_root = Path(tmp_root_str)
-                        tmp_dst = tmp_root / final_mod_name
-
-                        if source_path.is_dir():
-                            if merge_mode and dest_path.exists() and dest_path.is_dir():
-                                # Seed with existing dest, then overlay source (merge)
-                                shutil.copytree(
-                                    dest_path,
-                                    tmp_dst,
-                                    symlinks=False,
-                                    ignore_dangling_symlinks=True,
-                                )
-                                shutil.copytree(
-                                    source_path,
-                                    tmp_dst,
-                                    symlinks=False,
-                                    ignore_dangling_symlinks=True,
-                                    dirs_exist_ok=True,
-                                )
-                            else:
-                                shutil.copytree(
-                                    source_path,
-                                    tmp_dst,
-                                    symlinks=False,
-                                    ignore_dangling_symlinks=True,
-                                )
-                        else:
-                            if (
-                                merge_mode
-                                and dest_path.exists()
-                                and dest_path.is_file()
-                            ):
-                                # Overwrite existing file in a temp path to allow atomic replace
-                                shutil.copy2(dest_path, tmp_dst, follow_symlinks=False)
-                                shutil.copy2(
-                                    source_path, tmp_dst, follow_symlinks=False
-                                )
-                            else:
-                                shutil.copy2(
-                                    source_path, tmp_dst, follow_symlinks=False
-                                )
-
-                        # Atomic replace
-                        self._atomic_replace(tmp_dst, dest_path)
-
-                    imported_mods.append(final_mod_name)
-
-                    # Register the new mod.
                     self.config_manager.add_folder_mod(
-                        self.game_page.game_name, final_mod_name, str(dest_path)
+                        self.game_page.game_name, folder_name, str(dest_path)
                     )
                     self.config_manager.set_mod_enabled(
                         self.game_page.game_name, str(dest_path), True
                     )
                 except Exception:
-                    skipped_mods.append(str(mod_path))
+                    continue
 
             # Show a summary of the import.
             completion_dialog = QDialog(self.game_page)
             completion_dialog.setWindowTitle(tr("import_complete_title"))
             completion_layout = QVBoxLayout()
             completion_layout.addWidget(QLabel(tr("import_complete_success_header")))
-            if imported_mods:
-                completion_layout.addWidget(
-                    QLabel(tr("import_package_mods_success", count=len(imported_mods)))
-                )
-            if skipped_mods:
-                completion_layout.addWidget(
-                    QLabel(tr("import_mods_skipped_header", count=len(skipped_mods)))
-                )
 
             button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
             button_box.accepted.connect(completion_dialog.accept)
@@ -612,64 +591,49 @@ class ModInstaller:
         # Sanitize mod name
         mod_name = Path(mod_name).name
 
-        mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
-        parent = mods_dir.resolve()
-        dest_path = mods_dir / mod_name
+        # Build a temporary staging folder under a container with the chosen mod name
+        with TemporaryDirectory() as tmp_dir:
+            staging_root = Path(tmp_dir) / mod_name
+            staging_root.mkdir(parents=True, exist_ok=True)
 
-        # Ensure destination is within mods directory
-        if not self._safe_within(parent, dest_path):
-            QMessageBox.warning(
-                self.game_page,
-                tr("ERROR"),
-                tr("invalid_destination_path_msg", name=mod_name),
-            )
-            return
-
-        if dest_path.exists():
-            reply = QMessageBox.question(
-                self.game_page,
-                tr("mod_exists_title"),
-                tr("mod_folder_exists_replace_question", mod_name=mod_name),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if reply == QMessageBox.StandardButton.No:
-                return
-
-        with TemporaryDirectory(dir=str(parent)) as tmp_root_str:
-            try:
-                tmp_root = Path(tmp_root_str)
-                tmp_dst = tmp_root / mod_name
-                tmp_dst.mkdir(parents=True, exist_ok=True)
-
-                for item in items_to_install:
+            for item in items_to_install:
+                try:
                     if item.is_dir():
                         shutil.copytree(
                             item,
-                            tmp_dst / item.name,
+                            staging_root / item.name,
                             dirs_exist_ok=True,
                             symlinks=False,
                             ignore_dangling_symlinks=True,
                         )
                     else:
-                        shutil.copy2(item, tmp_dst / item.name, follow_symlinks=False)
+                        shutil.copy2(
+                            item, staging_root / item.name, follow_symlinks=False
+                        )
+                except Exception:
+                    pass
 
-                # Atomic replace
-                self._atomic_replace(tmp_dst, dest_path)
+            # Use unified installer to move the staged folder
+            success = self.install_linked_mods([staging_root])
+            if not success:
+                return
 
-                self.config_manager.add_folder_mod(
-                    self.game_page.game_name, mod_name, str(dest_path)
-                )
-                self.config_manager.set_mod_enabled(
-                    self.game_page.game_name, str(dest_path), True
-                )
-                self.game_page.status_label.setText(
-                    tr("install_bundled_mod_success_status", mod_name=mod_name)
-                )
-                # Refresh UI
-                self.game_page.load_mods()
-            except Exception as e:
-                QMessageBox.warning(
-                    self.game_page,
-                    tr("install_error_title"),
-                    tr("bundle_items_failed_msg", mod_name=mod_name, error=str(e)),
-                )
+        mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
+        dest_path = mods_dir / mod_name
+        try:
+            self.config_manager.add_folder_mod(
+                self.game_page.game_name, mod_name, str(dest_path)
+            )
+            self.config_manager.set_mod_enabled(
+                self.game_page.game_name, str(dest_path), True
+            )
+            self.game_page.status_label.setText(
+                tr("install_bundled_mod_success_status", mod_name=mod_name)
+            )
+            self.game_page.load_mods()
+        except Exception as e:
+            QMessageBox.warning(
+                self.game_page,
+                tr("install_error_title"),
+                tr("bundle_items_failed_msg", mod_name=mod_name, error=str(e)),
+            )

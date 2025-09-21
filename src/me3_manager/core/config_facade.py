@@ -8,12 +8,14 @@ import os
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import QFileSystemWatcher
+from PySide6.QtCore import QFileSystemWatcher
 
 from me3_manager.core.me3_info import ME3InfoManager
+from me3_manager.core.mod_manager import ImprovedModManager
 from me3_manager.core.paths import FileWatcher, PathManager
-from me3_manager.core.profiles import TomlProfileWriter
+from me3_manager.core.profiles.profile_manager import ProfileManager
 from me3_manager.core.settings import GameRegistry, SettingsManager, UISettings
+from me3_manager.domain.models import GameConfig, Profile
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +41,8 @@ class ConfigFacade:
             self.settings_manager, self.game_registry, self.me3_info_manager
         )
         self.file_watcher_handler = FileWatcher()
+        # New mod manager for enable/disable and queries
+        self.mod_manager = ImprovedModManager(self)
         # Legacy compatibility attributes
         self.config_root = self.path_manager.config_root
         self.settings_file = settings_file
@@ -80,6 +84,7 @@ class ConfigFacade:
 
     def _sync_legacy_attributes(self):
         """Sync legacy attributes for backward compatibility."""
+        # Keep legacy fields for code that still reads attributes directly
         self.games = self.game_registry.get_all_games()
         self.game_order = self.game_registry.get_game_order()
         self.game_exe_paths = self.settings_manager.get("game_exe_paths", {})
@@ -97,6 +102,54 @@ class ConfigFacade:
         self.stored_custom_profile_paths = {}
         self.stored_custom_mods_paths = {}
 
+    # Clean accessors (preferred over legacy attributes)
+
+    def get_all_games(self) -> dict[str, dict[str, str]]:
+        """Get all registered games (live view from registry)."""
+        return self.game_registry.get_all_games()
+
+    def has_game(self, game_name: str) -> bool:
+        """Check if a game exists in the registry."""
+        return self.game_registry.get_game(game_name) is not None
+
+    def get_game_info(self, game_name: str) -> dict[str, str] | None:
+        """Get a single game's configuration."""
+        return self.game_registry.get_game(game_name)
+
+    def get_game_mods_dir_name(self, game_name: str) -> str | None:
+        """Get the mods directory name for a game (e.g., 'eldenring-mods')."""
+        return self.game_registry.get_game_mods_dir(game_name)
+
+    # Typed convenience methods (non-breaking additions)
+
+    def get_game_configs(self) -> list[GameConfig]:
+        games = self.game_registry.get_all_games()
+        return [
+            GameConfig(
+                name=name,
+                mods_dir=cfg.get("mods_dir", ""),
+                profile=cfg.get("profile", ""),
+                cli_id=cfg.get("cli_id", ""),
+                executable=cfg.get("executable", ""),
+            )
+            for name, cfg in games.items()
+        ]
+
+    def get_profiles_for_game_typed(self, game_name: str) -> list[Profile]:
+        profiles = self.settings_manager.get("profiles", {}).get(game_name, [])
+        result: list[Profile] = []
+        for p in profiles:
+            pid = p.get("id", "")
+            name = p.get("name", "")
+            profile_path = p.get("profile_path", "")
+            mods_path = p.get("mods_path", "")
+            result.append(
+                Profile(
+                    id=pid, name=name, profile_path=profile_path, mods_path=mods_path
+                )
+            )
+        return result
+
     # Settings Management (delegated)
 
     def _load_settings(self) -> dict:
@@ -105,19 +158,19 @@ class ConfigFacade:
 
     def _save_settings(self):
         """Legacy method for saving settings."""
-        # Sync current attributes back to settings
-        self.settings_manager.update(
-            {
-                "games": self.game_registry.get_all_games(),
-                "game_order": self.game_registry.get_game_order(),
-                "game_exe_paths": self.game_exe_paths,
-                "tracked_external_mods": self.tracked_external_mods,
-                "profiles": self.profiles,
-                "active_profiles": self.active_profiles,
-                "custom_config_paths": self.custom_config_paths,
-                "me3_config_paths": self.me3_config_paths,
-            }
-        )
+        # Only persist fields that are intended to be user-editable and not derived
+        payload = {
+            "games": self.game_registry.get_all_games(),
+            "game_order": self.game_registry.get_game_order(),
+            "game_exe_paths": self.game_exe_paths,
+            "tracked_external_mods": self.tracked_external_mods,
+            "profiles": self.profiles,
+            "active_profiles": self.active_profiles,
+            "custom_config_paths": self.custom_config_paths,
+            "me3_config_paths": self.me3_config_paths,
+        }
+        self.settings_manager.update(payload)
+        # update() auto-saves; explicit save ensures durability in legacy paths
         self.settings_manager.save_settings()
 
     def add_game(
@@ -270,6 +323,21 @@ class ConfigFacade:
                 "mods_path": str(default_mods_path),
             }
             default_mods_path.mkdir(parents=True, exist_ok=True)
+            # Write an initial profile file using default profile version
+            try:
+                default_version = self.ui_settings.get_default_profile_version()
+            except Exception:
+                default_version = "v1"
+            initial_profile = {
+                "profileVersion": default_version,
+                "natives": [],
+                "packages": [],
+                "supports": [],
+            }
+            try:
+                self._write_toml_config(default_profile_file_path, initial_profile)
+            except Exception:
+                pass
             if game_name not in self.profiles:
                 self.profiles[game_name] = []
             self.profiles[game_name].append(new_profile)
@@ -290,6 +358,18 @@ class ConfigFacade:
         self.active_profiles[game_name] = profile_id
         self._save_settings()
         self.setup_file_watcher()
+        # Align the selected profile's file to the default profile version
+        try:
+            default_version = self.ui_settings.get_default_profile_version()
+            profile_path = self.get_profile_path(game_name)
+            if profile_path.exists():
+                data = ProfileManager.read_profile(profile_path)
+                if str(data.get("profileVersion", "v1")).lower() != default_version:
+                    data["profileVersion"] = default_version
+                    ProfileManager.write_profile(profile_path, data, game_name)
+        except Exception:
+            # Non-fatal; leave existing profile as-is if conversion fails
+            pass
 
     def add_profile(
         self, game_name: str, name: str, mods_path: str, make_active: bool = False
@@ -305,7 +385,22 @@ class ConfigFacade:
             c for c in name if c.isalnum() or c in (" ", "_")
         ).rstrip()
         profile_file_path = mods_dir / f"{safe_filename.replace(' ', '_')}.me3"
-        profile_file_path.touch()
+        # Create initial profile contents using default profile version
+        try:
+            default_version = self.ui_settings.get_default_profile_version()
+        except Exception:
+            default_version = "v1"
+        initial_profile = {
+            "profileVersion": default_version,
+            "natives": [],
+            "packages": [],
+            "supports": [],
+        }
+        try:
+            self._write_toml_config(profile_file_path, initial_profile)
+        except Exception:
+            # Fallback to touching the file
+            profile_file_path.touch()
         # Add to profiles
         if game_name not in self.profiles:
             self.profiles[game_name] = []
@@ -418,40 +513,11 @@ class ConfigFacade:
 
     def _parse_toml_config(self, config_path):
         """Parse TOML config file (needed by mod_manager)."""
-        # This would be better handled by ProfileManager in full refactor
-        # For now, provide basic TOML parsing
-        import tomllib
-        from pathlib import Path
-
-        config_path = Path(config_path)
-        if not config_path.exists():
-            return {
-                "profileVersion": "v1",
-                "natives": [],
-                "packages": [],
-                "supports": [],
-            }
-
-        try:
-            with open(config_path, "rb") as f:
-                return tomllib.load(f)
-        except Exception as e:
-            log.error("Error parsing TOML config %s: %s", config_path, e)
-            return {
-                "profileVersion": "v1",
-                "natives": [],
-                "packages": [],
-                "supports": [],
-            }
+        return ProfileManager.read_profile(Path(config_path))
 
     def _write_toml_config(self, config_path, config_data):
         """Write TOML config file using tomlkit for proper formatting."""
-        from pathlib import Path
-
-        config_path = Path(config_path)
-
-        # Use the new TomlProfileWriter with array of tables syntax
-        TomlProfileWriter.write_profile(config_path, config_data)
+        ProfileManager.write_profile(Path(config_path), config_data)
 
     def validate_and_prune_profiles(self):
         """Validate and prune profiles (needed by main_window)."""
@@ -461,27 +527,7 @@ class ConfigFacade:
 
     def check_and_reformat_profile(self, profile_path):
         """Check and reformat profile to use new array of tables syntax."""
-        from pathlib import Path
-
-        profile_path = Path(profile_path)
-        if not profile_path.exists():
-            return
-
-        try:
-            # Read the current content
-            with open(profile_path, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            # Check if it's using old inline format
-            if "natives = [" in content and "{path" in content:
-                # Parse and rewrite with new format
-                config_data = self._parse_toml_config(profile_path)
-                TomlProfileWriter.write_profile(profile_path, config_data)
-                log.debug(
-                    "Converted %s to new array of tables format", profile_path.name
-                )
-        except Exception as e:
-            log.error("Error checking/reformatting profile %s: %s", profile_path, e)
+        ProfileManager.ensure_format(Path(profile_path))
 
     def sync_profile_with_filesystem(self, game_name):
         """Sync profile with filesystem (needed by main_window)."""
@@ -504,8 +550,11 @@ class ConfigFacade:
 
     def set_mod_enabled(self, game_name, mod_path, enabled):
         """Set mod enabled status (needed by UI components)."""
-        # This would be handled by ModManager in full refactor
-        pass
+        try:
+            success, _ = self.mod_manager.set_mod_enabled(game_name, mod_path, enabled)
+            return success
+        except Exception:
+            return False
 
     def delete_mod(self, game_name, mod_path):
         """Delete a mod (needed by UI components)."""
@@ -537,8 +586,12 @@ class ConfigFacade:
         profile_path = self.get_profile_path(game_name)
         if not profile_path.exists():
             # Create default profile if it doesn't exist
+            try:
+                default_version = self.ui_settings.get_default_profile_version()
+            except Exception:
+                default_version = "v1"
             config_data = {
-                "profileVersion": "v1",
+                "profileVersion": default_version,
                 "natives": [],
                 "packages": [],
                 "supports": [],
@@ -578,11 +631,19 @@ class ConfigFacade:
             with open(config_path_obj, "rb") as f:
                 config_data = tomllib.load(f)
 
-            # Look for game-specific settings in [game.gamename] section
-            game_section = config_data.get("game", {}).get(game_name, {})
+            # Determine slug key used in TOML
+            slug = self._get_game_slug(game_name)
 
-            # Return the game-specific settings
-            return game_section
+            game_table = config_data.get("game", {})
+
+            # Prefer slug key (e.g., eldenring) then fall back to display name
+            if isinstance(game_table, dict):
+                if slug in game_table:
+                    return game_table.get(slug, {}) or {}
+                if game_name in game_table:
+                    return game_table.get(game_name, {}) or {}
+
+            return {}
 
         except Exception as e:
             log.error("Error reading ME3 game settings for %s: %s", game_name, e)
@@ -611,25 +672,36 @@ class ConfigFacade:
                     config_data = {}
 
             # Ensure game section exists
-            if "game" not in config_data:
-                config_data["game"] = {}
+            game_table = config_data.get("game")
+            if not isinstance(game_table, dict):
+                game_table = {}
+                config_data["game"] = game_table
 
-            if game_name not in config_data["game"]:
-                config_data["game"][game_name] = {}
+            slug = self._get_game_slug(game_name)
 
-            # Update game-specific settings
+            # Migrate legacy key if present (e.g., "Elden Ring" -> "eldenring")
+            if game_name in game_table and slug not in game_table:
+                game_table[slug] = game_table.pop(game_name) or {}
+
+            if slug not in game_table:
+                game_table[slug] = {}
+
+            # Update game-specific settings on slug key
             for key, value in settings.items():
                 if value is None:
-                    # Remove the setting if value is None
-                    config_data["game"][game_name].pop(key, None)
+                    game_table[slug].pop(key, None)
                 else:
-                    config_data["game"][game_name][key] = value
+                    game_table[slug][key] = value
+
+            # Also remove any lingering legacy key section if empty
+            if game_name in game_table and not game_table.get(game_name):
+                game_table.pop(game_name, None)
 
             # Clean up empty sections
-            if not config_data["game"][game_name]:
-                del config_data["game"][game_name]
-            if not config_data["game"]:
-                del config_data["game"]
+            if not game_table.get(slug):
+                game_table.pop(slug, None)
+            if not game_table:
+                config_data.pop("game", None)
 
             # Save back to file
             import tomli_w
@@ -642,3 +714,27 @@ class ConfigFacade:
         except Exception as e:
             log.error("Error saving ME3 game settings for %s: %s", game_name, e)
             return False
+
+    def _get_game_slug(self, game_name: str) -> str:
+        """Derive canonical game slug used in TOML sections.
+
+        Prefer deriving from mods_dir (e.g., eldenring-mods -> eldenring). If not
+        available, use the game's cli_id. As a final fallback, lowercase and
+        strip spaces from the display name.
+        """
+        try:
+            game_info = self.game_registry.get_game(game_name) or {}
+            mods_dir = game_info.get("mods_dir")
+            if isinstance(mods_dir, str) and mods_dir.endswith("-mods"):
+                return mods_dir[:-5].lower()
+
+            cli_id = game_info.get("cli_id")
+            if isinstance(cli_id, str) and cli_id:
+                # Some existing cli_id values may contain dashes like "elden-ring".
+                # Normalize to remove non-alphanumerics for TOML section key.
+                return "".join(ch for ch in cli_id.lower() if ch.isalnum())
+
+            # Fallback: remove non-alphanumerics and lowercase from display name
+            return "".join(ch for ch in game_name.lower() if ch.isalnum())
+        except Exception:
+            return "".join(ch for ch in game_name.lower() if ch.isalnum())
