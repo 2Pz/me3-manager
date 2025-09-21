@@ -46,7 +46,7 @@ class ProfileSettingsDialog(QDialog):
 
         self.setWindowTitle(tr("profile_settings_title", game_name=game_name))
         self.setModal(True)
-        self.resize(600, 400)
+        self.resize(850, 700)
 
         self.init_ui()
         self.load_current_settings()

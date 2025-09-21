@@ -140,11 +140,29 @@ class ME3LinuxInstaller(QObject):
             is_flatpak = sys.platform == "linux" and os.environ.get("FLATPAK_ID")
 
             if is_flatpak:
-                cmd = ["flatpak-spawn", "--host", "sh", "-c", command_string]
+                # Ensure LD_LIBRARY_PATH does not interfere with host shell/libs
+                cmd = [
+                    "flatpak-spawn",
+                    "--host",
+                    "env",
+                    "-u",
+                    "LD_LIBRARY_PATH",
+                    "sh",
+                    "-c",
+                    command_string,
+                ]
                 use_shell = False
             else:
-                cmd = command_string
-                use_shell = True
+                # Explicitly unset LD_LIBRARY_PATH for the child shell and pipeline
+                cmd = [
+                    "env",
+                    "-u",
+                    "LD_LIBRARY_PATH",
+                    "sh",
+                    "-c",
+                    command_string,
+                ]
+                use_shell = False
 
             returncode, stdout, stderr = CommandRunner.run(
                 cmd, shell=use_shell, timeout=150, env=env
