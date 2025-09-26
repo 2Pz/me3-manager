@@ -250,9 +250,10 @@ class ProfileSettingsDialog(QDialog):
             # Use a shell wrapper to keep args in LaunchOptions; Steam will pass them as is.
             exe = "me3"
             startdir = str(profile_path.parent)
-            launch_options = f"launch --game {cli_id} -p \"{profile_path}\""
+            launch_options = f'launch --game {cli_id} -p "{profile_path}"'
 
             from pathlib import Path as _Path
+
             from me3_manager.services.steam_shortcuts import (
                 SteamShortcuts,
                 detect_steam_dir_from_path,

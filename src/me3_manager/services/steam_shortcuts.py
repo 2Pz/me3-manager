@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import struct
 from pathlib import Path
 from typing import Any
@@ -106,7 +105,9 @@ class _BinaryKV:
                     out += cls._write_cstring(key)
                     out += struct.pack("<Q", value)
             else:
-                raise ValueError(f"Unsupported value type for key '{key}': {type(value)}")
+                raise ValueError(
+                    f"Unsupported value type for key '{key}': {type(value)}"
+                )
         out.append(cls.TYPE_END)
         return bytes(out)
 
@@ -254,7 +255,7 @@ class SteamShortcuts:
             shortcuts: dict[str, Any] = root.get("shortcuts", {})
 
             # Check for duplicate
-            for k, v in shortcuts.items():
+            for _k, v in shortcuts.items():
                 if isinstance(v, dict) and cls._has_duplicate(v, candidate):
                     # Already present for this user; skip writing.
                     break
@@ -288,5 +289,3 @@ def detect_steam_dir_from_path(path: Path | None) -> Path | None:
     if not path:
         return None
     return path.parent if path.is_file() else path
-
-
