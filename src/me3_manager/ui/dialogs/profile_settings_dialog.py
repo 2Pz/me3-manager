@@ -169,6 +169,24 @@ class ProfileSettingsDialog(QDialog):
 
         layout.addWidget(version_group)
 
+        # Steam Integration group
+        steam_group = QGroupBox(tr("steam_integration_header"))
+        steam_group.setStyleSheet(self._get_group_style())
+        steam_layout = QVBoxLayout(steam_group)
+        steam_layout.setSpacing(12)
+
+        self.add_to_steam_btn = QPushButton(tr("add_to_steam_button"))
+        self.add_to_steam_btn.setStyleSheet(self._get_save_button_style())
+        self.add_to_steam_btn.clicked.connect(self.on_add_to_steam_clicked)
+        steam_layout.addWidget(self.add_to_steam_btn)
+
+        steam_info = QLabel(tr("add_to_steam_info"))
+        steam_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
+        steam_info.setWordWrap(True)
+        steam_layout.addWidget(steam_info)
+
+        layout.addWidget(steam_group)
+
         layout.addStretch()
 
         # Buttons
@@ -187,6 +205,89 @@ class ProfileSettingsDialog(QDialog):
         button_layout.addWidget(self.save_btn)
 
         layout.addLayout(button_layout)
+
+    def on_add_to_steam_clicked(self):
+        """Create a Steam shortcut for the current profile."""
+        try:
+            # Resolve Steam directory from ME3 info if available
+            steam_dir = None
+            try:
+                if hasattr(self.config_manager, "get_steam_path"):
+                    steam_dir = self.config_manager.get_steam_path()
+            except Exception:
+                steam_dir = None
+
+            if not steam_dir:
+                QMessageBox.information(
+                    self,
+                    tr("feature_not_available_title"),
+                    tr("steam_not_found_status"),
+                )
+                return
+
+            # Determine profile and launch details
+            profile_path = self.config_manager.get_profile_path(self.game_name)
+            if not profile_path or not profile_path.exists():
+                QMessageBox.warning(
+                    self,
+                    tr("launch_error_title"),
+                    tr("profile_not_found_msg", path=str(profile_path)),
+                )
+                return
+
+            cli_id = self.config_manager.get_game_cli_id(self.game_name)
+            if not cli_id:
+                QMessageBox.warning(
+                    self,
+                    tr("launch_error_title"),
+                    tr("cli_id_not_found_msg", game_name=self.game_name),
+                )
+                return
+
+            # Build non-Steam shortcut launching through me3 CLI
+            appname = f"{self.game_name} ({profile_path.stem})"
+            # On all platforms we call 'me3' with options; Steam requires an executable in Exe
+            # Use a shell wrapper to keep args in LaunchOptions; Steam will pass them as is.
+            exe = "me3"
+            startdir = str(profile_path.parent)
+            launch_options = f"launch --game {cli_id} -p \"{profile_path}\""
+
+            from pathlib import Path as _Path
+            from me3_manager.services.steam_shortcuts import (
+                SteamShortcuts,
+                detect_steam_dir_from_path,
+            )
+
+            normalized_steam = detect_steam_dir_from_path(_Path(steam_dir))
+            if not normalized_steam or not normalized_steam.exists():
+                QMessageBox.warning(
+                    self,
+                    tr("steam_validation_title"),
+                    tr("steam_validation_message", steam_path=str(steam_dir)),
+                )
+                return
+
+            ok, msg = SteamShortcuts.add_shortcut_for_all_users(
+                normalized_steam,
+                appname=appname,
+                exe=exe,
+                startdir=startdir,
+                launch_options=launch_options,
+                icon="",
+                tags=["ME3"],
+            )
+
+            if ok:
+                QMessageBox.information(self, tr("SUCCESS"), msg)
+            else:
+                QMessageBox.warning(self, tr("ERROR"), msg)
+
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                tr("ERROR"),
+                tr("could_not_perform_action", e=str(e)),
+            )
 
     def load_current_settings(self):
         """Load current profile settings"""
