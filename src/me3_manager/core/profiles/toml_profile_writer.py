@@ -81,6 +81,31 @@ class TomlProfileWriter:
             if "disable_arxan" in config_data:
                 doc.add("disable_arxan", config_data["disable_arxan"])
 
+        # Add supports section (v1) as an array of tables
+        if requested_version != "v2":
+            supports = config_data.get("supports", [])
+            # If missing/empty, infer a default from game_name
+            if (not supports) and game_name:
+                try:
+                    slug = "".join(ch for ch in str(game_name).lower() if ch.isalnum())
+                    if slug:
+                        supports = [{"game": slug}]
+                except Exception:
+                    supports = supports or []
+            if supports:
+                supports_aot = tomlkit.aot()
+                for support in supports:
+                    if isinstance(support, dict):
+                        support_table = tomlkit.table()
+                        for k, v in support.items():
+                            support_table[k] = v
+                        supports_aot.append(support_table)
+                    elif isinstance(support, str):
+                        support_table = tomlkit.table()
+                        support_table["game"] = support
+                        supports_aot.append(support_table)
+                doc.add("supports", supports_aot)
+
         if requested_version == "v2":
             # v2 layout: [game] and [mods]
             v2_dict = ProfileConverter.to_v2(config_data, game_name)
