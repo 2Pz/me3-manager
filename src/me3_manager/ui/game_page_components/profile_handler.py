@@ -228,9 +228,28 @@ class ProfileHandler:
                         return  # Abort the operation
 
                     # Step 4: If the path is not in use, proceed with creating the profile.
-                    self.config_manager.add_profile(
-                        self.game_name, name.strip(), profile_dir_str
-                    )
+                    try:
+                        new_id = self.config_manager.add_profile(
+                            self.game_name, name.strip(), profile_dir_str
+                        )
+                    except Exception as e:
+                        QMessageBox.critical(
+                            dialog,
+                            tr("ERROR"),
+                            tr("could_not_perform_action", e=str(e)),
+                        )
+                        return
+
+                    if not new_id:
+                        QMessageBox.warning(
+                            dialog,
+                            tr("validation_error"),
+                            tr(
+                                "could_not_perform_action",
+                                e=tr("create_error_msg"),
+                            ),
+                        )
+                        return
 
                     refresh_list()
 
