@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import shutil
 import struct
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -193,7 +195,7 @@ class SteamShortcuts:
             "LaunchOptions": launch_options,
             **cls.DEFAULT_FIELDS,
         }
-        if icon is not None:
+        if icon:
             entry["icon"] = icon
         # Tags are a nested object with numeric string keys
         tag_obj: dict[str, Any] = {}
@@ -235,8 +237,6 @@ class SteamShortcuts:
         if not user_cfg_dirs:
             return False, "No Steam user directories found under userdata"
 
-        candidate = cls._build_entry(appname, exe, startdir, launch_options, icon, tags)
-
         updated_any = False
         for cfg_dir in user_cfg_dirs:
             shortcuts_path = cfg_dir / "shortcuts.vdf"
@@ -253,6 +253,38 @@ class SteamShortcuts:
 
             root = cls._load_shortcuts(shortcuts_path)
             shortcuts: dict[str, Any] = root.get("shortcuts", {})
+
+            # Prepare per-user icon path inside Steam's user config dir so Steam can access it
+            icon_for_user: str | None = None
+            try:
+                if icon:
+                    src = Path(icon)
+                    if src.exists():
+                        ext = src.suffix.lower() or (
+                            ".ico" if sys.platform == "win32" else ".png"
+                        )
+                        dest = cfg_dir / ("me3-manager" + ext)
+                        try:
+                            shutil.copyfile(src, dest)
+                            icon_for_user = str(dest)
+                        except Exception:
+                            # Fallback: use source path as-is
+                            icon_for_user = str(src)
+                    else:
+                        icon_for_user = None
+            except Exception:
+                icon_for_user = None
+
+            # Normalize Windows path separators for Steam on Windows
+            if icon_for_user and sys.platform == "win32":
+                icon_for_user = str(
+                    Path(icon_for_user)
+                )  # normpath/backslashes on Windows
+
+            # Build candidate entry per user (icon path differs per user)
+            candidate = cls._build_entry(
+                appname, exe, startdir, launch_options, icon_for_user, tags
+            )
 
             # Check for duplicate
             for _k, v in shortcuts.items():

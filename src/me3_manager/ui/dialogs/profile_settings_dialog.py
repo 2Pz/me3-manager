@@ -3,6 +3,9 @@ Profile Settings Dialog for ME3 Manager.
 Provides a user-friendly interface for configuring profile-level settings like savefile and start_online.
 """
 
+import shutil
+import sys
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QKeyEvent
 from PySide6.QtWidgets import (
@@ -19,6 +22,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
 
 
@@ -246,9 +250,17 @@ class ProfileSettingsDialog(QDialog):
 
             # Build non-Steam shortcut launching through me3 CLI
             appname = f"{self.game_name} ({profile_path.stem})"
-            # On all platforms we call 'me3' with options; Steam requires an executable in Exe
-            # Use a shell wrapper to keep args in LaunchOptions; Steam will pass them as is.
+            # Prefer absolute path to 'me3' if we can resolve it, else rely on PATH
             exe = "me3"
+            try:
+                bin_dir = self.config_manager.path_manager.get_me3_binary_path()
+                exe_candidate = bin_dir / (
+                    "me3.exe" if sys.platform == "win32" else "me3"
+                )
+                if exe_candidate.exists():
+                    exe = str(exe_candidate)
+            except Exception:
+                pass
             startdir = str(profile_path.parent)
             launch_options = f'launch --game {cli_id} -p "{profile_path}"'
 
@@ -268,13 +280,51 @@ class ProfileSettingsDialog(QDialog):
                 )
                 return
 
+            # Pick app icon (ICO on Windows, PNG elsewhere) and copy it to a stable, user-writable location
+            icon_rel = (
+                "resources/icon/icon.ico"
+                if sys.platform == "win32"
+                else "resources/icon/icon.png"
+            )
+            bundled_icon = _Path(resource_path(icon_rel))
+
+            # Derive a stable base under the ME3 config root (…/me3)
+            try:
+                base_me3_dir = (
+                    self.config_manager.path_manager.config_root.parent.parent
+                )
+            except Exception:
+                base_me3_dir = _Path.home() / (
+                    "AppData/Local/garyttierney/me3"
+                    if sys.platform == "win32"
+                    else ".config/me3"
+                )
+
+            icons_dir = base_me3_dir / "icons"
+            icon_dest = icons_dir / (
+                "me3-manager.ico" if sys.platform == "win32" else "me3-manager.png"
+            )
+            icon_path = ""
+            try:
+                if bundled_icon.exists():
+                    icons_dir.mkdir(parents=True, exist_ok=True)
+                    # Copy or overwrite if source is newer/missing
+                    if (
+                        not icon_dest.exists()
+                        or bundled_icon.stat().st_mtime > icon_dest.stat().st_mtime
+                    ):
+                        shutil.copyfile(bundled_icon, icon_dest)
+                    icon_path = str(icon_dest)
+            except Exception:
+                icon_path = ""
+
             ok, msg = SteamShortcuts.add_shortcut_for_all_users(
                 normalized_steam,
                 appname=appname,
                 exe=exe,
                 startdir=startdir,
                 launch_options=launch_options,
-                icon="",
+                icon=icon_path,
                 tags=["ME3"],
             )
 
