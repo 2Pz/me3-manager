@@ -3,6 +3,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QDir, QFileInfo, QUrl
 from PySide6.QtGui import QDesktopServices
@@ -37,9 +38,98 @@ class PlatformUtils:
         Prepare an external command for execution, adding necessary wrappers
         on Linux/Flatpak. Keeps behavior minimal to avoid surprises.
         """
+        # Resolve me3 executable explicitly on Windows in case PATH is not updated
+        try:
+            if sys.platform == "win32" and isinstance(cmd, list) and cmd:
+                if str(cmd[0]).lower() == "me3":
+                    resolved = PlatformUtils._find_me3_executable_windows()
+                    if resolved:
+                        cmd = [resolved] + list(cmd[1:])
+        except Exception:
+            # Best-effort; fall through to default behavior
+            pass
+
         if sys.platform == "linux" and PlatformUtils.is_flatpak():
             return ["flatpak-spawn", "--host"] + cmd
         return cmd
+
+    @staticmethod
+    def _find_me3_executable_windows() -> str | None:
+        """
+        Best-effort resolution of me3.exe on Windows without requiring elevation.
+        - Prefer shutil.which("me3") if available in current PATH
+        - Check Windows App Paths registry (HKCU/HKLM) for me3.exe
+        - Fall back to common per-user install path under LOCALAPPDATA
+        - Fall back to HOME-based path if LOCALAPPDATA is unavailable
+        Returns absolute path to me3.exe or None if not found.
+        """
+        try:
+            if sys.platform != "win32":
+                return None
+
+            # 1) Check current PATH first
+            me3_path = shutil.which("me3")
+            if me3_path and Path(me3_path).is_file():
+                return me3_path
+
+            # 1.5) Check Windows "App Paths" registry keys
+            try:
+                import importlib
+
+                winreg = importlib.import_module("winreg")  # type: ignore
+                for root in (
+                    winreg.HKEY_CURRENT_USER,
+                    winreg.HKEY_LOCAL_MACHINE,
+                ):
+                    try:
+                        with winreg.OpenKey(
+                            root,
+                            r"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\me3.exe",
+                            0,
+                            winreg.KEY_READ,
+                        ) as key:
+                            try:
+                                exe_path, _ = winreg.QueryValueEx(key, None)
+                                if exe_path and Path(exe_path).is_file():
+                                    return str(Path(exe_path))
+                            except FileNotFoundError:
+                                pass
+                    except OSError:
+                        continue
+            except Exception:
+                # Ignore registry probing failures and continue
+                pass
+
+            # 2) Check known per-user installation location
+            localappdata = os.environ.get("LOCALAPPDATA")
+            candidates: list[Path] = []
+            if localappdata:
+                candidates.append(
+                    Path(localappdata) / "garyttierney" / "me3" / "bin" / "me3.exe"
+                )
+
+            # 3) Fallback based on HOME path
+            home = Path.home()
+            if str(home):
+                candidates.append(
+                    home
+                    / "AppData"
+                    / "Local"
+                    / "garyttierney"
+                    / "me3"
+                    / "bin"
+                    / "me3.exe"
+                )
+
+            for candidate in candidates:
+                try:
+                    if candidate and candidate.is_file():
+                        return str(candidate)
+                except Exception:
+                    continue
+        except Exception:
+            return None
+        return None
 
     @staticmethod
     def open_path(path: str, run_file: bool = False) -> bool:
@@ -158,6 +248,14 @@ class PlatformUtils:
         rest = args_list[1:]
 
         if sys.platform == "win32":
+            # Resolve me3.exe explicitly if needed
+            try:
+                if str(program).lower() == "me3":
+                    resolved = PlatformUtils._find_me3_executable_windows()
+                    if resolved:
+                        program = resolved
+            except Exception:
+                pass
             return program, rest
 
         if PlatformUtils.is_flatpak() and program == "me3":
