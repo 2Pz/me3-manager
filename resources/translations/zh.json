@@ -424,5 +424,7 @@
   "invalid_savefile_message": "存档文件名包含无效字符或过长。请仅使用字母、数字、空格和下划线。",
   "profile_settings_save_success": "配置文件设置已成功保存。",
   "profile_settings_save_error": "保存配置文件设置失败: {error}",
-  "profile_load_error_msg": "加载配置文件设置失败: {error}"
+  "profile_load_error_msg": "加载配置文件设置失败: {error}",
+  "add_to_steam_button": "添加配置到 Steam",
+  "add_to_steam_info": "将此配置作为非 Steam 游戏快捷方式添加到您的 Steam 库，并通过 ME3 启动。添加后请重启 Steam 以显示快捷方式。"
 }

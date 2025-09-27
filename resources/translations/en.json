@@ -424,5 +424,7 @@
   "invalid_savefile_message": "The save file name contains invalid characters or is too long. Please use only letters, numbers, spaces, and underscores.",
   "profile_settings_save_success": "Profile settings have been saved successfully.",
   "profile_settings_save_error": "Failed to save profile settings: {error}",
-  "profile_load_error_msg": "Failed to load profile settings: {error}"
+  "profile_load_error_msg": "Failed to load profile settings: {error}",
+  "add_to_steam_button": "Add profile to Steam",
+  "add_to_steam_info": "Adds a non-Steam shortcut to your Steam library that launches this game's current profile via ME3. Restart Steam to see the shortcut."
 }
