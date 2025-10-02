@@ -2,6 +2,7 @@ import ctypes
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -259,6 +260,40 @@ class ME3VersionManager(QObject):
                 self.parent, tr("ERROR"), tr("could_not_perform_action", e=e)
             )
 
+    def _is_portable_install_windows(self) -> bool:
+        """Detect if the current ME3 install is the custom portable Windows ZIP install."""
+        if sys.platform != "win32":
+            return False
+        try:
+            me3_path = shutil.which("me3")
+        except Exception:
+            me3_path = None
+
+        if not me3_path:
+            return False
+
+        try:
+            bin_dir = str(self.path_manager.get_me3_binary_path())
+            me3_path_norm = me3_path.replace("/", "\\").lower()
+            bin_dir_norm = bin_dir.replace("/", "\\").lower().rstrip("\\")
+            if me3_path_norm.startswith(bin_dir_norm + "\\"):
+                return True
+
+            # Fallback check: compare installation prefix to expected me3 root
+            me3_info = getattr(self.path_manager, "me3_info", None)
+            if me3_info:
+                install_prefix = me3_info.get_installation_prefix()
+                if install_prefix:
+                    me3_root = self.path_manager.config_root.parent.parent
+                    if str(install_prefix).replace("/", "\\").lower().rstrip(
+                        "\\"
+                    ) == str(me3_root).replace("/", "\\").lower().rstrip("\\"):
+                        return True
+        except Exception:
+            return False
+
+        return False
+
     def update_me3_cli(self):
         """Update ME3 CLI using 'me3 update' command."""
         current_version = self.config_manager.get_me3_version()
@@ -266,6 +301,11 @@ class ME3VersionManager(QObject):
             QMessageBox.warning(
                 self.parent, tr("me3_not_installed"), tr("me3_not_installed_warning")
             )
+            return
+
+        # If on Windows and using portable custom install, update via ZIP replacement
+        if sys.platform == "win32" and self._is_portable_install_windows():
+            self.custom_install_windows_me3()
             return
 
         self.progress_dialog = QProgressDialog(

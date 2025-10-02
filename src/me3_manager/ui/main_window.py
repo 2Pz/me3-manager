@@ -197,7 +197,8 @@ class ModEngine3Manager(QMainWindow):
 
             if reply == QMessageBox.StandardButton.Yes:
                 if sys.platform == "win32":
-                    self.version_manager.download_windows_installer()
+                    # Route via version manager so portable installs use ZIP replacement
+                    self.version_manager.update_me3_cli()
                 else:
                     self.version_manager.install_linux_me3()
 
