@@ -4,7 +4,7 @@ A GUI manager tool designed to simplify the use of [me3](https://me3.help/).
 
 ## Download and usage
 
-Visit [Mod Engine 3 Manager](https://www.nexusmods.com/eldenringnightreign/mods/213) on Nexus Mods.
+Visit [ME3 Manager Help](https://2pz.github.io/me3-manager-help/).
 
 ## Development
 
