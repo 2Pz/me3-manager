@@ -379,12 +379,19 @@ class ConfigFacade:
 
         profile_id = str(uuid.uuid4())
         mods_dir = Path(mods_path)
-        mods_dir.mkdir(parents=True, exist_ok=True)
-        # Create profile file
+        # Ensure directory exists and is writable
+        try:
+            mods_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            log.error("Failed to create mods directory %s: %s", mods_dir, e)
+            return None
+
+        # Create profile file path
         safe_filename = "".join(
             c for c in name if c.isalnum() or c in (" ", "_")
         ).rstrip()
         profile_file_path = mods_dir / f"{safe_filename.replace(' ', '_')}.me3"
+
         # Create initial profile contents using default profile version
         try:
             default_version = self.ui_settings.get_default_profile_version()
@@ -396,11 +403,23 @@ class ConfigFacade:
             "packages": [],
             "supports": [],
         }
+
+        # Attempt to write the profile file
         try:
             self._write_toml_config(profile_file_path, initial_profile)
-        except Exception:
+        except Exception as write_err:
             # Fallback to touching the file
-            profile_file_path.touch()
+            try:
+                profile_file_path.touch()
+            except Exception as touch_err:
+                log.error(
+                    "Failed to create profile file at %s: write_err=%s, touch_err=%s",
+                    profile_file_path,
+                    write_err,
+                    touch_err,
+                )
+                return None
+
         # Add to profiles
         if game_name not in self.profiles:
             self.profiles[game_name] = []
