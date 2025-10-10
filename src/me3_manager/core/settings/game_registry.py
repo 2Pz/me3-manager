@@ -32,7 +32,7 @@ class GameRegistry:
             "mods_dir": "darksouls3-mods",
             "profile": "darksouls3-default.me3",
             "cli_id": "ds3",
-            "executable": "darksouls3.exe",
+            "executable": "DarkSoulsIII.exe",
         },
         "Armoredcore6": {
             "mods_dir": "armoredcore6-mods",
