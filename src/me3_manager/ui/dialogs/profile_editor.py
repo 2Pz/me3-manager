@@ -133,8 +133,8 @@ class ProfileEditor(QDialog):
                 profile_name=self.config_manager.get_profile_path(game_name).name,
             )
         )
-        self.setMinimumSize(900, 650)
-        self.resize(1400, 750)
+        self.setMinimumSize(900, 600)
+        self.resize(1180, 680)
         self.setStyleSheet("QDialog { background-color: #252525; }")
 
         layout = QVBoxLayout(self)

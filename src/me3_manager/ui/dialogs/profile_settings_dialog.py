@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
 )
 
@@ -50,7 +51,8 @@ class ProfileSettingsDialog(QDialog):
 
         self.setWindowTitle(tr("profile_settings_title", game_name=game_name))
         self.setModal(True)
-        self.resize(850, 700)
+        self.setMinimumSize(800, 560)
+        self.resize(860, 660)
 
         self.init_ui()
         self.load_current_settings()
@@ -58,18 +60,18 @@ class ProfileSettingsDialog(QDialog):
     def init_ui(self):
         """Initialize the dialog UI"""
         layout = QVBoxLayout(self)
-        layout.setSpacing(20)
-        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(12)
+        layout.setContentsMargins(16, 16, 16, 16)
 
         # Title
         title = QLabel(tr("profile_settings_title", game_name=self.game_name))
-        title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         title.setStyleSheet("color: #ffffff; margin-bottom: 16px;")
         layout.addWidget(title)
 
         # Description
         desc = QLabel(tr("profile_settings_description"))
-        desc.setStyleSheet("color: #cccccc; margin-bottom: 16px;")
+        desc.setStyleSheet("color: #cccccc; margin-bottom: 8px;")
         desc.setWordWrap(True)
         layout.addWidget(desc)
 
@@ -77,7 +79,15 @@ class ProfileSettingsDialog(QDialog):
         savefile_group = QGroupBox(tr("savefile_settings_group"))
         savefile_group.setStyleSheet(self._get_group_style())
         savefile_layout = QFormLayout(savefile_group)
-        savefile_layout.setSpacing(12)
+        savefile_layout.setSpacing(8)
+        savefile_layout.setContentsMargins(12, 12, 12, 12)
+        savefile_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        savefile_layout.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        savefile_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
 
         # Custom savefile checkbox
         self.custom_savefile_cb = QCheckBox(tr("use_custom_savefile"))
@@ -112,13 +122,19 @@ class ProfileSettingsDialog(QDialog):
         savefile_info.setWordWrap(True)
         savefile_layout.addWidget(savefile_info)
 
-        layout.addWidget(savefile_group)
-
         # Online Settings group
         online_group = QGroupBox(tr("online_settings_group"))
         online_group.setStyleSheet(self._get_group_style())
         online_layout = QFormLayout(online_group)
-        online_layout.setSpacing(12)
+        online_layout.setSpacing(8)
+        online_layout.setContentsMargins(12, 12, 12, 12)
+        online_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        online_layout.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        online_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
 
         # Start online checkbox
         self.start_online_cb = QCheckBox(tr("start_online_checkbox"))
@@ -131,13 +147,19 @@ class ProfileSettingsDialog(QDialog):
         online_info.setWordWrap(True)
         online_layout.addWidget(online_info)
 
-        layout.addWidget(online_group)
-
         # Compatibility Settings group
         compat_group = QGroupBox(tr("compatibility_settings_group"))
         compat_group.setStyleSheet(self._get_group_style())
         compat_layout = QFormLayout(compat_group)
-        compat_layout.setSpacing(12)
+        compat_layout.setSpacing(8)
+        compat_layout.setContentsMargins(12, 12, 12, 12)
+        compat_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        compat_layout.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        compat_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
 
         # Disable Arxan checkbox
         self.disable_arxan_cb = QCheckBox(tr("disable_arxan_checkbox"))
@@ -152,13 +174,19 @@ class ProfileSettingsDialog(QDialog):
         disable_arxan_info.setWordWrap(True)
         compat_layout.addWidget(disable_arxan_info)
 
-        layout.addWidget(compat_group)
-
         # Profile Version group
         version_group = QGroupBox(tr("profile_version_group"))
         version_group.setStyleSheet(self._get_group_style())
         version_layout = QFormLayout(version_group)
-        version_layout.setSpacing(12)
+        version_layout.setSpacing(8)
+        version_layout.setContentsMargins(12, 12, 12, 12)
+        version_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        version_layout.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
+        )
+        version_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
 
         self.version_combo = QComboBox()
         self.version_combo.addItem("v1")
@@ -171,13 +199,15 @@ class ProfileSettingsDialog(QDialog):
         version_info.setWordWrap(True)
         version_layout.addWidget(version_info)
 
-        layout.addWidget(version_group)
-
         # Steam Integration group
         steam_group = QGroupBox(tr("steam_integration_header"))
         steam_group.setStyleSheet(self._get_group_style())
         steam_layout = QVBoxLayout(steam_group)
         steam_layout.setSpacing(12)
+        steam_layout.setContentsMargins(12, 12, 12, 12)
+        steam_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
 
         self.add_to_steam_btn = QPushButton(tr("add_to_steam_button"))
         self.add_to_steam_btn.setStyleSheet(self._get_save_button_style())
@@ -189,9 +219,27 @@ class ProfileSettingsDialog(QDialog):
         steam_info.setWordWrap(True)
         steam_layout.addWidget(steam_info)
 
-        layout.addWidget(steam_group)
+        # Arrange groups into two columns to reduce vertical height
+        columns_layout = QHBoxLayout()
+        columns_layout.setSpacing(12)
 
-        layout.addStretch()
+        left_col = QVBoxLayout()
+        left_col.setSpacing(12)
+        left_col.addWidget(savefile_group)
+        left_col.addWidget(version_group)
+        left_col.addStretch()
+
+        right_col = QVBoxLayout()
+        right_col.setSpacing(12)
+        right_col.addWidget(online_group)
+        right_col.addWidget(compat_group)
+        right_col.addWidget(steam_group)
+        right_col.addStretch()
+
+        columns_layout.addLayout(left_col, 1)
+        columns_layout.addLayout(right_col, 1)
+
+        layout.addLayout(columns_layout)
 
         # Buttons
         button_layout = QHBoxLayout()
