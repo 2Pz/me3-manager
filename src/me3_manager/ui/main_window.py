@@ -248,14 +248,18 @@ class ModEngine3Manager(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.create_sidebar(splitter)
         self.create_content_area(splitter)
-        splitter.setSizes([250, 950])
+        splitter.setCollapsible(0, False)
+        splitter.setCollapsible(1, False)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([260, 940])
         layout = QHBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(splitter)
 
     def create_sidebar(self, parent):
         sidebar = QWidget()
-        sidebar.setFixedWidth(250)
+        sidebar.setMinimumWidth(220)
         sidebar.setStyleSheet(
             "QWidget { background-color: #252525; border-right: 1px solid #3d3d3d; }"
         )

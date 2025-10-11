@@ -50,7 +50,8 @@ class GameOptionsDialog(QDialog):
 
         self.setWindowTitle(tr("game_options_title", game_name=game_name))
         self.setModal(True)
-        self.resize(850, 700)
+        self.setMinimumSize(800, 560)
+        self.resize(900, 680)
 
         self.init_ui()
         self.load_current_settings()
