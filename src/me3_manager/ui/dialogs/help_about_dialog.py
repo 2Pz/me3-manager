@@ -111,6 +111,15 @@ class HelpAboutDialog(QDialog):
         )
         layout.addWidget(video_link)
 
+        # Documentation link
+        doc_link = QLabel(
+            '<a href="https://2pz.github.io/me3-manager-help/">ME3 Manager Help</a>'
+        )
+        doc_link.setObjectName("VideoLinkLabel")
+        doc_link.setOpenExternalLinks(True)
+        doc_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        layout.addWidget(doc_link)
+
         actions_header = QLabel(tr("actions_label"))
         actions_header.setObjectName("HeaderLabel")
         layout.addWidget(actions_header)
