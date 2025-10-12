@@ -1,6 +1,6 @@
 # Mod Engine 3 Manager
 
-[![1759437342042](https://github.com/2Pz/me3-manager-help/raw/main/docs/user-guide/image/game-management/1759437342042.png)](resources\icon)
+[![Logo](resources/icon/icon.ico)]()
 
 A GUI manager tool designed to simplify the use of [me3](https://me3.help/).
 
