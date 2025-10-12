@@ -1,5 +1,7 @@
 # Mod Engine 3 Manager
 
+[![Logo](resources/icon/icon.ico)]()
+
 A GUI manager tool designed to simplify the use of [me3](https://me3.help/).
 
 ## Download and usage
