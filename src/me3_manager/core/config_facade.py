@@ -335,7 +335,9 @@ class ConfigFacade:
                 "supports": [],
             }
             try:
-                self._write_toml_config(default_profile_file_path, initial_profile)
+                self._write_toml_config(
+                    default_profile_file_path, initial_profile, game_name
+                )
             except Exception:
                 pass
             if game_name not in self.profiles:
@@ -406,7 +408,7 @@ class ConfigFacade:
 
         # Attempt to write the profile file
         try:
-            self._write_toml_config(profile_file_path, initial_profile)
+            self._write_toml_config(profile_file_path, initial_profile, game_name)
         except Exception as write_err:
             # Fallback to touching the file
             try:
@@ -534,9 +536,11 @@ class ConfigFacade:
         """Parse TOML config file (needed by mod_manager)."""
         return ProfileManager.read_profile(Path(config_path))
 
-    def _write_toml_config(self, config_path, config_data):
+    def _write_toml_config(
+        self, config_path, config_data, game_name: str | None = None
+    ):
         """Write TOML config file using tomlkit for proper formatting."""
-        ProfileManager.write_profile(Path(config_path), config_data)
+        ProfileManager.write_profile(Path(config_path), config_data, game_name)
 
     def validate_and_prune_profiles(self):
         """Validate and prune profiles (needed by main_window)."""
@@ -615,7 +619,7 @@ class ConfigFacade:
                 "packages": [],
                 "supports": [],
             }
-            self._write_toml_config(profile_path, config_data)
+            self._write_toml_config(profile_path, config_data, game_name)
 
         try:
             with open(profile_path, "r", encoding="utf-8") as f:
