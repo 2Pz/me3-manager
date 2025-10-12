@@ -359,6 +359,7 @@
   "new_profile_name_title": "اسم البروفايل الجديد",
   "new_profile_name_desc": "أدخل اسم للبروفايل الجديد:",
   "select_folder_for_profile_title": "اختر مجلد للبروفايل الجديد",
+  "no_folder_selected_msg": "ما تم اختيار أي مجلد. لو سمحت اختر مجلد عشان تسوي البروفايل.",
   "folder_in_use_desc": "المجلد \"{folder_name}\" مستخدم من بروفايل ثاني.\n\nكل بروفايل لازم يكون له مجلد خاص للمودات حقته.\n\nالرجاء اختيار أو إنشاء مجلد مختلف.",
   "folder_in_use_title": "المجلد مستخدم",
   "rename_profile_title": "إعادة تسمية البروفايل",

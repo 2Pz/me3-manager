@@ -213,11 +213,16 @@ class ProfileHandler:
                     all_profiles = self.config_manager.get_profiles_for_game(
                         self.game_name
                     )
-                    existing_mod_paths = {
-                        Path(p["mods_path"]).resolve()
-                        for p in all_profiles
-                        if "mods_path" in p
-                    }
+                    # Build a set of existing mod directories, skipping any invalid/None entries
+                    existing_mod_paths = set()
+                    for p in all_profiles:
+                        raw_mods_path = p.get("mods_path")
+                        if isinstance(raw_mods_path, str) and raw_mods_path.strip():
+                            try:
+                                existing_mod_paths.add(Path(raw_mods_path).resolve())
+                            except Exception:
+                                # Skip malformed paths silently
+                                pass
 
                     if selected_path in existing_mod_paths:
                         QMessageBox.warning(
@@ -252,6 +257,12 @@ class ProfileHandler:
                         return
 
                     refresh_list()
+                else:
+                    QMessageBox.information(
+                        dialog,
+                        tr("validation_error"),
+                        tr("no_folder_selected_msg"),
+                    )
 
         def on_rename():
             selected_item = list_widget.currentItem()
