@@ -107,6 +107,15 @@ class PlatformUtils:
                 candidates.append(
                     Path(localappdata) / "garyttierney" / "me3" / "bin" / "me3.exe"
                 )
+                # Also consider default installer path under Local\\Programs
+                candidates.append(
+                    Path(localappdata)
+                    / "Programs"
+                    / "garyttierney"
+                    / "me3"
+                    / "bin"
+                    / "me3.exe"
+                )
 
             # 3) Fallback based on HOME path
             home = Path.home()
