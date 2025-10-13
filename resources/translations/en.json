@@ -428,4 +428,17 @@
   "profile_load_error_msg": "Failed to load profile settings: {error}",
   "add_to_steam_button": "Add profile to Steam",
   "add_to_steam_info": "Adds a non-Steam shortcut to your Steam library that launches this game's current profile via ME3. Restart Steam to see the shortcut."
+  ,
+  "profile_compare_title": "Compare Profiles - {game_name}",
+  "profile_compare_header": "Select two profiles to compare their enabled DLLs and packages.",
+  "profile_compare_side_title": "Profile ({side})",
+  "left": "Left",
+  "right": "Right",
+  "profile_compare_contents": "Profile Contents",
+  "profile_compare_natives": "Natives (DLLs)",
+  "profile_compare_packages": "Packages",
+  "profile_compare_differences": "Differences Summary",
+  "profile_compare_added": "+ Added in Right: {count}",
+  "profile_compare_removed": "- Removed from Right: {count}",
+  "compare_button": " Compare..."
 }

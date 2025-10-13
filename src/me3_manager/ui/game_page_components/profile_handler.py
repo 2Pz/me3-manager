@@ -135,8 +135,11 @@ class ProfileHandler:
         delete_btn = QPushButton(
             QIcon(resource_path("resources/icon/delete.svg")), tr("delete_button")
         )
+        compare_btn = QPushButton(
+            QIcon(resource_path("resources/icon/profiles.svg")), tr("compare_button")
+        )
 
-        for btn in [activate_btn, add_btn, rename_btn, delete_btn]:
+        for btn in [activate_btn, add_btn, rename_btn, delete_btn, compare_btn]:
             btn.setStyleSheet(button_style)
             btn.setIconSize(QSize(20, 20))
 
@@ -144,6 +147,7 @@ class ProfileHandler:
         button_layout.addWidget(add_btn)
         button_layout.addWidget(rename_btn)
         button_layout.addWidget(delete_btn)
+        button_layout.addWidget(compare_btn)
         button_layout.addStretch()
         layout.addLayout(button_layout, 1)
 
@@ -304,12 +308,21 @@ class ProfileHandler:
                 refresh_list()
                 self.game_page.load_mods()
 
+        def on_compare():
+            from me3_manager.ui.dialogs.profile_compare_dialog import (
+                ProfileCompareDialog,
+            )
+
+            dlg = ProfileCompareDialog(self.game_name, self.config_manager, dialog)
+            dlg.exec()
+
         search_bar.textChanged.connect(refresh_list)
         list_widget.currentItemChanged.connect(update_button_states)
         activate_btn.clicked.connect(on_activate)
         add_btn.clicked.connect(on_add)
         rename_btn.clicked.connect(on_rename)
         delete_btn.clicked.connect(on_delete)
+        compare_btn.clicked.connect(on_compare)
 
         refresh_list()
         dialog.exec()

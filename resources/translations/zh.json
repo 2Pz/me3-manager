@@ -427,5 +427,17 @@
   "profile_settings_save_error": "保存配置文件设置失败: {error}",
   "profile_load_error_msg": "加载配置文件设置失败: {error}",
   "add_to_steam_button": "添加配置到 Steam",
-  "add_to_steam_info": "将此配置作为非 Steam 游戏快捷方式添加到您的 Steam 库，并通过 ME3 启动。添加后请重启 Steam 以显示快捷方式。"
+  "add_to_steam_info": "将此配置作为非 Steam 游戏快捷方式添加到您的 Steam 库，并通过 ME3 启动。添加后请重启 Steam 以显示快捷方式。",
+  "profile_compare_title": "比较配置文件 - {game_name}",
+  "profile_compare_header": "选择两个配置文件以比较它们启用的 DLL 和包。",
+  "profile_compare_side_title": "配置文件 ({side})",
+  "left": "左侧",
+  "right": "右侧",
+  "profile_compare_contents": "配置文件内容",
+  "profile_compare_natives": "原生文件 (DLL)",
+  "profile_compare_packages": "包 (Packages)",
+  "profile_compare_differences": "差异摘要",
+  "profile_compare_added": "+ 右侧新增: {count}",
+  "profile_compare_removed": "- 右侧移除: {count}",
+  "compare_button": "比较..."
 }

@@ -427,5 +427,17 @@
   "profile_settings_save_error": "فشل حفظ إعدادات البروفايل: {error}",
   "profile_load_error_msg": "فشل تحميل إعدادات البروفايل: {error}",
   "add_to_steam_button": "أضف البروفايل لستيم",
-  "add_to_steam_info": "يضيف اختصار لعبة (غير ستيم) لمكتبتك في ستيم يشغّل هالبروفايل عبر ME3. بعد الإضافة، أعد تشغيل ستيم عشان يظهر الاختصار."
+  "add_to_steam_info": "يضيف اختصار لعبة (غير ستيم) لمكتبتك في ستيم يشغّل هالبروفايل عبر ME3. بعد الإضافة، أعد تشغيل ستيم عشان يظهر الاختصار.",
+  "profile_compare_title": "مقارنة البروفايلات - {game_name}",
+  "profile_compare_header": "اختر بروفايلين عشان تقارن الـ DLLs والبكجات المفعّلة.",
+  "profile_compare_side_title": "بروفايل ({side})",
+  "left": "يسار",
+  "right": "يمين",
+  "profile_compare_contents": "محتوى البروفايل",
+  "profile_compare_natives": "الملفات الأصلية (DLLs)",
+  "profile_compare_packages": "البكجات",
+  "profile_compare_differences": "ملخص الفروقات",
+  "profile_compare_added": "+ تمت الإضافة في اليمين: {count}",
+  "profile_compare_removed": "- تم الحذف من اليمين: {count}",
+  "compare_button": "قارن..."
 }
