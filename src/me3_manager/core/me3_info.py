@@ -1,5 +1,7 @@
 import logging
+import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -78,6 +80,20 @@ class ME3InfoManager:
             returncode, stdout, stderr = CommandRunner.run(
                 command, timeout=15, capture_output=True, text=True
             )
+
+            if returncode != 0 or not stdout:
+                # Fallback: try via login shell on Linux (Steam Deck Game Mode PATH)
+                if sys.platform != "win32":
+                    try:
+                        shell_cmd = " ".join(shlex.quote(x) for x in ["me3", "info"])
+                        returncode, stdout, stderr = CommandRunner.run(
+                            ["bash", "-l", "-c", shell_cmd],
+                            timeout=15,
+                            capture_output=True,
+                            text=True,
+                        )
+                    except Exception:
+                        pass
 
             if returncode != 0 or not stdout:
                 log.error(
@@ -288,18 +304,27 @@ class ME3InfoManager:
     def get_me3_config_paths(self) -> list[Path]:
         """Get ME3 configuration search paths from cached 'me3 info' output."""
         # Ensure info is fetched and cached. This will populate self._info_output_raw
-        if self.get_me3_info() is None:
-            return []
-
-        if self._info_output_raw is None:
-            log.error("ME3 info was fetched, but raw output is missing from cache.")
-            return []
+        if self.get_me3_info() is None or self._info_output_raw is None:
+            return self._fallback_xdg_config_candidates()
 
         try:
             return self._parse_config_paths(self._info_output_raw)
         except Exception as e:
             log.error("Error parsing ME3 config paths from cached output: %s", e)
-            return []
+            return self._fallback_xdg_config_candidates()
+
+    def _fallback_xdg_config_candidates(self) -> list[Path]:
+        """Return reasonable config candidates when 'me3 info' is unavailable."""
+        try:
+            xdg = os.environ.get("XDG_CONFIG_HOME")
+            base = Path(xdg) if xdg else Path.home() / ".config"
+            candidates: list[Path] = [base / "me3" / "me3.toml"]
+            # Optionally include a system location for read-only detection
+            candidates.append(Path("/etc/xdg/me3/me3.toml"))
+            return candidates
+        except Exception:
+            # Last resort: return a simple user path
+            return [Path.home() / ".config" / "me3" / "me3.toml"]
 
     def find_existing_config(self) -> Path | None:
         """
