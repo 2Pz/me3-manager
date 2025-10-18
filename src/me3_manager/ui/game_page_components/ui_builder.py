@@ -42,6 +42,7 @@ class UiBuilder:
 
         # Build UI sections in logical order
         self._create_header_section()
+        self._create_custom_savefile_warning_banner()
         self._create_search_section()
         self._create_filter_section()
         self._create_drop_zone()
@@ -175,6 +176,40 @@ class UiBuilder:
             buttons.append(button)
 
         return buttons
+
+    def _create_custom_savefile_warning_banner(self):
+        """Create a prominent banner warning when custom savefile is not set."""
+        banner = QWidget()
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(12)
+
+        icon_label = QLabel("⚠")
+        icon_label.setStyleSheet("color: #ffcc00; font-size: 18px;")
+        layout.addWidget(icon_label)
+
+        text_label = QLabel(tr("gamepage_savefile_warning"))
+        text_label.setWordWrap(True)
+        text_label.setStyleSheet("color: #ffffff; font-size: 13px;")
+        layout.addWidget(text_label, 1)
+
+        action_btn = QPushButton(tr("gamepage_configure_savefile_button"))
+        action_btn.setFixedHeight(32)
+        action_btn.clicked.connect(self.game_page.open_profile_settings)
+        layout.addWidget(action_btn)
+
+        banner.setStyleSheet(
+            """
+            QWidget { background-color: #3a2a00; border: 1px solid #7a5a00; border-radius: 8px; }
+            QPushButton { background: #0078d4; color: white; border: none; border-radius: 6px; padding: 6px 12px; }
+            QPushButton:hover { background: #106ebe; }
+            """
+        )
+
+        # Store on game_page and hide by default; GamePage controls visibility
+        self.game_page.custom_savefile_banner = banner
+        banner.setVisible(False)
+        self.game_page.main_layout.addWidget(banner)
 
     def _create_icon_button(self, config):
         """Create a standardized icon button."""

@@ -76,6 +76,11 @@ class ProfileHandler:
             self.config_manager.set_active_profile(self.game_name, profile_id)
             self.game_page.load_mods()
             self.update_profile_dropdown()
+            # Also refresh the custom savefile warning banner
+            try:
+                self.game_page.update_custom_savefile_warning()
+            except Exception:
+                pass
 
     def open_profile_manager(self, checked: bool = False):
         """Creates and shows the 'Manage Profiles' dialog."""

@@ -411,6 +411,7 @@
   "extension_sl2_vanilla": ".sl2 (Vanilla)",
   "extension_co2_seamless": ".co2 (Seamless Co-op)",
   "savefile_info": "💡 Custom save file names allow you to use different save files for different mod setups. Choose .sl2 for vanilla gameplay or .co2 for seamless co-op mod.",
+  "savefile_warning_recommend_custom": "⚠️ This profile is using the game's default save file. To avoid overwriting your vanilla saves, enable 'Use custom save file name' and set a unique name.",
   "online_settings_group": "Online Settings",
   "compatibility_settings_group": "Compatibility Settings",
   "start_online_label": "Online Mode:",
@@ -429,6 +430,8 @@
   "add_to_steam_button": "Add profile to Steam",
   "add_to_steam_info": "Adds a non-Steam shortcut to your Steam library that launches this game's current profile via ME3. Restart Steam to see the shortcut."
   ,
+  "gamepage_savefile_warning": "Your current profile does not use a custom save file. To protect your vanilla saves, configure a unique save file name in Profile Settings.",
+  "gamepage_configure_savefile_button": "Configure Save File...",
   "profile_compare_title": "Compare Profiles - {game_name}",
   "profile_compare_header": "Select two profiles to compare their enabled DLLs and packages.",
   "profile_compare_side_title": "Profile ({side})",
