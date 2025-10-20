@@ -49,6 +49,17 @@ class PlatformUtils:
             # Best-effort; fall through to default behavior
             pass
 
+        # Resolve me3 executable explicitly on Linux where PATH may be minimal (e.g., SteamOS Game Mode)
+        try:
+            if sys.platform == "linux" and isinstance(cmd, list) and cmd:
+                if str(cmd[0]).lower() == "me3":
+                    resolved = PlatformUtils._find_me3_executable_linux()
+                    if resolved:
+                        cmd = [resolved] + list(cmd[1:])
+        except Exception:
+            # Best-effort; fall through to default behavior
+            pass
+
         if sys.platform == "linux" and PlatformUtils.is_flatpak():
             return ["flatpak-spawn", "--host"] + cmd
         return cmd
@@ -133,6 +144,68 @@ class PlatformUtils:
             for candidate in candidates:
                 try:
                     if candidate and candidate.is_file():
+                        return str(candidate)
+                except Exception:
+                    continue
+        except Exception:
+            return None
+        return None
+
+    @staticmethod
+    def _find_me3_executable_linux() -> str | None:
+        """
+        Best-effort resolution of me3 on Linux (incl. Steam Deck Game Mode),
+        avoiding reliance on PATH.
+        Search order:
+          1) PATH via shutil.which
+          2) XDG config-based bin (…/me3/bin/me3)
+          3) ~/.local/bin/me3
+          4) Common system bins (/usr/local/bin, /usr/bin)
+          5) XDG data-based layout (…/garyttierney/me3/bin/me3)
+        Returns absolute path or None.
+        """
+        try:
+            if sys.platform != "linux":
+                return None
+
+            me3_path = shutil.which("me3")
+            if me3_path and Path(me3_path).is_file():
+                return me3_path
+
+            candidates: list[Path] = []
+
+            # XDG config based bin
+            xdg_config = os.environ.get("XDG_CONFIG_HOME")
+            if xdg_config:
+                candidates.append(Path(xdg_config) / "me3" / "bin" / "me3")
+            candidates.append(Path.home() / ".config" / "me3" / "bin" / "me3")
+
+            # Local user bin
+            candidates.append(Path.home() / ".local" / "bin" / "me3")
+
+            # System bins
+            for p in ("/usr/local/bin/me3", "/usr/bin/me3"):
+                candidates.append(Path(p))
+
+            # XDG data based layout
+            xdg_data = os.environ.get("XDG_DATA_HOME")
+            if xdg_data:
+                candidates.append(
+                    Path(xdg_data) / "garyttierney" / "me3" / "bin" / "me3"
+                )
+            candidates.append(
+                Path.home()
+                / ".local"
+                / "share"
+                / "garyttierney"
+                / "me3"
+                / "bin"
+                / "me3"
+            )
+
+            for candidate in candidates:
+                try:
+                    if candidate.is_file() and os.access(candidate, os.X_OK):
                         return str(candidate)
                 except Exception:
                     continue
@@ -267,7 +340,17 @@ class PlatformUtils:
                 pass
             return program, rest
 
-        if PlatformUtils.is_flatpak() and program == "me3":
+        # Resolve me3 explicitly on Linux
+        try:
+            if str(program).lower() == "me3":
+                resolved = PlatformUtils._find_me3_executable_linux()
+                if resolved:
+                    program = resolved
+        except Exception:
+            pass
+
+        # On Flatpak, ensure we spawn on host when invoking me3 (absolute or bare)
+        if PlatformUtils.is_flatpak() and os.path.basename(str(program)) == "me3":
             shell_command = " ".join(
                 [shlex.quote(program)] + [shlex.quote(a) for a in rest]
             )
