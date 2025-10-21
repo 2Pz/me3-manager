@@ -522,12 +522,63 @@ class GameOptionsDialog(QDialog):
                 )
 
             if not available_paths:
-                QMessageBox.warning(
-                    self,
-                    tr("no_writable_paths_title"),
-                    tr("no_writable_paths_msg"),
+                # Fallback: allow manual selection when no candidates are returned
+                import os as _os
+
+                default_dir = (
+                    Path(
+                        _os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
+                    )
+                    / "me3"
                 )
-                return
+                try:
+                    default_dir.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    pass
+                default_file = default_dir / "me3.toml"
+
+                file_name, _ = QFileDialog.getSaveFileName(
+                    self,
+                    tr("choose_config_location"),
+                    str(default_file),
+                    "TOML Files (*.toml)",
+                )
+                if not file_name:
+                    return
+
+                selected_config_path = Path(file_name)
+
+                try:
+                    if (
+                        hasattr(self.config_manager, "me3_info")
+                        and self.config_manager.me3_info
+                    ):
+                        success = self.config_manager.me3_info.ensure_single_config(
+                            selected_config_path
+                        )
+
+                        if success:
+                            if hasattr(self.config_manager, "set_me3_config_path"):
+                                self.config_manager.set_me3_config_path(
+                                    self.game_name, str(selected_config_path)
+                                )
+                            self.load_current_settings()
+                            QMessageBox.information(
+                                self,
+                                tr("config_updated_title"),
+                                tr(
+                                    "config_updated_message",
+                                    selected_config_path=selected_config_path,
+                                ),
+                            )
+                    return
+                except Exception as e:
+                    QMessageBox.warning(
+                        self,
+                        tr("config_location_error_title"),
+                        tr("config_location_error_message", error=str(e)),
+                    )
+                    return
 
             # Show dialog to let user choose from available paths
             from PySide6.QtWidgets import (

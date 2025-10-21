@@ -79,6 +79,11 @@ class GamePage(QWidget):
 
     def load_mods(self, reset_page: bool = True):
         self.mod_list_handler.load_mods(reset_page)
+        # Update banner after mods load to reflect current active profile settings
+        try:
+            self.update_custom_savefile_warning()
+        except Exception:
+            pass
 
     def apply_filters(
         self, reset_page: bool = True, source_mods: dict[str, Any] | None = None
@@ -218,6 +223,60 @@ class GamePage(QWidget):
         self.reload_timer = QTimer(self)
         self.reload_timer.setSingleShot(True)
         self.reload_timer.timeout.connect(lambda: self.load_mods(reset_page=False))
+
+    def update_custom_savefile_warning(self):
+        """Show banner if active profile does not have a custom savefile set."""
+        banner = getattr(self, "custom_savefile_banner", None)
+        if banner is None:
+            return
+        try:
+            profile_path = self.config_manager.get_profile_path(self.game_name)
+        except Exception:
+            banner.setVisible(False)
+            return
+        try:
+            if not profile_path or not profile_path.exists():
+                banner.setVisible(False)
+                return
+            config = self.config_manager._parse_toml_config(profile_path)
+        except Exception:
+            banner.setVisible(False)
+            return
+
+        # Check both legacy (v1) and v2 style locations for savefile
+        savefile_value = config.get("savefile")
+        if not savefile_value:
+            game_section = config.get("game")
+            if isinstance(game_section, dict):
+                savefile_value = game_section.get("savefile")
+
+        # If Seamless Co-op is enabled (ersc.dll or nrsc.dll), do not show the banner
+        try:
+            mods_data = getattr(self, "all_mods_data", {}) or {}
+            seamless_enabled = False
+            for mod_path, info in mods_data.items():
+                if not info.get("enabled", False):
+                    continue
+                path_lower = str(mod_path).lower()
+                name_lower = str(info.get("name", "")).lower()
+                if path_lower.endswith(("/ersc.dll", "\\ersc.dll")):
+                    seamless_enabled = True
+                    break
+                if path_lower.endswith(("/nrsc.dll", "\\nrsc.dll")):
+                    seamless_enabled = True
+                    break
+                # Also check by stem/name for safety (e.g., external path missing extension in name)
+                if name_lower.endswith(("/ersc", "/nrsc")) or name_lower in (
+                    "ersc",
+                    "nrsc",
+                ):
+                    seamless_enabled = True
+                    break
+        except Exception:
+            seamless_enabled = False
+
+        # Show banner only when no custom savefile AND seamless co-op not enabled
+        banner.setVisible((not bool(savefile_value)) and (not seamless_enabled))
 
     def _get_filter_definitions(self) -> dict[str, tuple]:
         """Provides filter button text and tooltips to the UI builder."""

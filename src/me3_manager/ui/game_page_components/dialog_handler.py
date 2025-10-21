@@ -126,6 +126,11 @@ class DialogHandler:
                 )
                 self.game_page.load_mods(reset_page=False)
                 self.game_page._update_status(tr("status_ready"))
+                # Refresh banner state
+                try:
+                    self.game_page.update_custom_savefile_warning()
+                except Exception:
+                    pass
         except Exception as e:
             QMessageBox.warning(
                 self.game_page,

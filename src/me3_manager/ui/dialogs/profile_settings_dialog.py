@@ -48,6 +48,7 @@ class ProfileSettingsDialog(QDialog):
         self.game_name = game_name
         self.config_manager = config_manager
         self.current_settings = {}
+        self.seamless_enabled = False
 
         self.setWindowTitle(tr("profile_settings_title", game_name=game_name))
         self.setModal(True)
@@ -121,6 +122,14 @@ class ProfileSettingsDialog(QDialog):
         savefile_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
         savefile_info.setWordWrap(True)
         savefile_layout.addWidget(savefile_info)
+
+        # Warning when custom savefile is not enabled
+        self.savefile_warning = QLabel(tr("savefile_warning_recommend_custom"))
+        self.savefile_warning.setStyleSheet(
+            "color: #ff5555; font-size: 12px; font-weight: 600; margin-top: 6px;"
+        )
+        self.savefile_warning.setWordWrap(True)
+        savefile_layout.addWidget(self.savefile_warning)
 
         # Online Settings group
         online_group = QGroupBox(tr("online_settings_group"))
@@ -426,6 +435,18 @@ class ProfileSettingsDialog(QDialog):
                 disable_arxan = config_data.get("disable_arxan", False)
                 self.disable_arxan_cb.setChecked(bool(disable_arxan))
 
+                # Detect Seamless Co-op enablement via natives entries
+                try:
+                    self.seamless_enabled = False
+                    for native in config_data.get("natives", []):
+                        if isinstance(native, dict):
+                            p = str(native.get("path", "")).lower().replace("\\", "/")
+                            if p.endswith(("/ersc.dll", "/nrsc.dll")):
+                                self.seamless_enabled = True
+                                break
+                except Exception:
+                    self.seamless_enabled = False
+
                 self.current_settings = config_data
                 # Load default profile version from UI settings
                 try:
@@ -443,6 +464,7 @@ class ProfileSettingsDialog(QDialog):
                 self.disable_arxan_cb.setChecked(False)
                 self.on_custom_savefile_toggled(False)
                 self.current_settings = {}
+                self.seamless_enabled = False
                 try:
                     default_version = (
                         self.config_manager.ui_settings.get_default_profile_version()
@@ -456,6 +478,8 @@ class ProfileSettingsDialog(QDialog):
             QMessageBox.warning(
                 self, tr("load_error"), tr("profile_load_error_msg", error=str(e))
             )
+        # Ensure the warning reflects current state (custom savefile vs seamless)
+        self._update_savefile_warning_visibility()
 
     def on_custom_savefile_toggled(self, checked):
         """Handle custom savefile checkbox toggle"""
@@ -463,6 +487,17 @@ class ProfileSettingsDialog(QDialog):
         self.extension_combo.setEnabled(checked)
         if not checked:
             self.savefile_edit.clear()
+        # Update warning visibility considering Seamless Co-op state
+        self._update_savefile_warning_visibility()
+
+    def _update_savefile_warning_visibility(self):
+        try:
+            show_warning = (not self.custom_savefile_cb.isChecked()) and (
+                not bool(getattr(self, "seamless_enabled", False))
+            )
+            self.savefile_warning.setVisible(show_warning)
+        except Exception:
+            self.savefile_warning.setVisible(False)
 
     def save_settings(self):
         """Save the profile settings"""
