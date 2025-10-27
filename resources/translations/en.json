@@ -71,6 +71,7 @@
   "no_missing_games": "No Missing Games",
   "settings": "Settings",
   "footer_text": "Manager v{VERSION}\nME3 CLI: {me3_version}\nby 2Pz",
+  "app_update_available": "<span style='color: #ffaa00;'>🔔 New version available: v{latest_version}</span><br/><a href='{download_url}' style='color: #0078d4;'>Download update</a>",
   "platform_info": "Platform Info",
   "platform_info_desc_linux": "Use the Linux installation scripts from the Help/About dialog instead.",
   "platform_info_desc_win": "Use the Windows installer download from the Help/About dialog instead.",
