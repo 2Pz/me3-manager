@@ -110,30 +110,41 @@ class DragDropHandler:
 
         # Handle the remaining loose items, which may be a mod package.
         if items_for_bundling:
-            # A single directory that is not a config folder. Treat as a mod package.
+            # A single directory dropped: decide if it's a package itself or a container of multiple mods.
             if len(items_for_bundling) == 1 and items_for_bundling[0].is_dir():
                 only_dir = items_for_bundling[0]
-                # Detect if this directory looks like a container of multiple mods.
-                contains_child_mods = False
-                try:
-                    for child in only_dir.iterdir():
-                        if child.is_dir() and self.game_page._is_valid_mod_folder(
-                            child
-                        ):
-                            contains_child_mods = True
-                            break
-                        if child.is_file() and child.suffix.lower() == ".dll":
-                            contains_child_mods = True
-                            break
-                except Exception:
-                    contains_child_mods = False
 
-                if contains_child_mods and hasattr(
-                    self.game_page, "install_mods_folder_root"
-                ):
-                    self.game_page.install_mods_folder_root(only_dir)
-                else:
+                # If the root folder itself is a valid mod folder, always install it as a single package.
+                try:
+                    root_is_valid_mod = self.game_page._is_valid_mod_folder(only_dir)
+                except Exception:
+                    root_is_valid_mod = False
+
+                # Otherwise, detect if it looks like a container of multiple mods (child valid mod folders or DLLs)
+                contains_child_mods = False
+                if not root_is_valid_mod:
+                    try:
+                        for child in only_dir.iterdir():
+                            if child.is_dir() and self.game_page._is_valid_mod_folder(
+                                child
+                            ):
+                                contains_child_mods = True
+                                break
+                            if child.is_file() and child.suffix.lower() == ".dll":
+                                contains_child_mods = True
+                                break
+                    except Exception:
+                        contains_child_mods = False
+
+                if root_is_valid_mod or not contains_child_mods:
+                    # Treat as a single package mod
                     self.game_page.install_root_mod_package(only_dir)
+                else:
+                    # Treat as a container holding multiple mods
+                    if hasattr(self.game_page, "install_mods_folder_root"):
+                        self.game_page.install_mods_folder_root(only_dir)
+                    else:
+                        self.game_page.install_root_mod_package(only_dir)
             else:
                 # Multiple files/folders, or a single file. Bundle them.
                 self.game_page.install_loose_items(items_for_bundling)
