@@ -45,3 +45,6 @@ class AppController:
 
         # Check for updates if enabled
         self.main_window.check_for_me3_updates_if_enabled()
+
+        # Check for app updates (always runs)
+        self.main_window.check_for_app_updates()

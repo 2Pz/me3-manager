@@ -71,6 +71,7 @@
   "no_missing_games": "没有缺失的游戏",
   "settings": "设置",
   "footer_text": "管理器 v{VERSION}\nME3 CLI: {me3_version}\n作者: 2Pz",
+  "app_update_available": "<span style='color: #ffaa00;'>🔔 新版本可用: v{latest_version}</span><br/><a href='{download_url}' style='color: #0078d4;'>下载更新</a>",
   "platform_info": "平台信息",
   "platform_info_desc_linux": "请改用“帮助/关于”对话框中的 Linux 安装脚本。",
   "platform_info_desc_win": "请改用“帮助/关于”对话框中的 Windows 安装程序下载。",

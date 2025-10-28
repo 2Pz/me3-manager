@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from me3_manager import __version__ as VERSION
 from me3_manager.core.config_facade import ConfigFacade
 from me3_manager.core.me3_version_manager import ME3VersionManager
+from me3_manager.services.app_update_checker import AppUpdateChecker
 from me3_manager.services.steam_service import SteamService
 from me3_manager.ui.app_controller import AppController
 from me3_manager.ui.dialogs.game_management_dialog import GameManagementDialog
@@ -44,6 +45,7 @@ class ModEngine3Manager(QMainWindow):
         super().__init__()
         self.config_manager = ConfigFacade()
         self.me3_version = self.get_me3_version()
+        self.app_update_info = None  # Store update info for display
 
         # Initialize the centralized version manager
         self.version_manager = ME3VersionManager(
@@ -52,6 +54,9 @@ class ModEngine3Manager(QMainWindow):
             path_manager=self.config_manager.path_manager,
             refresh_callback=self.refresh_me3_status,
         )
+
+        # Initialize app update checker
+        self.app_update_checker = AppUpdateChecker(VERSION)
 
         self.init_ui()
 
@@ -166,6 +171,20 @@ class ModEngine3Manager(QMainWindow):
         else:
             # Otherwise, default to the first game in the new list.
             self.switch_game(all_games[0])
+
+    def check_for_app_updates(self):
+        """Check for me3-manager app updates on startup."""
+        try:
+            self.app_update_info = self.app_update_checker.check_for_updates()
+            if self.app_update_info and self.app_update_info.get("update_available"):
+                self.update_footer_text()
+                log.info(
+                    "App update available: %s -> %s",
+                    self.app_update_info["current_version"],
+                    self.app_update_info["latest_version"],
+                )
+        except Exception as e:
+            log.error("Failed to check for app updates: %s", e)
 
     def check_for_me3_updates_if_enabled(self):
         """Check for ME3 updates on startup if enabled in settings."""
@@ -304,12 +323,16 @@ class ModEngine3Manager(QMainWindow):
         settings_button = QPushButton(tr("settings"))
         settings_button.clicked.connect(self.show_settings_dialog)
         layout.addWidget(settings_button)
-        footer_text = tr("footer_text", VERSION=VERSION, me3_version=self.me3_version)
-        self.footer_label = QLabel(footer_text)
+
+        # Create footer label with initial text
+        self.footer_label = QLabel()
         self.footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.footer_label.setStyleSheet(
             "color: #888888; font-size: 10px; line-height: 1.4;"
         )
+        self.footer_label.setOpenExternalLinks(True)
+        self.footer_label.setTextFormat(Qt.TextFormat.RichText)
+        self.update_footer_text()  # Set initial text
         layout.addWidget(self.footer_label)
         parent.addWidget(sidebar)
 
@@ -349,6 +372,26 @@ class ModEngine3Manager(QMainWindow):
         dialog = HelpAboutDialog(self, initial_setup=True)
         dialog.exec()
 
+    def update_footer_text(self):
+        """Update footer text with version info and update notification if available."""
+        base_text = tr("footer_text", VERSION=VERSION, me3_version=self.me3_version)
+        # Convert \n to <br/> for HTML rendering
+        base_text = base_text.replace("\n", "<br/>")
+
+        if self.app_update_info and self.app_update_info.get("update_available"):
+            latest_version = self.app_update_info.get("latest_version", "Unknown")
+            download_url = self.app_update_info.get("download_url", "")
+            update_text = tr(
+                "app_update_available",
+                latest_version=latest_version,
+                download_url=download_url,
+            )
+            # Combine base text with update notification
+            full_text = f"{base_text}<br/><br/>{update_text}"
+            self.footer_label.setText(full_text)
+        else:
+            self.footer_label.setText(base_text)
+
     def refresh_me3_status(self):
         """Refresh ME3 status and update UI components."""
         old_version = self.me3_version
@@ -357,9 +400,7 @@ class ModEngine3Manager(QMainWindow):
 
         if old_version != self.me3_version:
             # Update footer label
-            self.footer_label.setText(
-                tr("footer_text", VERSION=VERSION, me3_version=self.me3_version)
-            )
+            self.update_footer_text()
 
             # Trigger a full refresh of the application state
             self.perform_global_refresh()
