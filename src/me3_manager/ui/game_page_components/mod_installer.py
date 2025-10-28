@@ -334,22 +334,40 @@ class ModInstaller:
         # Sanitize mod name
         mod_name = Path(mod_name).name
 
-        # Use the unified installer pathway
-        success = self.install_linked_mods([root_path])
-        if not success:
-            return
+        # Stage the dropped package under the chosen mod name, then install
+        with TemporaryDirectory() as tmp_dir:
+            staging_root = Path(tmp_dir)
+            staged_mod_dir = staging_root / mod_name
+            try:
+                shutil.copytree(
+                    root_path,
+                    staged_mod_dir,
+                    symlinks=False,
+                    ignore_dangling_symlinks=True,
+                )
+            except Exception as e:
+                QMessageBox.warning(
+                    self.game_page,
+                    tr("install_error_title"),
+                    tr("copy_failed_msg", name=root_path.name, error=str(e)),
+                )
+                return
+
+            success = self.install_linked_mods([staged_mod_dir])
+            if not success:
+                return
 
         mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)
-        dest_folder_path = mods_dir / root_path.name
+        dest_folder_path = mods_dir / mod_name
         try:
             self.config_manager.add_folder_mod(
-                self.game_page.game_name, root_path.name, str(dest_folder_path)
+                self.game_page.game_name, mod_name, str(dest_folder_path)
             )
             self.config_manager.set_mod_enabled(
                 self.game_page.game_name, str(dest_folder_path), True
             )
             self.game_page.status_label.setText(
-                tr("install_package_success_status", mod_name=root_path.name)
+                tr("install_package_success_status", mod_name=mod_name)
             )
             self.game_page.load_mods()
         except Exception as e:
