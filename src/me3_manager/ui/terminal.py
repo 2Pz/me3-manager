@@ -211,6 +211,8 @@ class EmbeddedTerminal(QWidget):
 
         self.process = QProcess(self)
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        # Sanitize environment to avoid leaking PyInstaller libs to child processes
+        self.process.setProcessEnvironment(PlatformUtils.build_qprocess_environment())
         self.process.readyReadStandardOutput.connect(self.handle_stdout)
         self.process.finished.connect(self.process_finished)
 

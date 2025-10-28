@@ -120,7 +120,7 @@ class SteamService:
                         prepared,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
-                        env=os.environ.copy(),
+                        env=PlatformUtils.sanitized_env_for_subprocess(),
                     )
                     return True
                 except FileNotFoundError:
