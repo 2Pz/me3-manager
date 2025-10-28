@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QDir, QFileInfo, QUrl
+from PySide6.QtCore import QDir, QFileInfo, QProcessEnvironment, QUrl
 from PySide6.QtGui import QDesktopServices
 
 
@@ -378,6 +378,7 @@ class PlatformUtils:
         # PyInstaller/Qt variables that can break system apps
         for key in (
             "LD_LIBRARY_PATH",
+            "LD_PRELOAD",
             "QT_PLUGIN_PATH",
             "QT_QPA_PLATFORM_PLUGIN_PATH",
             "PYTHONHOME",
@@ -389,6 +390,28 @@ class PlatformUtils:
         # Ensure XDG_DATA_DIRS is sane for icon/mime resolution
         env.setdefault("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
         return env
+
+    @staticmethod
+    def sanitized_env_for_subprocess() -> dict:
+        """
+        Return an environment safe for launching external host processes.
+        This strips PyInstaller/Qt variables (e.g., LD_LIBRARY_PATH) that can
+        cause symbol conflicts with system binaries (e.g., libreadline).
+        """
+        return PlatformUtils._sanitized_env_for_desktop_open()
+
+    @staticmethod
+    def build_qprocess_environment() -> QProcessEnvironment:
+        """
+        Build a sanitized QProcessEnvironment to avoid leaking PyInstaller/Qt
+        runtime variables into child processes.
+        """
+        env_dict = PlatformUtils.sanitized_env_for_subprocess()
+        qenv = QProcessEnvironment()
+        for k, v in env_dict.items():
+            if v is not None:
+                qenv.insert(str(k), str(v))
+        return qenv
 
     @staticmethod
     def _fallback_open_local(target: str) -> bool:
