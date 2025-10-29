@@ -311,33 +311,64 @@ class ImprovedModManager:
         else:
             tracked_paths = []
 
-        for mod_path in tracked_paths:
-            path_obj = Path(mod_path)
+        for stored_path in tracked_paths:
+            normalized_path = self._normalize_path(stored_path)
+            path_obj = Path(normalized_path)
+            path_exists = path_obj.exists()
+            is_directory = path_exists and path_obj.is_dir()
+            is_dll = normalized_path.lower().endswith(".dll")
 
-            if not path_obj.exists():
-                # Mark as missing but keep in list
-                mod_info = ModInfo(
-                    path=mod_path,
-                    name=path_obj.stem,
-                    mod_type=ModType.DLL,
-                    status=ModStatus.MISSING,
-                    is_external=True,
-                    advanced_options=advanced_options.get(mod_path, {}),
-                )
+            if path_exists:
+                if is_directory:
+                    mod_type = ModType.PACKAGE
+                    mod_name = path_obj.name
+                    has_regulation = (path_obj / "regulation.bin").exists() or (
+                        path_obj / "regulation.bin.disabled"
+                    ).exists()
+                    regulation_active = (path_obj / "regulation.bin").exists()
+                    enabled = enabled_status.get(
+                        normalized_path, False
+                    ) or enabled_status.get(mod_name, False)
+                    advanced = advanced_options.get(
+                        normalized_path
+                    ) or advanced_options.get(mod_name, {})
+                else:
+                    mod_type = ModType.DLL
+                    mod_name = path_obj.stem
+                    has_regulation = False
+                    regulation_active = False
+                    enabled = enabled_status.get(normalized_path, False)
+                    advanced = advanced_options.get(normalized_path, {})
             else:
-                # Use full path for external mods
-                mod_info = ModInfo(
-                    path=mod_path,
-                    name=path_obj.stem,
-                    mod_type=ModType.DLL,
-                    status=ModStatus.ENABLED
-                    if enabled_status.get(mod_path, False)
-                    else ModStatus.DISABLED,
-                    is_external=True,
-                    advanced_options=advanced_options.get(mod_path, {}),
-                )
+                mod_type = ModType.DLL if is_dll else ModType.PACKAGE
+                mod_name = path_obj.stem if mod_type == ModType.DLL else path_obj.name
+                has_regulation = False
+                regulation_active = False
+                enabled = enabled_status.get(
+                    normalized_path, False
+                ) or enabled_status.get(mod_name, False)
+                advanced = advanced_options.get(
+                    normalized_path
+                ) or advanced_options.get(mod_name, {})
 
-            mods[mod_path] = mod_info
+            status = (
+                ModStatus.MISSING
+                if not path_exists
+                else (ModStatus.ENABLED if enabled else ModStatus.DISABLED)
+            )
+
+            mod_info = ModInfo(
+                path=normalized_path,
+                name=mod_name,
+                mod_type=mod_type,
+                status=status,
+                is_external=True,
+                has_regulation=has_regulation,
+                regulation_active=regulation_active,
+                advanced_options=advanced,
+            )
+
+            mods[normalized_path] = mod_info
 
         return mods
 
@@ -369,6 +400,12 @@ class ImprovedModManager:
                 # Skip the main mods directory package
                 if pkg_id != self.config_manager.games[game_name]["mods_dir"]:
                     enabled_status[pkg_id] = True
+
+                raw_path = package.get("path") or package.get("source")
+                if raw_path:
+                    normalized_path = self._normalize_path(str(raw_path))
+                    if Path(normalized_path).is_absolute():
+                        enabled_status[normalized_path] = True
 
         return enabled_status
 
@@ -405,6 +442,11 @@ class ImprovedModManager:
                 }
                 if options:
                     advanced_options[pkg_id] = options
+                    raw_path = package.get("path") or package.get("source")
+                    if raw_path:
+                        normalized_path = self._normalize_path(str(raw_path))
+                        if Path(normalized_path).is_absolute():
+                            advanced_options[normalized_path] = options
 
         return advanced_options
 
@@ -440,14 +482,24 @@ class ImprovedModManager:
                 ):
                     valid_natives.append(native)
 
-        # Clean up packages (keep main mods dir) - unchanged
+        # Clean up packages (keep main mods dir and tracked externals)
         valid_packages = []
         main_mods_dir = self.config_manager.games[game_name]["mods_dir"]
 
         for package in config_data.get("packages", []):
             if isinstance(package, dict) and "id" in package:
                 pkg_id = package["id"]
-                if pkg_id == main_mods_dir or pkg_id in current_package_names:
+                raw_path = package.get("path") or package.get("source")
+                normalized_path = self._normalize_path(raw_path) if raw_path else None
+
+                if (
+                    pkg_id == main_mods_dir
+                    or pkg_id in current_package_names
+                    or (
+                        normalized_path is not None
+                        and normalized_path in current_external_paths
+                    )
+                ):
                     valid_packages.append(package)
 
         # Update config if needed
@@ -473,7 +525,7 @@ class ImprovedModManager:
             if mod_path_obj.is_dir():
                 # Handle package mod
                 success, msg = self._set_package_enabled(
-                    config_data, mod_path_obj.name, enabled, game_name
+                    config_data, str(mod_path_obj), enabled, game_name
                 )
             else:
                 # Handle DLL mod
@@ -524,41 +576,72 @@ class ImprovedModManager:
                 return True, "Mod was already disabled"
 
     def _set_package_enabled(
-        self, config_data: dict, mod_name: str, enabled: bool, game_name: str
+        self, config_data: dict, mod_path: str, enabled: bool, game_name: str
     ) -> tuple[bool, str]:
         """Set enabled status for a package (folder) mod with improved logic"""
         packages = config_data.get("packages", [])
+        if not isinstance(packages, list):
+            packages = []
+            config_data["packages"] = packages
 
-        # Find existing entry
+        mod_path_obj = Path(mod_path)
+        mod_name = mod_path_obj.name
+
+        mods_dir = self.config_manager.get_mods_dir(game_name)
+        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
+
+        resolved_mod_path = mod_path_obj.resolve()
+        resolved_mods_dir = mods_dir.resolve()
+        is_custom_profile = (
+            resolved_mods_dir
+            != (self.config_manager.config_root / mods_dir_name).resolve()
+        )
+
+        try:
+            relative_path = resolved_mod_path.relative_to(resolved_mods_dir)
+            is_internal = True
+        except ValueError:
+            relative_path = None
+            is_internal = False
+
+        if is_internal:
+            if is_custom_profile:
+                normalized_package_path = self._normalize_path(str(resolved_mod_path))
+            else:
+                # Preserve nested folders if present
+                if relative_path is None:
+                    relative_str = mod_name
+                else:
+                    relative_str = relative_path.as_posix()
+                normalized_package_path = self._normalize_path(
+                    f"{mods_dir_name}/{relative_str}"
+                )
+        else:
+            normalized_package_path = self._normalize_path(str(resolved_mod_path))
+
         package_entry = None
         package_index = -1
         for i, package in enumerate(packages):
-            if isinstance(package, dict) and package.get("id") == mod_name:
+            if not isinstance(package, dict) or "id" not in package:
+                continue
+            existing_id = package.get("id")
+            existing_path_raw = package.get("path") or package.get("source")
+            existing_path_normalized = (
+                self._normalize_path(existing_path_raw) if existing_path_raw else None
+            )
+
+            if existing_id == mod_name or (
+                existing_path_normalized == normalized_package_path
+            ):
                 package_entry = package
                 package_index = i
                 break
 
         if enabled:
             if package_entry is None:
-                # Check if we're using a custom profile (not in default config_root)
-                mods_dir = self.config_manager.get_mods_dir(game_name)
-                mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-                is_custom_profile = mods_dir != (
-                    self.config_manager.config_root / mods_dir_name
-                )
-
-                if is_custom_profile:
-                    # For custom profiles, use full absolute path
-                    package_path = self._normalize_path(
-                        str((mods_dir / mod_name).resolve())
-                    )
-                else:
-                    # For default profiles, use mods-dir/mod-name format
-                    package_path = self._normalize_path(f"{mods_dir_name}/{mod_name}")
-
                 package_entry = {
                     "id": mod_name,
-                    "path": package_path,
+                    "path": normalized_package_path,
                     "load_after": [],
                     "load_before": [],
                 }
@@ -566,48 +649,119 @@ class ImprovedModManager:
                 config_data["packages"] = packages
                 return True, "Created new package entry"
             else:
-                # Entry already exists
+                updated = False
+                current_path = package_entry.get("path") or package_entry.get("source")
+                current_normalized = (
+                    self._normalize_path(current_path)
+                    if current_path is not None
+                    else None
+                )
+                if current_normalized != normalized_package_path:
+                    package_entry["path"] = normalized_package_path
+                    package_entry.pop("source", None)
+                    updated = True
+
+                if updated:
+                    config_data["packages"] = packages
+                    return True, "Updated package entry"
+
                 return True, "Package entry already exists"
         else:
             if package_entry is not None:
-                # Remove the entry completely when disabling
                 packages.pop(package_index)
                 config_data["packages"] = packages
                 return True, "Removed package entry"
             else:
-                # Nothing to disable
                 return True, "Package was already disabled"
 
-    def set_regulation_active(self, game_name: str, mod_name: str) -> tuple[bool, str]:
+    def _get_tracked_external_package_paths(self, game_name: str) -> list[Path]:
+        """Return tracked external mod paths that are directories."""
+        active_profile_id = self.config_manager.active_profiles.get(
+            game_name, "default"
+        )
+        game_external_mods = self.config_manager.tracked_external_mods.get(
+            game_name, {}
+        )
+
+        if isinstance(game_external_mods, dict):
+            tracked_paths = game_external_mods.get(active_profile_id, [])
+        else:
+            tracked_paths = []
+
+        package_paths: list[Path] = []
+        for stored_path in tracked_paths:
+            path_obj = Path(stored_path)
+            if path_obj.is_dir():
+                package_paths.append(path_obj)
+
+        return package_paths
+
+    def set_regulation_active(self, game_name: str, mod_path: str) -> tuple[bool, str]:
         """
         Set which mod should have the active regulation.bin file.
         Only one regulation file can be active at a time.
         """
         try:
+            target_folder = Path(mod_path)
+
+            if not target_folder.exists():
+                return False, f"Mod folder not found: {mod_path}"
+
+            if not target_folder.is_dir():
+                return False, "Regulation files can only be managed for folder mods"
+
             mods_dir = self.config_manager.get_mods_dir(game_name)
+            candidate_folders: list[Path] = []
 
-            # First, disable all regulation files
-            for folder in mods_dir.iterdir():
-                if folder.is_dir():
-                    regulation_file = folder / "regulation.bin"
-                    disabled_file = folder / "regulation.bin.disabled"
+            if mods_dir.exists():
+                for folder in mods_dir.iterdir():
+                    if folder.is_dir():
+                        candidate_folders.append(folder)
 
-                    if regulation_file.exists():
+            candidate_folders.extend(
+                self._get_tracked_external_package_paths(game_name)
+            )
+
+            target_resolved = target_folder.resolve()
+            seen: set[Path] = set()
+            unique_candidates: list[Path] = []
+
+            for folder in candidate_folders:
+                try:
+                    resolved = folder.resolve()
+                except Exception:
+                    continue
+
+                if resolved in seen:
+                    continue
+
+                seen.add(resolved)
+                unique_candidates.append(resolved)
+
+            for folder in unique_candidates:
+                if folder == target_resolved:
+                    continue
+
+                regulation_file = folder / "regulation.bin"
+                disabled_file = folder / "regulation.bin.disabled"
+
+                if regulation_file.exists():
+                    try:
                         regulation_file.rename(disabled_file)
+                    except Exception:
+                        continue
 
-            # Then enable the selected mod's regulation file
-            target_folder = mods_dir / mod_name
-            if target_folder.exists():
-                disabled_file = target_folder / "regulation.bin.disabled"
-                regulation_file = target_folder / "regulation.bin"
+            disabled_file = target_resolved / "regulation.bin.disabled"
+            regulation_file = target_resolved / "regulation.bin"
 
-                if disabled_file.exists():
-                    disabled_file.rename(regulation_file)
-                    return True, f"Set {mod_name} as active regulation mod"
-                else:
-                    return False, f"No regulation file found for {mod_name}"
-            else:
-                return False, f"Mod folder not found: {mod_name}"
+            if disabled_file.exists():
+                disabled_file.rename(regulation_file)
+                return True, f"Set {target_folder.name} as active regulation mod"
+
+            if regulation_file.exists():
+                return True, f"{target_folder.name} regulation file is already active"
+
+            return False, f"No regulation file found for {target_folder.name}"
 
         except Exception as e:
             return False, f"Error setting regulation active: {str(e)}"
@@ -620,17 +774,39 @@ class ImprovedModManager:
         try:
             mod_path_obj = Path(mod_path)
 
-            # Validate mod file
             if not mod_path_obj.exists():
-                return False, f"Mod file not found: {mod_path}"
+                return False, f"Mod path not found: {mod_path}"
 
-            if not mod_path_obj.is_file() or mod_path_obj.suffix.lower() != ".dll":
-                return False, "Only DLL files can be added as external mods"
-
-            # Check if it's already in the mods directory
             mods_dir = self.config_manager.get_mods_dir(game_name)
-            if mod_path_obj.parent == mods_dir:
+
+            # Prevent tracking items already inside the mods directory
+            try:
+                mod_path_obj.resolve().relative_to(mods_dir.resolve())
                 return False, "This mod is already in the game's mods folder"
+            except ValueError:
+                pass
+
+            is_valid = False
+            if mod_path_obj.is_file():
+                if mod_path_obj.suffix.lower() != ".dll":
+                    return (
+                        False,
+                        "Only DLL files or mod folders can be added as external mods",
+                    )
+                is_valid = True
+            elif mod_path_obj.is_dir():
+                if not self._is_valid_mod_folder(mod_path_obj):
+                    return (
+                        False,
+                        "Selected folder does not appear to be a valid mod package",
+                    )
+                is_valid = True
+
+            if not is_valid:
+                return (
+                    False,
+                    "Only DLL files or mod folders can be added as external mods",
+                )
 
             # Normalize path
             normalized_path = str(mod_path_obj.resolve()).replace("\\", "/")
@@ -702,7 +878,9 @@ class ImprovedModManager:
                     shutil.rmtree(mod_path_obj)
                     return True, f"Deleted folder mod: {mod_path_obj.name}"
                 else:
-                    return False, "Cannot delete external folder mods"
+                    # External folder mod - just untrack it
+                    self.config_manager.untrack_external_mod(game_name, mod_path)
+                    return True, f"Untracked external mod: {mod_path_obj.name}"
             else:
                 # Handle DLL mod
                 if mod_path_obj.parent == mods_dir:

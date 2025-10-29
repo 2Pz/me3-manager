@@ -89,11 +89,35 @@ class ModActionHandler:
                     self.game_page, tr("add_external_mod_error_title"), message
                 )
 
+    def add_external_package_mod(self):
+        """Opens a folder dialog to add a new external package mod."""
+        folder_path = QFileDialog.getExistingDirectory(
+            self.game_page,
+            tr("select_external_package_mod_title"),
+            str(Path.home()),
+        )
+
+        if folder_path:
+            success, message = self.mod_manager.add_external_mod(
+                self.game_page.game_name, folder_path
+            )
+
+            if success:
+                self.game_page.status_label.setText(message)
+                self.game_page.load_mods(reset_page=False)
+                QTimer.singleShot(
+                    3000,
+                    lambda: self.game_page.status_label.setText(tr("status_ready")),
+                )
+            else:
+                QMessageBox.warning(
+                    self.game_page, tr("add_external_mod_error_title"), message
+                )
+
     def activate_regulation_mod(self, mod_path: str):
         """Activates the regulation.bin file for a specific mod."""
-        mod_name = Path(mod_path).name
         success, message = self.mod_manager.set_regulation_active(
-            self.game_page.game_name, mod_name
+            self.game_page.game_name, mod_path
         )
 
         if success:
