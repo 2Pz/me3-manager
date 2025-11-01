@@ -264,7 +264,6 @@
   "filter_without_regulation_tooltip": "显示已启用且没有 regulation.bin 文件的模组",
   "manage_profiles": "管理配置文件...",
   "profile_saved_status": "{game_name} 的配置文件已保存。正在重新加载模组列表...",
-  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。",
   "import_error": "导入错误",
   "import_one_profile_warning": "请一次仅导入一个 .me3 配置文件。",
   "confirm_overwrite_title": "确认覆盖",
@@ -332,8 +331,10 @@
   "delete_mod_confirm_question": "确定要删除 '{mod_name}' 吗？",
   "delete_error_title": "删除错误",
   "select_external_mod_title": "选择外部模组 DLL",
+  "select_external_package_mod_title": "选择外部模组文件夹",
   "dll_files_filter": "DLL 文件 (*.dll)",
   "add_external_mod_error_title": "添加外部模组错误",
+  "add_external_package_mod_tooltip": "添加外部封装模组（文件夹）",
   "config_path_saved_status": "已为 {mod_name} 保存新的配置路径",
   "mod_info_not_found_error": "未找到模组信息",
   "advanced_options_updated_status": "已更新 {mod_name} 的高级选项",
@@ -444,5 +445,6 @@
   "profile_compare_differences": "差异摘要",
   "profile_compare_added": "+ 右侧新增: {count}",
   "profile_compare_removed": "- 右侧移除: {count}",
-  "compare_button": "比较..."
+  "compare_button": "比较...",
+  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。"
 }

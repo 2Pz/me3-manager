@@ -264,7 +264,6 @@
   "filter_without_regulation_tooltip": "أظهر مودات المجلدات المفعّلة اللي ما فيها regulation.bin",
   "manage_profiles": "إدارة البروفايلات...",
   "profile_saved_status": "تم حفظ البروفايل لـ {game_name}. جاري إعادة تحميل قائمة المودات...",
-  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}.",
   "import_error": "خطأ في الاستيراد",
   "import_one_profile_warning": "لو سمحت استورد ملف بروفايل .me3 واحد كل مرة.",
   "confirm_overwrite_title": "تأكيد الكتابة فوق الملفات",
@@ -332,8 +331,10 @@
   "delete_mod_confirm_question": "متأكد تبي تحذف '{mod_name}'؟",
   "delete_error_title": "خطأ في الحذف",
   "select_external_mod_title": "اختر مود DLL خارجي",
+  "select_external_package_mod_title": "اختر مجلد مود خارجي",
   "dll_files_filter": "ملفات DLL (*.dll)",
   "add_external_mod_error_title": "خطأ في إضافة مود خارجي",
+  "add_external_package_mod_tooltip": "أضف مود خارجي (مجلد)",
   "config_path_saved_status": "تم حفظ مسار الإعدادات الجديد لـ {mod_name}",
   "mod_info_not_found_error": "معلومات المود مو موجودة.",
   "advanced_options_updated_status": "تم تحديث الخيارات المتقدمة لـ {mod_name}",
@@ -444,5 +445,6 @@
   "profile_compare_differences": "ملخص الفروقات",
   "profile_compare_added": "+ تمت الإضافة في اليمين: {count}",
   "profile_compare_removed": "- تم الحذف من اليمين: {count}",
-  "compare_button": "قارن..."
+  "compare_button": "قارن...",
+  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}."
 }

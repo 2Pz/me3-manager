@@ -156,6 +156,12 @@ class UiBuilder:
                 "callback": self.game_page.add_external_mod,
             },
             {
+                "attr": "add_external_package_mod_btn",
+                "icon": "package.svg",
+                "tooltip": tr("add_external_package_mod_tooltip"),
+                "callback": self.game_page.add_external_package_mod,
+            },
+            {
                 "attr": "edit_profile_btn",
                 "icon": "note.svg",
                 "tooltip": tr("edit_profile_tooltip"),

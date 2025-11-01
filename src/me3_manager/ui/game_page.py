@@ -131,6 +131,9 @@ class GamePage(QWidget):
     def add_external_mod(self):
         self.mod_action_handler.add_external_mod()
 
+    def add_external_package_mod(self):
+        self.mod_action_handler.add_external_package_mod()
+
     def activate_regulation_mod(self, mod_path: str):
         self.mod_action_handler.activate_regulation_mod(mod_path)
 
