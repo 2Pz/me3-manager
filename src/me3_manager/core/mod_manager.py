@@ -612,6 +612,26 @@ class ImprovedModManager:
         except Exception as e:
             return False, f"Error setting regulation active: {str(e)}"
 
+    def disable_all_regulations(self, game_name: str) -> tuple[bool, str]:
+        """
+        Disable regulation.bin across all mods by renaming any active files
+        to regulation.bin.disabled. This leaves no active regulation.
+        """
+        try:
+            mods_dir = self.config_manager.get_mods_dir(game_name)
+            for folder in mods_dir.iterdir():
+                if not folder.is_dir():
+                    continue
+                regulation_file = folder / "regulation.bin"
+                disabled_file = folder / "regulation.bin.disabled"
+                if regulation_file.exists():
+                    regulation_file.rename(disabled_file)
+
+            # Even if nothing changed, it's a successful no-op
+            return True, "Regulation disabled for all mods"
+        except Exception as e:
+            return False, f"Error disabling regulation: {str(e)}"
+
     def add_external_mod(self, game_name: str, mod_path: str) -> tuple[bool, str]:
         """
         Add an external mod with robust error handling.
