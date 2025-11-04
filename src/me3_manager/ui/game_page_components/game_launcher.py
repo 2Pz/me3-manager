@@ -141,6 +141,10 @@ class GameLauncher:
         terminal.process.setProcessChannelMode(
             QProcess.ProcessChannelMode.MergedChannels
         )
+        # Sanitize environment to avoid leaking PyInstaller libs to child processes
+        terminal.process.setProcessEnvironment(
+            PlatformUtils.build_qprocess_environment()
+        )
         terminal.process.readyReadStandardOutput.connect(terminal.handle_stdout)
         terminal.process.finished.connect(terminal.process_finished)
         # Use centralized list command prep for QProcess
@@ -168,4 +172,7 @@ class GameLauncher:
         """Launch the game command directly via a subprocess."""
         # Use centralized subprocess preparation
         prepared = PlatformUtils.prepare_command(command_args)
-        subprocess.Popen(prepared)
+        subprocess.Popen(
+            prepared,
+            env=PlatformUtils.sanitized_env_for_subprocess(),
+        )
