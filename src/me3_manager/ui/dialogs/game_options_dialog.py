@@ -367,6 +367,8 @@ class GameOptionsDialog(QDialog):
 
         if not checked:
             self.steam_dir_edit.clear()
+        else:
+            self._resize_to_fit()
 
     def on_exe_path_toggled(self, checked):
         """Handle executable path checkbox toggle"""
@@ -377,6 +379,8 @@ class GameOptionsDialog(QDialog):
 
         if not checked:
             self.exe_path_edit.clear()
+        else:
+            self._resize_to_fit()
 
     def browse_steam_directory(self):
         """Browse for Steam installation directory (seeded from me3 info)."""
@@ -1029,6 +1033,31 @@ class GameOptionsDialog(QDialog):
                 color: #ffffff;
             }
         """
+
+    def _resize_to_fit(self):
+        """Grow the dialog to fit newly-visible content without shrinking user size."""
+        try:
+            # Ensure layouts recalculate
+            if self.layout() is not None:
+                self.layout().activate()
+            size_hint = self.sizeHint()
+            current = self.size()
+            # Only grow; never shrink to avoid surprising the user
+            new_width = (
+                current.width()
+                if size_hint.width() <= current.width()
+                else size_hint.width()
+            )
+            new_height = (
+                current.height()
+                if size_hint.height() <= current.height()
+                else size_hint.height()
+            )
+            if new_width != current.width() or new_height != current.height():
+                self.resize(new_width, new_height)
+        except Exception:
+            # Best-effort; avoid crashing UI if any platform-specific issue occurs
+            pass
 
     def _get_group_style(self):
         """Get group box stylesheet"""
