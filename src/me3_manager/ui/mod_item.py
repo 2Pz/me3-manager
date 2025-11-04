@@ -306,8 +306,8 @@ class ModItem(QWidget):
             self.activate_regulation_btn.setFixedSize(button_size, button_size)
 
             if self.is_regulation_active:
-                self.activate_regulation_btn.setToolTip(tr("regulation_active_tooltip"))
-                self.activate_regulation_btn.setEnabled(False)
+                # Allow disabling regulation when this mod is the active one
+                self.activate_regulation_btn.setToolTip(tr("click_to_disable_tooltip"))
                 self.activate_regulation_btn.setStyleSheet(
                     self._get_active_regulation_button_style()
                 )
