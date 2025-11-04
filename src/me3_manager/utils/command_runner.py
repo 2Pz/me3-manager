@@ -49,7 +49,9 @@ class CommandRunner:
             check=False,
             startupinfo=startupinfo,
             timeout=timeout,
-            env=env,
+            env=(
+                env if env is not None else PlatformUtils.sanitized_env_for_subprocess()
+            ),
             encoding=encoding,
             errors=errors,
         )
