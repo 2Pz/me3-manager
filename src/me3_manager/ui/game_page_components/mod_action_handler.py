@@ -116,7 +116,6 @@ class ModActionHandler:
 
     def activate_regulation_mod(self, mod_path: str):
         """Activates the regulation.bin file for a specific mod."""
-        mod_name = Path(mod_path).name
         # If the clicked mod is already the active regulation, interpret the action as disabling all
         mod_info = self.game_page.mod_infos.get(mod_path)
         if getattr(mod_info, "regulation_active", False):
@@ -125,7 +124,7 @@ class ModActionHandler:
             )
         else:
             success, message = self.mod_manager.set_regulation_active(
-                self.game_page.game_name, mod_name
+                self.game_page.game_name, mod_path
             )
 
         if success:

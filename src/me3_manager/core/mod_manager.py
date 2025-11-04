@@ -866,18 +866,25 @@ class ImprovedModManager:
 
     def disable_all_regulations(self, game_name: str) -> tuple[bool, str]:
         """
-        Disable regulation.bin across all mods by renaming any active files
-        to regulation.bin.disabled. This leaves no active regulation.
+        Disable regulation.bin across all mods (internal and tracked external)
+        by renaming any active files to regulation.bin.disabled. This leaves
+        no active regulation.
         """
         try:
-            mods_dir = self.config_manager.get_mods_dir(game_name)
-            for folder in mods_dir.iterdir():
-                if not folder.is_dir():
+            # Collect both internal and tracked external package folders
+            candidate_folders = self._candidate_regulation_folders(game_name)
+
+            for folder in candidate_folders:
+                try:
+                    if not folder.is_dir():
+                        continue
+                    regulation_file = folder / "regulation.bin"
+                    disabled_file = folder / "regulation.bin.disabled"
+                    if regulation_file.exists():
+                        regulation_file.rename(disabled_file)
+                except Exception:
+                    # Ignore failures on a single folder and continue
                     continue
-                regulation_file = folder / "regulation.bin"
-                disabled_file = folder / "regulation.bin.disabled"
-                if regulation_file.exists():
-                    regulation_file.rename(disabled_file)
 
             # Even if nothing changed, it's a successful no-op
             return True, "Regulation disabled for all mods"
