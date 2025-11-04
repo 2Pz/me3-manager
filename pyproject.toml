@@ -1,6 +1,6 @@
 [project]
 name = "me3-manager"
-version = "1.2.0"
+version = "1.2.1"
 description = "GUI application for Mod engine 3"
 readme = "README.md"
 requires-python = ">=3.13"
