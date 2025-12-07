@@ -222,11 +222,15 @@ class ImprovedModManager:
             return True
 
         # Check if it contains acceptable subfolders
-        if any(
-            sub.is_dir() and sub.name in self.acceptable_folders
-            for sub in folder.iterdir()
-        ):
-            return True
+        try:
+            if any(
+                sub.is_dir() and sub.name in self.acceptable_folders
+                for sub in folder.iterdir()
+            ):
+                return True
+        except (PermissionError, OSError):
+            # Skip folders we cannot read (e.g., system junctions like AppData)
+            return False
 
         # Check if it has regulation files
         if (folder / "regulation.bin").exists() or (
