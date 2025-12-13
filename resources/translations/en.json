@@ -279,6 +279,8 @@
   "name_imported_package_title": "Name Imported Mod Package",
   "name_imported_package_desc": "Enter a name for the imported package mod(s).",
   "importing_from_label": "Importing from: {folder}",
+  "savefile_preference_title": "Savefile Preference",
+  "savefile_preference_message": "The current profile uses savefile '{current_savefile}', but the imported profile uses '{imported_savefile}'.\n\nSelect Yes to use the imported savefile, or No to keep the current one.",
   "import_cancelled_status": "Import cancelled.",
   "importing_from_status": "Importing from {folder}...",
   "mod_exists_title": "Mod Exists",

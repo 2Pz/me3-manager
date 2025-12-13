@@ -279,6 +279,8 @@
   "name_imported_package_title": "命名导入的模组包",
   "name_imported_package_desc": "输入导入的包模组的名称。",
   "importing_from_label": "正在从以下位置导入: {folder}",
+  "savefile_preference_title": "存档偏好",
+  "savefile_preference_message": "当前配置使用存档 '{current_savefile}'，而导入的配置使用 '{imported_savefile}'。\n\n选择“是”以使用导入的存档，选择“否”以保留当前存档。",
   "import_cancelled_status": "导入已取消。",
   "importing_from_status": "正在从 {folder} 导入...",
   "mod_exists_title": "模组已存在",
