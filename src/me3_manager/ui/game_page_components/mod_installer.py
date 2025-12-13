@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from me3_manager.core.profiles.profile_manager import ProfileManager
 from me3_manager.utils.translator import tr
 
 if TYPE_CHECKING:
@@ -492,6 +493,79 @@ class ModInstaller:
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 self.game_page.status_label.setText(tr("import_cancelled_status"))
                 return
+
+            # Apply imported profile-level options (savefile, supports, etc.) to the
+            # active profile so game options are respected after import.
+            target_profile_path: Path | None = None
+            try:
+                target_profile_path = self.config_manager.get_profile_path(
+                    self.game_page.game_name
+                )
+            except Exception:
+                target_profile_path = None
+
+            if target_profile_path:
+                try:
+                    current_profile = ProfileManager.read_profile(target_profile_path)
+                except Exception:
+                    current_profile = {
+                        "profileVersion": profile_data.get("profileVersion", "v1"),
+                        "natives": [],
+                        "packages": [],
+                    }
+                updated_profile = dict(current_profile)
+                updated_profile["profileVersion"] = profile_data.get(
+                    "profileVersion", current_profile.get("profileVersion", "v1")
+                )
+                current_savefile = current_profile.get("savefile")
+                imported_savefile = profile_data.get("savefile")
+                chosen_savefile = imported_savefile
+
+                # If the current profile already has a custom savefile and the imported
+                # profile specifies a different one, ask the user which to keep.
+                if (
+                    current_savefile
+                    and imported_savefile
+                    and str(current_savefile) != str(imported_savefile)
+                ):
+                    choice = QMessageBox.question(
+                        self.game_page,
+                        tr("savefile_preference_title"),
+                        tr(
+                            "savefile_preference_message",
+                            current_savefile=current_savefile,
+                            imported_savefile=imported_savefile,
+                        ),
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes,
+                    )
+                    chosen_savefile = (
+                        imported_savefile
+                        if choice == QMessageBox.StandardButton.Yes
+                        else current_savefile
+                    )
+                elif imported_savefile:
+                    chosen_savefile = imported_savefile
+                else:
+                    chosen_savefile = current_savefile
+
+                for key in ("start_online", "disable_arxan", "supports"):
+                    if key in profile_data:
+                        updated_profile[key] = profile_data.get(key)
+
+                if chosen_savefile:
+                    updated_profile["savefile"] = chosen_savefile
+
+                try:
+                    ProfileManager.write_profile(
+                        target_profile_path, updated_profile, self.game_page.game_name
+                    )
+                    try:
+                        self.game_page.update_custom_savefile_warning()
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
 
             # Prepare to install referenced mods without persisting the .me3 file
             mods_dir = self.config_manager.get_mods_dir(self.game_page.game_name)

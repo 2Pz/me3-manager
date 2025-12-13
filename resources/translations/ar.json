@@ -279,6 +279,8 @@
   "name_imported_package_title": "سمّي حزمة المودات المستوردة",
   "name_imported_package_desc": "أدخل اسم لحزمة المودات المستوردة.",
   "importing_from_label": "جاري الاستيراد من: {folder}",
+  "savefile_preference_title": "تفضيل ملف الحفظ",
+  "savefile_preference_message": "البروفايل الحالي يستخدم ملف الحفظ '{current_savefile}'، لكن البروفايل المستورد يستخدم '{imported_savefile}'.\n\nاختر نعم لاستخدام ملف الحفظ المستورد، أو لا للاحتفاظ بالملف الحالي.",
   "import_cancelled_status": "تم إلغاء الاستيراد.",
   "importing_from_status": "جاري الاستيراد من {folder}...",
   "mod_exists_title": "المود موجود",
