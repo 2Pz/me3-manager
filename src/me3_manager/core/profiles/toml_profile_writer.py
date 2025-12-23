@@ -172,8 +172,13 @@ class TomlProfileWriter:
 
                     if "path" in native:
                         native_table["path"] = native["path"]
+                    # Only add 'enabled' if explicitly false to keep the TOML clean.
+                    if native.get("enabled") is False:
+                        native_table["enabled"] = False
                     if native.get("optional"):
                         native_table["optional"] = True
+                    if native.get("load_early") is True:
+                        native_table["load_early"] = True
 
                     if "load_before" in native:
                         dep_array = TomlProfileWriter._create_mods_array(
@@ -242,6 +247,9 @@ class TomlProfileWriter:
 
                     if "id" in package:
                         package_table["id"] = package["id"]
+                    # Only add 'enabled' if explicitly false to keep the TOML clean.
+                    if package.get("enabled") is False:
+                        package_table["enabled"] = False
                     if "path" in package:
                         package_table["path"] = package["path"]
                     elif "source" in package:  # Legacy support

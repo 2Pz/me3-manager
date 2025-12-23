@@ -69,7 +69,9 @@ class ProfileConverter:
                 entry: dict[str, Any] = {"path": nat.get("path")}
                 # Copy known optional fields
                 for k in (
+                    "enabled",
                     "optional",
+                    "load_early",
                     "initializer",
                     "finalizer",
                     "load_before",
@@ -87,6 +89,8 @@ class ProfileConverter:
                 entry: dict[str, Any] = {
                     "id": pkg.get("id"),
                 }
+                if "enabled" in pkg:
+                    entry["enabled"] = pkg.get("enabled")
                 # Prefer path over legacy source
                 path = pkg.get("path") or pkg.get("source")
                 if path:
@@ -157,6 +161,10 @@ class ProfileConverter:
                     # optional/disabled are v2 additions; map optional only
                     if table.get("optional") is True:
                         entry["optional"] = True
+                    if table.get("load_early") is True:
+                        entry["load_early"] = True
+                    if table.get("enabled") is False:
+                        entry["enabled"] = False
                     # Map initializer/finalizer possibly provided via nested keys
                     if isinstance(table.get("initializer"), dict) or isinstance(
                         table.get("initializer"), str
@@ -177,6 +185,8 @@ class ProfileConverter:
                         "id": ident,
                         "path": path,
                     }
+                    if table.get("enabled") is False:
+                        entry["enabled"] = False
                     # Disabled flag is v2-specific; we omit entirely if False to match current schema
                     for k in ("load_before", "load_after"):
                         if k in table and table[k] not in (None, []):
@@ -250,8 +260,12 @@ class ProfileConverter:
             )
             # Build inline table with possible dotted nested fields
             inline: dict[str, Any] = {"path": nat["path"]}
+            if nat.get("enabled") is False:
+                inline["enabled"] = False
             if nat.get("optional") is True:
                 inline["optional"] = True
+            if nat.get("load_early") is True:
+                inline["load_early"] = True
             if nat.get("initializer") is not None:
                 inline["initializer"] = nat["initializer"]
             if nat.get("finalizer") is not None:
@@ -269,6 +283,8 @@ class ProfileConverter:
                 continue
             ident = str(pkg["id"])
             inline = {"path": pkg["path"]}
+            if pkg.get("enabled") is False:
+                inline["enabled"] = False
             for k in ("load_before", "load_after"):
                 if k in pkg and pkg[k] not in (None, []):
                     inline[k] = pkg[k]

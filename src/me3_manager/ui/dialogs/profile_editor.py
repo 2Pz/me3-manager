@@ -49,6 +49,7 @@ class TomlHighlighter(QSyntaxHighlighter):
             "source",
             "load_after",
             "load_before",
+            "load_early",
             "enabled",
             "optional",
             "initializer",
