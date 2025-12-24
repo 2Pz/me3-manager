@@ -379,12 +379,18 @@ class ImprovedModManager:
     def _parse_enabled_status(
         self, config_data: dict, game_name: str
     ) -> dict[str, bool]:
-        """Parse enabled status from profile config - presence means enabled"""
+        """Parse enabled status from profile config.
+
+        A mod entry is considered enabled unless it explicitly sets `enabled = false`.
+        This allows preserving advanced options while toggling mods on/off.
+        """
         enabled_status = {}
 
         # Parse natives - if present in config, it's enabled
         for native in config_data.get("natives", []):
             if isinstance(native, dict) and "path" in native:
+                if native.get("enabled", True) is False:
+                    continue
                 path = native["path"]
                 # Ensure path is normalized
                 normalized_path = path.replace("\\", "/")
@@ -400,6 +406,8 @@ class ImprovedModManager:
         # Parse packages - if present in config, it's enabled
         for package in config_data.get("packages", []):
             if isinstance(package, dict) and "id" in package:
+                if package.get("enabled", True) is False:
+                    continue
                 pkg_id = package["id"]
                 # Skip the main mods directory package
                 if pkg_id != self.config_manager.games[game_name]["mods_dir"]:
@@ -567,14 +575,19 @@ class ImprovedModManager:
                 config_data["natives"] = natives
                 return True, "Created new native entry"
             else:
-                # Entry already exists
+                # Entry already exists - re-enable if needed
+                if native_entry.get("enabled", True) is False:
+                    # Keep the entry (preserves advanced options), just toggle enabled on
+                    native_entry.pop("enabled", None)
+                    config_data["natives"] = natives
+                    return True, "Re-enabled native entry"
                 return True, "Native entry already exists"
         else:
             if native_entry is not None:
-                # Remove the entry completely when disabling
-                natives.pop(native_index)
+                # Preserve entry + advanced options, just mark disabled
+                native_entry["enabled"] = False
                 config_data["natives"] = natives
-                return True, "Removed native entry"
+                return True, "Disabled native entry"
             else:
                 # Nothing to disable
                 return True, "Mod was already disabled"
@@ -624,8 +637,7 @@ class ImprovedModManager:
             normalized_package_path = self._normalize_path(str(resolved_mod_path))
 
         package_entry = None
-        package_index = -1
-        for i, package in enumerate(packages):
+        for package in packages:
             if not isinstance(package, dict) or "id" not in package:
                 continue
             existing_id = package.get("id")
@@ -638,7 +650,6 @@ class ImprovedModManager:
                 existing_path_normalized == normalized_package_path
             ):
                 package_entry = package
-                package_index = i
                 break
 
         if enabled:
@@ -667,6 +678,10 @@ class ImprovedModManager:
                 return True, "Created new package entry"
             else:
                 updated = False
+                # Ensure enabled flag is cleared (enabled by default)
+                if package_entry.get("enabled", True) is False:
+                    package_entry.pop("enabled", None)
+                    updated = True
                 current_path = package_entry.get("path") or package_entry.get("source")
                 current_normalized = (
                     self._normalize_path(current_path)
@@ -698,7 +713,8 @@ class ImprovedModManager:
                 return True, "Package entry already exists"
         else:
             if package_entry is not None:
-                packages.pop(package_index)
+                # Preserve entry + advanced options, just mark disabled
+                package_entry["enabled"] = False
                 config_data["packages"] = packages
                 # Disable regulation when disabling a package
                 try:
@@ -706,7 +722,7 @@ class ImprovedModManager:
                         self._disable_folder_regulation(mod_path_obj)
                 except Exception:
                     pass
-                return True, "Removed package entry"
+                return True, "Disabled package entry"
             else:
                 return True, "Package was already disabled"
 
@@ -1064,6 +1080,7 @@ class ImprovedModManager:
         # Check for any advanced options beyond basic ones
         advanced_keys = [
             "optional",
+            "load_early",
             "initializer",
             "finalizer",
             "load_before",
@@ -1108,6 +1125,7 @@ class ImprovedModManager:
                 "load_before",
                 "load_after",
                 "optional",
+                "load_early",
                 "initializer",
                 "finalizer",
             ]
@@ -1119,6 +1137,8 @@ class ImprovedModManager:
 
             for key, value in new_options.items():
                 if key == "optional" and value is True:
+                    target_entry[key] = True
+                elif key == "load_early" and value is True:
                     target_entry[key] = True
                 elif key in ["load_before", "load_after"] and value:
                     target_entry[key] = value

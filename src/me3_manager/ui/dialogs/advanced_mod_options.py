@@ -285,6 +285,9 @@ class AdvancedModOptionsDialog(QDialog):
             if hasattr(self, "optional_check"):
                 options["optional"] = self.optional_check.isChecked()
 
+            if hasattr(self, "load_early_check"):
+                options["load_early"] = self.load_early_check.isChecked()
+
             if hasattr(self, "init_type_combo"):
                 init_type = self.init_type_combo.currentText()
                 if init_type == "Function Call":
@@ -396,7 +399,16 @@ class AdvancedModOptionsDialog(QDialog):
 
     def setup_advanced_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout()
+        tab_layout = QVBoxLayout()
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
+
         optional_group = QGroupBox(tr("optional_setting"))
         optional_layout = QFormLayout()
         self.optional_check = QCheckBox(tr("optional"))
@@ -404,6 +416,15 @@ class AdvancedModOptionsDialog(QDialog):
         optional_layout.addRow("Optional:", self.optional_check)
         optional_group.setLayout(optional_layout)
         layout.addWidget(optional_group)
+
+        load_timing_group = QGroupBox(tr("native_load_timing"))
+        load_timing_layout = QFormLayout()
+        self.load_early_check = QCheckBox(tr("load_early"))
+        self.load_early_check.setToolTip(tr("load_early_tooltip"))
+        load_timing_layout.addRow(tr("load_early"), self.load_early_check)
+        load_timing_group.setLayout(load_timing_layout)
+        layout.addWidget(load_timing_group)
+
         init_group = QGroupBox(tr("initializer"))
         init_layout = QVBoxLayout()
         self.init_type_combo = QComboBox()
@@ -436,6 +457,7 @@ class AdvancedModOptionsDialog(QDialog):
         help_text = QLabel(f"""
             <b>{tr("native_module_help_title")}:</b><br>
             • <b>{tr("native_module_help_optional_title")}</b> {tr("native_module_help_optional_description")}<br>
+            • <b>{tr("native_module_help_load_early_title")}</b> {tr("native_module_help_load_early_description")}<br>
             • <b>{tr("native_module_help_initializer_title")}</b> {tr("native_module_help_initializer_description")}<br>
             - <b>{tr("native_module_help_function_title")}</b> {tr("native_module_help_function_description")}<br>
             - <b>{tr("native_module_help_delay_title")}</b> {tr("native_module_help_delay_description")}<br>
@@ -444,7 +466,19 @@ class AdvancedModOptionsDialog(QDialog):
         help_text.setStyleSheet("color: #888888; font-size: 11px; margin-top: 10px;")
         layout.addWidget(help_text)
         layout.addStretch()
-        tab.setLayout(layout)
+
+        # Keep a consistent control height even when the tab gets crowded.
+        for w in (
+            self.init_type_combo,
+            self.init_function_edit,
+            self.init_delay_spin,
+            self.finalizer_edit,
+        ):
+            w.setMinimumHeight(30)
+
+        scroll.setWidget(content)
+        tab_layout.addWidget(scroll)
+        tab.setLayout(tab_layout)
         self.tabs.addTab(tab, tr("advanced"))
         self.on_init_type_changed("None")
 
@@ -461,6 +495,10 @@ class AdvancedModOptionsDialog(QDialog):
     def load_current_options(self):
         if not self.is_folder_mod and hasattr(self, "optional_check"):
             self.optional_check.setChecked(self.current_options.get("optional", False))
+        if not self.is_folder_mod and hasattr(self, "load_early_check"):
+            self.load_early_check.setChecked(
+                self.current_options.get("load_early", False)
+            )
         if not self.is_folder_mod and hasattr(self, "init_type_combo"):
             initializer = self.current_options.get("initializer")
             if initializer is None:
@@ -479,6 +517,8 @@ class AdvancedModOptionsDialog(QDialog):
     def clear_all_options(self):
         if not self.is_folder_mod and hasattr(self, "optional_check"):
             self.optional_check.setChecked(False)
+        if not self.is_folder_mod and hasattr(self, "load_early_check"):
+            self.load_early_check.setChecked(False)
         for widget in self.load_before_widget.dependency_widgets[:]:
             self.load_before_widget.remove_dependency(widget)
         for widget in self.load_after_widget.dependency_widgets[:]:
