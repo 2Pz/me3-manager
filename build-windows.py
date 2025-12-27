@@ -11,10 +11,17 @@ Usage with pip (activate venv first):
 
 import sys
 import warnings
+from pathlib import Path
 
+import tomlkit
 from cx_Freeze import Executable, setup
 
-from me3_manager import __version__ as VERSION
+# Get version from pyproject.toml instead of importing me3_manager
+# This is more robust in CI environments.
+pyproject_path = Path(__file__).parent / "pyproject.toml"
+pyproject_content = pyproject_path.read_text(encoding="utf-8")
+pyproject_data = tomlkit.parse(pyproject_content)
+VERSION = pyproject_data["project"]["version"]  # type: ignore[index]
 
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 

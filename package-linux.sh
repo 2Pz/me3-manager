@@ -52,6 +52,6 @@ cd -
 
 echo "Creating Appimage..."
 chmod +x appimagetool-x86_64.appimage
-./appimagetool-x86_64.appimage $appdir dist/linux-"$version"/Me3_Manager.AppImage
+./appimagetool-x86_64.appimage --appimage-extract-and-run $appdir dist/linux-"$version"/Me3_Manager.AppImage
 
 echo "AppImage created: dist/linux-$version/Me3_Manager.AppImage"

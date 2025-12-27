@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - main
+    # Release branches are handled by release.yml, not this workflow
+    branches-ignore:
+      - 'release-*'
   # Allow manual trigger
   workflow_dispatch:
 
