@@ -15,6 +15,13 @@ dependencies = [
   "tomlkit>=0.13.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/2Pz/me3-manager"
+Repository = "https://github.com/2Pz/me3-manager"
+Issues = "https://github.com/2Pz/me3-manager/issues"
+Documentation = "https://2pz.github.io/me3-manager-help/"
+
+
 [project.scripts]
 me3-manager = "me3_manager.main:main"
 

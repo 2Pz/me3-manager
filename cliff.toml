@@ -1,0 +1,106 @@
+[changelog]
+header = """
+# 📜 Me3 Manager - Release History
+
+> A comprehensive changelog for the Mod Engine 3 Manager application.
+> All notable changes to this project are documented here.
+
+"""
+body = """
+{% if version -%}
+## 📦 Release {{ version | trim_start_matches(pat="v") }}
+**Released:** {{ timestamp | date(format="%B %d, %Y") }}
+
+{% else -%}
+## 🚧 Unreleased Changes
+**Status:** Development in progress
+
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+
+{% for commit in commits | unique(attribute="message") %}
+- {{ commit.message | upper_first | trim }}{% if commit.scope %} `[{{ commit.scope }}]`{% endif %}{% if commit.breaking %} ⚠️ **BREAKING CHANGE**{% endif %}
+
+{% endfor %}
+{% endfor %}
+---
+
+"""
+footer = """
+{%- macro repo_url() -%}
+https://github.com/2Pz/me3-manager
+{%- endmacro -%}
+
+{% for release in releases -%}
+    {% if release.version -%}
+        {% if release.previous.version -%}
+[{{ release.version | trim_start_matches(pat="v") }}]: {{ self::repo_url() }}/compare/{{ release.previous.version }}..{{ release.version }}
+        {% endif -%}
+    {% else -%}
+[unreleased]: {{ self::repo_url() }}/compare/{{ release.previous.version }}..HEAD
+    {% endif -%}
+{% endfor %}
+"""
+trim = true
+render_always = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+
+commit_preprocessors = [
+  # Clean up PR references
+  { pattern = '\s*\(#[0-9]+\)', replace = "" },
+  # Auto-fix common commit formats
+  { pattern = "^Fix ", replace = "fix: " },
+  { pattern = "^Add ", replace = "feat: " },
+  { pattern = "^Update ", replace = "chore: " },
+]
+
+commit_parsers = [
+  # Primary categories
+  { message = "^feat", group = "<!-- 0 -->✨ New Features" },
+  { message = "^fix", group = "<!-- 1 -->🔧 Bug Fixes" },
+  
+  # GUI-specific
+  { message = "^ui", group = "<!-- 2 -->🎨 User Interface" },
+  { message = "^ux", group = "<!-- 2 -->🎨 User Interface" },
+  
+  # Documentation
+  { message = "^docs", group = "<!-- 3 -->📖 Documentation" },
+  
+  # Performance & Quality
+  { message = "^perf", group = "<!-- 4 -->⚡ Performance Improvements" },
+  { message = "^refactor", group = "<!-- 5 -->♻️ Code Refactoring" },
+  
+  # Testing & Infrastructure
+  { message = "^test", group = "<!-- 6 -->✅ Testing" },
+  { message = "^ci", group = "<!-- 7 -->🔄 CI/CD" },
+  { message = "^build", group = "<!-- 7 -->🔄 CI/CD" },
+  
+  # Maintenance
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^🚀 Release", skip = true },
+  { message = "^chore\\(deps\\)", group = "<!-- 8 -->📦 Dependencies" },
+  { message = "^chore", group = "<!-- 9 -->🧹 Maintenance" },
+  
+  # Security & Critical
+  { body = ".*security", group = "<!-- 10 -->🔒 Security" },
+  { message = "^security", group = "<!-- 10 -->🔒 Security" },
+  
+  # Style
+  { message = "^style", skip = true },  # Skip pure style commits
+  
+  # Reverts
+  { message = "^revert", group = "<!-- 11 -->⏪ Reverted Changes" },
+]
+
+filter_commits = false
+protect_breaking_commits = true
+
+link_parsers = [
+  { pattern = "#(\\d+)", href = "https://github.com/2Pz/me3-manager/issues/$1" },
+  { pattern = "RFC-(\\d+)", href = "https://github.com/2Pz/me3-manager/discussions/$1" },
+]
