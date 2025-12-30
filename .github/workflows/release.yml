@@ -232,16 +232,15 @@ jobs:
           # Read changelog content
           pr_changelog=$(cat pr_changelog.txt)
           
-          # Check if PR already exists (gh pr view without --json uses REST API)
-          if ! gh pr view "release-$NEXT_VERSION" >/dev/null 2>&1; then
-            echo "Creating new PR..."
-            gh pr create \
+          # Try to create PR first, if it fails because PR already exists, update it
+          if gh pr create \
               -B main \
               --title "🚀 Release: Me3 Manager $NEXT_VERSION" \
               -b "$pr_changelog" \
-              --head "release-$NEXT_VERSION"
+              --head "release-$NEXT_VERSION" 2>/dev/null; then
+            echo "Created new PR"
           else
-            echo "Updating existing PR..."
+            echo "PR already exists, updating..."
             gh pr edit "release-$NEXT_VERSION" -b "$pr_changelog"
           fi
         env:
