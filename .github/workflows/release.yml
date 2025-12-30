@@ -229,8 +229,7 @@ jobs:
         run: |
           # Check if PR already exists
           if gh pr view "release-$NEXT_VERSION" --json state >/dev/null 2>&1; then
-            echo "PR already exists, updating..."
-            gh pr edit "release-$NEXT_VERSION" --body-file pr_changelog.txt
+            echo "PR already exists, skipping creation..."
           else
             echo "Creating new PR..."
             gh pr create \
