@@ -229,10 +229,9 @@ jobs:
 
       - name: Create or update pull request
         run: |
-          # Check if PR already exists
-          existing_pr=$(gh pr list --head "release-$NEXT_VERSION" --json number --jq '.[0].number' 2>/dev/null || echo "")
-          
-          if [ -n "$existing_pr" ]; then
+          # Check if PR already exists using REST API (gh pr view uses REST, not GraphQL)
+          if gh pr view "release-$NEXT_VERSION" --json number --jq '.number' >/dev/null 2>&1; then
+            existing_pr=$(gh pr view "release-$NEXT_VERSION" --json number --jq '.number')
             echo "Updating existing PR #$existing_pr..."
             gh pr edit "$existing_pr" --body-file pr_changelog.txt
           else
