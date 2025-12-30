@@ -419,7 +419,7 @@ class AdvancedModOptionsDialog(QDialog):
 
         load_timing_group = QGroupBox(tr("native_load_timing"))
         load_timing_layout = QFormLayout()
-        self.load_early_check = QCheckBox(tr("load_early"))
+        self.load_early_check = QCheckBox()
         self.load_early_check.setToolTip(tr("load_early_tooltip"))
         load_timing_layout.addRow(tr("load_early"), self.load_early_check)
         load_timing_group.setLayout(load_timing_layout)

@@ -209,6 +209,10 @@ class ConfigFacade:
         """Get CLI ID for a game."""
         return self.game_registry.get_game_cli_id(game_name)
 
+    def get_game_nexus_domain(self, game_name: str) -> str | None:
+        """Get Nexus Mods game domain for a game."""
+        return self.game_registry.get_game_nexus_domain(game_name)
+
     def get_game_executable_name(self, game_name: str) -> str | None:
         """Get executable name for a game."""
         return self.game_registry.get_game_executable_name(game_name)
@@ -258,6 +262,34 @@ class ConfigFacade:
     def set_auto_launch_steam(self, enabled: bool):
         """Set auto launch Steam setting."""
         self.ui_settings.set_auto_launch_steam(enabled)
+
+    # Nexus settings (API key now; SSO later)
+    def get_nexus_api_key(self) -> str | None:
+        try:
+            nexus = self.settings_manager.get("nexus", {}) or {}
+            if isinstance(nexus, dict):
+                key = nexus.get("api_key")
+            else:
+                key = None
+            key = str(key).strip() if key else ""
+            return key or None
+        except Exception:
+            return None
+
+    def set_nexus_api_key(self, api_key: str | None) -> None:
+        nexus = self.settings_manager.get("nexus", {}) or {}
+        if not isinstance(nexus, dict):
+            nexus = {}
+        key = (api_key or "").strip()
+        nexus["api_key"] = key
+        self.settings_manager.set("nexus", nexus)
+
+    def clear_nexus_api_key(self) -> None:
+        nexus = self.settings_manager.get("nexus", {}) or {}
+        if not isinstance(nexus, dict):
+            nexus = {}
+        nexus.pop("api_key", None)
+        self.settings_manager.set("nexus", nexus)
 
     # Path Management (delegated to PathManager)
     def get_mods_dir(self, game_name: str) -> Path:
@@ -575,6 +607,30 @@ class ConfigFacade:
         """Set mod enabled status (needed by UI components)."""
         try:
             success, _ = self.mod_manager.set_mod_enabled(game_name, mod_path, enabled)
+            return success
+        except Exception:
+            return False
+
+    def enable_native_with_options(
+        self, game_name: str, mod_path: str, options: dict | None = None
+    ) -> bool:
+        """Enable a native (DLL) mod with additional options.
+
+        This is used when installing from hosted profiles to preserve
+        settings like load_early.
+
+        Args:
+            game_name: Name of the game
+            mod_path: Path to the DLL mod
+            options: Optional dict of options (e.g., load_early=True)
+
+        Returns:
+            True on success, False on failure
+        """
+        try:
+            success, _ = self.mod_manager.enable_native_with_options(
+                game_name, mod_path, options
+            )
             return success
         except Exception:
             return False

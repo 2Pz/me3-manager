@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Me3 Manager
-Comment=GUI manager for me3 mod loader
+Comment=GUI manager for me3 mod engine 3
 Exec=me3-manager
 Icon=me3-manager
 Categories=Game;Utility;
