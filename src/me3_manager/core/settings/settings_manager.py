@@ -147,6 +147,8 @@ class SettingsManager:
             "active_profiles": {},
             "custom_config_paths": {},
             "me3_config_paths": {},
+            # Nexus integration settings (API key now; SSO fields later).
+            "nexus": {},
         }
 
     def get_all_settings(self) -> dict[str, Any]:

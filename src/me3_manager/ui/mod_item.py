@@ -16,6 +16,7 @@ class ModItem(QWidget):
     regulation_activate_requested = Signal(str)
     advanced_options_requested = Signal(str)
     expand_requested = Signal(str, bool)  # New signal for expand/collapse
+    clicked = Signal(str)  # Emitted when the row is clicked (for sidebar/details)
 
     def __init__(
         self,
@@ -507,6 +508,15 @@ class ModItem(QWidget):
         self.is_enabled = not self.is_enabled
         self.update_toggle_button_ui()
         self.toggled.emit(self.mod_path, self.is_enabled)
+
+    def mousePressEvent(self, event):
+        """Emit a click signal for selection (sidebar/details)."""
+        try:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self.clicked.emit(self.mod_path)
+        except Exception:
+            pass
+        super().mousePressEvent(event)
 
     def set_expanded(self, expanded: bool):
         """Programmatically set expanded state"""

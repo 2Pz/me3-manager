@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
+    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -37,6 +38,7 @@ class UiBuilder:
 
     def init_ui(self):
         """Initialize the main UI components."""
+        # Main layout (sidebar is attached only to the mods list section)
         self.game_page.main_layout = QVBoxLayout()
         self._setup_layout_properties()
 
@@ -49,7 +51,6 @@ class UiBuilder:
         self._create_pagination_section()
         self._create_mods_section()
         self._create_status_section()
-
         self.game_page.setLayout(self.game_page.main_layout)
 
     def _setup_layout_properties(self):
@@ -231,12 +232,54 @@ class UiBuilder:
         return button
 
     def _create_search_section(self):
-        """Create the search bar."""
+        """Create the search bar + source dropdown (Local/Nexus)."""
+        container = QWidget()
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+
+        self.game_page.search_mode_combo = QComboBox()
+        self.game_page.search_mode_combo.addItem(tr("search_source_local"), "local")
+        self.game_page.search_mode_combo.addItem(tr("search_source_nexus"), "nexus")
+        self.game_page.search_mode_combo.setFixedWidth(110)
+        self.game_page.search_mode_combo.setStyleSheet(
+            """
+            QComboBox {
+                background-color: #2d2d2d;
+                border: 1px solid #4d4d4d;
+                border-radius: 6px;
+                padding: 6px 8px;
+                color: #ffffff;
+                font-size: 12px;
+            }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background-color: #2d2d2d;
+                color: #ffffff;
+                selection-background-color: #0078d4;
+            }
+            """
+        )
+        self.game_page.search_mode_combo.currentIndexChanged.connect(
+            self.game_page.on_search_mode_changed
+        )
+        row.addWidget(self.game_page.search_mode_combo)
+
         self.game_page.search_bar = QLineEdit()
         self.game_page.search_bar.setPlaceholderText(tr("search_mods_placeholder"))
         self.game_page.search_bar.setStyleSheet(self.style.search_bar_style)
-        self.game_page.search_bar.textChanged.connect(self.game_page.apply_filters)
-        self.game_page.main_layout.addWidget(self.game_page.search_bar)
+        self.game_page.search_bar.textChanged.connect(
+            self.game_page.on_search_text_changed
+        )
+        self.game_page.search_bar.returnPressed.connect(
+            self.game_page.on_search_return_pressed
+        )
+        row.addWidget(self.game_page.search_bar, 1)
+
+        self.game_page.main_layout.addWidget(container)
+
+    # NOTE: Nexus search results are shown as a dropdown under the search bar
+    # (see GamePage.perform_nexus_search), to match the desired UX.
 
     def _create_filter_section(self):
         """Create the filter buttons section."""
@@ -337,7 +380,21 @@ class UiBuilder:
         self.game_page.mods_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.game_page.mods_layout.setSpacing(4)
         self.game_page.mods_widget.setStyleSheet(self.style.mods_widget_style)
+
         self.game_page.main_layout.addWidget(self.game_page.mods_widget)
+
+        # Sidebar as a floating overlay (not part of layout)
+        try:
+            from me3_manager.ui.game_page_components.nexus_mod_details_sidebar import (
+                NexusModDetailsSidebar,
+            )
+
+            # Parent to game_page directly, not in any layout
+            sidebar = NexusModDetailsSidebar(parent=self.game_page)
+            sidebar.setVisible(False)
+            self.game_page.nexus_details_sidebar = sidebar
+        except Exception:
+            self.game_page.nexus_details_sidebar = None
 
     def _create_status_section(self):
         """Create the status bar."""

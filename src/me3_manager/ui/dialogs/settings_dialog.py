@@ -6,15 +6,19 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMessageBox,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
+    QWidget,
 )
 
 from me3_manager.utils.translator import tr
 
 
 class SettingsDialog(QDialog):
-    """Settings dialog for user preferences"""
+    """Settings dialog with tabbed layout for user preferences"""
 
     def __init__(self, main_window):
         super().__init__(main_window)
@@ -23,42 +27,46 @@ class SettingsDialog(QDialog):
         self.init_ui()
 
     def init_ui(self):
-        """Initialize the settings dialog UI"""
+        """Initialize the settings dialog UI with tabs"""
         self.setWindowTitle(tr("settings_title"))
-        self.setMinimumWidth(450)
-        self.setMinimumHeight(350)
+        self.setMinimumWidth(520)
+        self.setMinimumHeight(420)
         self.apply_styles()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        layout.setSpacing(16)
 
         # Title
         title = QLabel(tr("settings_title"))
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         layout.addWidget(title)
 
-        # Steam Integration Section
-        self.create_steam_section(layout)
+        # Tab Widget
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setStyleSheet(self._get_tab_style())
 
-        # Update Settings Section
-        self.create_update_section(layout)
+        # Create tabs
+        self.tab_widget.addTab(self._create_general_tab(), tr("settings_tab_general"))
+        self.tab_widget.addTab(self._create_nexus_tab(), tr("settings_tab_nexus"))
+        self.tab_widget.addTab(self._create_updates_tab(), tr("settings_tab_updates"))
 
-        # Future sections can be added here
-        # self.create_ui_section(layout)
-        # self.create_advanced_section(layout)
-
-        layout.addStretch()
+        layout.addWidget(self.tab_widget)
 
         # Bottom buttons
         self.create_button_section(layout)
 
-    def create_steam_section(self, parent_layout):
-        """Create Steam integration settings section"""
-        # Section header
+    def _create_general_tab(self):
+        """Create the General settings tab with Steam integration"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 20, 16, 16)
+        layout.setSpacing(16)
+
+        # Steam Integration Section
         steam_header = QLabel(tr("steam_integration_header"))
         steam_header.setObjectName("SectionHeader")
-        parent_layout.addWidget(steam_header)
+        layout.addWidget(steam_header)
 
         # Auto-launch Steam checkbox
         if sys.platform == "win32":
@@ -73,7 +81,7 @@ class SettingsDialog(QDialog):
         self.auto_launch_steam_checkbox.toggled.connect(
             self.on_auto_launch_steam_toggled
         )
-        parent_layout.addWidget(self.auto_launch_steam_checkbox)
+        layout.addWidget(self.auto_launch_steam_checkbox)
 
         # Steam status info
         steam_path = self.config_manager.get_steam_path()
@@ -88,7 +96,98 @@ class SettingsDialog(QDialog):
                 tr("steam_path_unavailable_tooltip")
             )
 
-        parent_layout.addWidget(steam_status)
+        steam_status.setWordWrap(True)
+        layout.addWidget(steam_status)
+
+        layout.addStretch()
+        return tab
+
+    def _create_nexus_tab(self):
+        """Create the Nexus Mods settings tab"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 20, 16, 16)
+        layout.setSpacing(16)
+
+        # Nexus Header
+        nexus_header = QLabel(tr("nexus_header"))
+        nexus_header.setObjectName("SectionHeader")
+        layout.addWidget(nexus_header)
+
+        # Description
+        desc = QLabel(tr("nexus_desc"))
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #cccccc; font-size: 12px;")
+        layout.addWidget(desc)
+
+        # API Key input row
+        row = QHBoxLayout()
+        row.setSpacing(10)
+
+        self.nexus_api_key_input = QLineEdit()
+        self.nexus_api_key_input.setPlaceholderText(tr("nexus_api_key_placeholder"))
+        self.nexus_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.nexus_api_key_input.setText(self.config_manager.get_nexus_api_key() or "")
+        self.nexus_api_key_input.setMinimumHeight(36)
+        row.addWidget(self.nexus_api_key_input, 1)
+
+        layout.addLayout(row)
+
+        # Action buttons row
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        validate_btn = QPushButton(tr("nexus_validate_button"))
+        validate_btn.clicked.connect(self.on_validate_nexus_key)
+        btn_row.addWidget(validate_btn)
+
+        save_btn = QPushButton(tr("save_button"))
+        save_btn.clicked.connect(self.on_save_nexus_key)
+        btn_row.addWidget(save_btn)
+
+        clear_btn = QPushButton(tr("clear_button"))
+        clear_btn.clicked.connect(self.on_clear_nexus_key)
+        btn_row.addWidget(clear_btn)
+
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        # Status label
+        self.nexus_status_label = QLabel("")
+        self.nexus_status_label.setObjectName("StatusInfo")
+        layout.addWidget(self.nexus_status_label)
+
+        layout.addStretch()
+        return tab
+
+    def _create_updates_tab(self):
+        """Create the Updates settings tab"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 20, 16, 16)
+        layout.setSpacing(16)
+
+        # Updates Header
+        update_header = QLabel(tr("me3_updates_header"))
+        update_header.setObjectName("SectionHeader")
+        layout.addWidget(update_header)
+
+        # Check for updates checkbox
+        self.check_updates_checkbox = QCheckBox(tr("check_for_updates_checkbox"))
+        self.check_updates_checkbox.setChecked(
+            self.config_manager.get_check_for_updates()
+        )
+        self.check_updates_checkbox.toggled.connect(self.on_check_updates_toggled)
+        layout.addWidget(self.check_updates_checkbox)
+
+        # Info text
+        info = QLabel(tr("settings_updates_info"))
+        info.setWordWrap(True)
+        info.setStyleSheet("color: #888888; font-size: 11px; margin-top: 8px;")
+        layout.addWidget(info)
+
+        layout.addStretch()
+        return tab
 
     def create_button_section(self, parent_layout):
         """Create bottom button section"""
@@ -101,20 +200,63 @@ class SettingsDialog(QDialog):
 
         parent_layout.addLayout(button_layout)
 
-    def create_update_section(self, parent_layout):
-        """Create update checking settings section"""
-        # Section header
-        update_header = QLabel(tr("me3_updates_header"))
-        update_header.setObjectName("SectionHeader")
-        parent_layout.addWidget(update_header)
+    def on_save_nexus_key(self):
+        key = (self.nexus_api_key_input.text() or "").strip()
+        self.config_manager.set_nexus_api_key(key)
+        self.nexus_status_label.setText(tr("nexus_saved_status"))
 
-        # Check for updates checkbox
-        self.check_updates_checkbox = QCheckBox(tr("check_for_updates_checkbox"))
-        self.check_updates_checkbox.setChecked(
-            self.config_manager.get_check_for_updates()
-        )
-        self.check_updates_checkbox.toggled.connect(self.on_check_updates_toggled)
-        parent_layout.addWidget(self.check_updates_checkbox)
+    def on_clear_nexus_key(self):
+        self.config_manager.clear_nexus_api_key()
+        self.nexus_api_key_input.setText("")
+        self.nexus_status_label.setText(tr("nexus_cleared_status"))
+
+    def on_validate_nexus_key(self):
+        key = (self.nexus_api_key_input.text() or "").strip()
+        if not key:
+            QMessageBox.warning(self, tr("ERROR"), tr("nexus_key_required"))
+            return
+        try:
+            from me3_manager.services.nexus_service import NexusService
+
+            svc = NexusService(key)
+            user = svc.validate_user()
+            self.nexus_status_label.setText(
+                tr("nexus_valid_status", user_name=user.name or tr("not_installed"))
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self, tr("ERROR"), tr("nexus_invalid_status", error=str(e))
+            )
+
+    def _get_tab_style(self):
+        """Return modern tab widget styling"""
+        return """
+            QTabWidget::pane {
+                border: 1px solid #3d3d3d;
+                border-radius: 8px;
+                background-color: #1f1f1f;
+                top: -1px;
+            }
+            QTabBar::tab {
+                background-color: #2d2d2d;
+                color: #888888;
+                padding: 10px 24px;
+                margin-right: 4px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                font-weight: 500;
+            }
+            QTabBar::tab:selected {
+                background-color: #1f1f1f;
+                color: #ffffff;
+                border: 1px solid #3d3d3d;
+                border-bottom: none;
+            }
+            QTabBar::tab:hover:!selected {
+                background-color: #3d3d3d;
+                color: #cccccc;
+            }
+        """
 
     def apply_styles(self):
         """Apply consistent styling to the dialog"""
@@ -130,10 +272,11 @@ class SettingsDialog(QDialog):
             QPushButton {
                 background-color: #2d2d2d;
                 border: 1px solid #3d3d3d;
-                padding: 8px 16px;
-                border-radius: 4px;
+                padding: 10px 20px;
+                border-radius: 6px;
                 color: #ffffff;
                 min-width: 80px;
+                font-weight: 500;
             }
             QPushButton:hover {
                 background-color: #3d3d3d;
@@ -144,14 +287,15 @@ class SettingsDialog(QDialog):
             QCheckBox {
                 background-color: transparent;
                 color: #ffffff;
-                spacing: 8px;
-                padding: 4px 0px;
+                spacing: 10px;
+                padding: 6px 0px;
+                font-size: 13px;
             }
             QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
+                width: 18px;
+                height: 18px;
                 border: 2px solid #3d3d3d;
-                border-radius: 3px;
+                border-radius: 4px;
                 background-color: #2d2d2d;
             }
             QCheckBox::indicator:checked {
@@ -165,24 +309,36 @@ class SettingsDialog(QDialog):
                 background-color: #106ebe;
                 border-color: #106ebe;
             }
+            QLineEdit {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                border-radius: 6px;
+                padding: 8px 12px;
+                color: #ffffff;
+                font-size: 13px;
+            }
+            QLineEdit:focus {
+                border-color: #0078d4;
+            }
             #SectionHeader {
-                font-size: 14px;
+                font-size: 15px;
                 font-weight: bold;
-                margin-top: 10px;
-                margin-bottom: 8px;
                 color: #ffffff;
             }
             #StatusSuccess {
                 color: #90EE90;
-                font-size: 11px;
-                margin-left: 24px;
-                margin-top: 4px;
+                font-size: 12px;
+                margin-top: 6px;
             }
             #StatusError {
                 color: #FFB6C1;
-                font-size: 11px;
-                margin-left: 24px;
-                margin-top: 4px;
+                font-size: 12px;
+                margin-top: 6px;
+            }
+            #StatusInfo {
+                color: #cccccc;
+                font-size: 12px;
+                margin-top: 6px;
             }
         """)
 

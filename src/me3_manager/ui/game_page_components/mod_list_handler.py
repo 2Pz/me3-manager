@@ -77,8 +77,18 @@ class ModListHandler:
         gp.mod_infos = gp.mod_manager.get_all_mods(gp.game_name)
         final_mods = {}
         for mod_path, mod_info in gp.mod_infos.items():
+            display_name = mod_info.name
+            # If this mod was downloaded/linked from Nexus, prefer Nexus display name.
+            try:
+                linked = gp.nexus_metadata.find_for_local_mod(
+                    str(Path(mod_path).resolve())
+                )
+                if linked and linked.mod_name:
+                    display_name = linked.mod_name
+            except Exception:
+                pass
             final_mods[mod_path] = {
-                "name": mod_info.name,
+                "name": display_name,
                 "enabled": mod_info.status == ModStatus.ENABLED,
                 "external": mod_info.is_external,
                 "is_folder_mod": mod_info.mod_type == ModType.PACKAGE,
@@ -96,7 +106,12 @@ class ModListHandler:
     ):
         """Filters the mod list based on search text and category."""
         gp = self.game_page
-        search_text = gp.search_bar.text().lower()
+        # Only use the search bar text to filter LOCAL mods when in local search mode.
+        # In Nexus mode, the search bar contains a URL/ID which would hide the local list.
+        if getattr(gp, "search_mode", "local") == "local":
+            search_text = gp.search_bar.text().lower()
+        else:
+            search_text = ""
         all_mods = source_mods if source_mods is not None else gp.all_mods_data
         gp.filtered_mods = {}
 
@@ -145,7 +160,8 @@ class ModListHandler:
                         nested_mods[parent_name] = []
                     clean_info = info.copy()
                     clean_info["name"] = Path(mod_path).name
-                    nested_mods[parent_name].append((mod_path, clean_info))
+                    # Store both clean_info (for children display) and original info (for standalone)
+                    nested_mods[parent_name].append((mod_path, clean_info, info))
                 elif mod_info.mod_type.value == "package":
                     parent_packages[mod_info.name] = (mod_path, info)
                 else:
@@ -161,11 +177,16 @@ class ModListHandler:
                     "parent": parent_info,
                     "children": {
                         child_path: child_info
-                        for child_path, child_info in children_list
+                        for child_path, child_info, _ in children_list
                     },
                     "expanded": gp.expanded_states.get(parent_path, False),
                 }
                 parent_packages.pop(parent_name, None)
+            else:
+                # Orphaned nested mods (parent is DLL-only folder, not a package)
+                # Display them as standalone mods with original info (includes Nexus name)
+                for child_path, _, original_info in children_list:
+                    grouped[child_path] = {"type": "standalone", "info": original_info}
 
         for parent_path, parent_info in parent_packages.values():
             if parent_path not in grouped:
@@ -214,7 +235,7 @@ class ModListHandler:
                 )
             else:
                 mod_type, type_icon = (
-                    tr("mod_type_dll"),
+                    tr("mod_type_native"),
                     QIcon(resource_path("resources/icon/dll.svg")),
                 )
         else:  # Fallback
@@ -230,7 +251,7 @@ class ModListHandler:
                 )
             else:
                 mod_type, type_icon = (
-                    tr("mod_type_dll"),
+                    tr("mod_type_native"),
                     QIcon(resource_path("resources/icon/dll.svg")),
                 )
 
@@ -260,6 +281,7 @@ class ModListHandler:
         mod_widget.toggled.connect(gp.toggle_mod)
         if not is_nested:
             mod_widget.delete_requested.connect(gp.delete_mod)
+            mod_widget.clicked.connect(gp.on_local_mod_selected)
         mod_widget.edit_config_requested.connect(gp.open_config_editor)
         mod_widget.open_folder_requested.connect(gp.open_mod_folder)
         mod_widget.advanced_options_requested.connect(gp.open_advanced_options)

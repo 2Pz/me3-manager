@@ -85,20 +85,30 @@ class ProfileConverter:
 
         # Packages
         for pkg in data.get("packages", []) or []:
-            if isinstance(pkg, dict) and pkg.get("id"):
-                entry: dict[str, Any] = {
-                    "id": pkg.get("id"),
-                }
-                if "enabled" in pkg:
-                    entry["enabled"] = pkg.get("enabled")
+            if isinstance(pkg, dict):
+                pkg_id = pkg.get("id")
                 # Prefer path over legacy source
                 path = pkg.get("path") or pkg.get("source")
-                if path:
-                    entry["path"] = path
-                for k in ("load_before", "load_after"):
-                    if k in pkg and pkg[k] not in (None, []):
-                        entry[k] = pkg[k]
-                result["packages"].append(entry)
+
+                # If no ID, derive from path
+                if not pkg_id and path:
+                    from pathlib import Path
+
+                    pkg_id = Path(path).name
+
+                if pkg_id:
+                    entry: dict[str, Any] = {
+                        "id": str(pkg_id),
+                    }
+                    if "enabled" in pkg:
+                        entry["enabled"] = pkg.get("enabled")
+
+                    if path:
+                        entry["path"] = path
+                    for k in ("load_before", "load_after"):
+                        if k in pkg and pkg[k] not in (None, []):
+                            entry[k] = pkg[k]
+                    result["packages"].append(entry)
 
         return result
 

@@ -10,6 +10,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from me3_manager.core.nexus_metadata import NexusMetadataManager
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.path_utils import PathUtils
 
@@ -190,6 +191,10 @@ class ImprovedModManager:
 
             is_valid = self._is_valid_mod_folder(folder)
 
+            # Skip DLL-only folders - they should only have their DLLs registered as nested mods
+            if is_valid and self._is_dll_only_folder(folder):
+                continue
+
             if is_valid:
                 mod_path = str(folder)
                 has_regulation = (folder / "regulation.bin").exists() or (
@@ -215,6 +220,40 @@ class ImprovedModManager:
 
         return mods
 
+    def _is_dll_only_folder(self, folder: Path) -> bool:
+        """
+        Check if a folder is primarily a container for DLL mods with their configs.
+        Such folders should not be registered as package mods - only their DLLs
+        should be registered as native mods.
+
+        Returns True if:
+        - Folder contains DLLs
+        - Does NOT contain acceptable game asset folders (parts, chr, etc.)
+        """
+        try:
+            children = list(folder.iterdir())
+        except (PermissionError, OSError):
+            return False
+
+        # Must have at least one DLL
+        has_dll = any(c.is_file() and c.suffix.lower() == ".dll" for c in children)
+        if not has_dll:
+            # Check recursively for nested DLLs
+            try:
+                has_dll = any(folder.rglob("*.dll"))
+            except (PermissionError, OSError):
+                pass
+        if not has_dll:
+            return False
+
+        # If folder contains acceptable game asset folders, it's a package mod
+        for child in children:
+            if child.is_dir() and child.name in self.acceptable_folders:
+                return False
+
+        # Has DLLs, no game asset folders -> it's a DLL container
+        return True
+
     def _is_valid_mod_folder(self, folder: Path) -> bool:
         """Check if a folder is a valid mod folder"""
         # Check if folder name is in acceptable folders
@@ -237,6 +276,14 @@ class ImprovedModManager:
             folder / "regulation.bin.disabled"
         ).exists():
             return True
+
+        # Check if it contains DLL files (native mods, including nested in subfolders)
+        try:
+            # Use rglob to find DLLs at any depth (e.g., ModName/SeamlessCoop/nrsc.dll)
+            if any(folder.rglob("*.dll")):
+                return True
+        except (PermissionError, OSError):
+            pass
 
         return False
 
@@ -268,6 +315,9 @@ class ImprovedModManager:
             if not self._is_valid_mod_folder(folder):
                 continue
 
+            # Check if this folder is a DLL-only container (not a package mod)
+            is_dll_only = self._is_dll_only_folder(folder)
+
             # Recursively scan for DLL files within this package
             for dll_file in folder.rglob("*.dll"):
                 try:
@@ -277,9 +327,17 @@ class ImprovedModManager:
                         nested_mod_path, game_name
                     )
 
+                    # For DLL-only folders, use just the folder name as display name
+                    # This prevents redundant names like "StormControl/StormControl"
+                    # For package mods with nested DLLs, use "folder/dll_stem" format
+                    if is_dll_only:
+                        display_name = folder.name
+                    else:
+                        display_name = f"{folder.name}/{dll_file.stem}"
+
                     mod_info = ModInfo(
                         path=nested_mod_path,
-                        name=f"{folder.name}/{dll_file.stem}",
+                        name=display_name,
                         mod_type=ModType.NESTED,
                         status=ModStatus.ENABLED
                         if enabled_status.get(config_key, False)
@@ -555,10 +613,56 @@ class ImprovedModManager:
         except Exception as e:
             return False, f"Error setting mod status: {str(e)}"
 
-    def _set_native_enabled(
-        self, config_data: dict, mod_path: str, enabled: bool, game_name: str
+    def enable_native_with_options(
+        self, game_name: str, mod_path: str, options: dict[str, Any] | None = None
     ) -> tuple[bool, str]:
-        """Set enabled status for a native (DLL) mod with consistent path handling"""
+        """
+        Enable a native (DLL) mod with additional options from a profile.
+
+        This is used when installing mods from hosted profiles to preserve
+        settings like load_early.
+
+        Args:
+            game_name: Name of the game
+            mod_path: Path to the DLL mod
+            options: Optional dict of options to apply (e.g., load_early=True)
+
+        Returns:
+            (success, message) tuple
+        """
+        try:
+            profile_path = self.config_manager.get_profile_path(game_name)
+            config_data = self.config_manager._parse_toml_config(profile_path)
+
+            success, msg = self._set_native_enabled(
+                config_data, mod_path, True, game_name, extra_options=options
+            )
+
+            if success:
+                self._write_improved_config(profile_path, config_data, game_name)
+                return True, f"Successfully enabled {Path(mod_path).name} with options"
+            return False, msg
+
+        except Exception as e:
+            return False, f"Error enabling mod with options: {str(e)}"
+
+    def _set_native_enabled(
+        self,
+        config_data: dict,
+        mod_path: str,
+        enabled: bool,
+        game_name: str,
+        extra_options: dict[str, Any] | None = None,
+    ) -> tuple[bool, str]:
+        """Set enabled status for a native (DLL) mod with consistent path handling.
+
+        Args:
+            config_data: The profile config dictionary
+            mod_path: Path to the DLL mod
+            enabled: Whether to enable or disable
+            game_name: Name of the game
+            extra_options: Optional dict of additional options to merge (e.g., load_early)
+        """
         natives = config_data.get("natives", [])
 
         # Use helper function for consistent config key generation
@@ -569,8 +673,12 @@ class ImprovedModManager:
 
         if enabled:
             if native_entry is None:
-                # Create new entry
+                # Create new entry with optional extra options
                 native_entry = {"path": config_key}
+                if extra_options:
+                    for key, value in extra_options.items():
+                        if key not in ("path", "enabled"):
+                            native_entry[key] = value
                 natives.append(native_entry)
                 config_data["natives"] = natives
                 return True, "Created new native entry"
@@ -581,6 +689,12 @@ class ImprovedModManager:
                     native_entry.pop("enabled", None)
                     config_data["natives"] = natives
                     return True, "Re-enabled native entry"
+                # Merge extra_options if provided (for existing entries)
+                if extra_options:
+                    for key, value in extra_options.items():
+                        if key not in ("path", "enabled"):
+                            native_entry[key] = value
+                    config_data["natives"] = natives
                 return True, "Native entry already exists"
         else:
             if native_entry is not None:
@@ -987,6 +1101,123 @@ class ImprovedModManager:
         except Exception as e:
             return False, f"Error adding external mod: {str(e)}"
 
+    def _is_dll_only_wrapper_folder(self, folder: Path) -> bool:
+        """
+        Check if a folder is a "DLL-only wrapper folder" - a folder that only
+        contains DLLs and their associated config folders (no other mod content).
+
+        These folders are created when installing DLL-only mods from Nexus and
+        should be fully deleted when the DLL is removed.
+
+        Allows common documentation/config files that don't indicate game mod content.
+        """
+        if not folder.is_dir():
+            return False
+
+        # Extensions that are allowed in DLL-only mod folders (not game content)
+        allowed_extensions = {
+            ".dll",  # The DLL itself
+            ".exe",  # Mod launchers/tools (e.g., nrsc_launcher.exe)
+            ".ini",  # Config files
+            ".toml",  # Config files (like settings.toml)
+            ".json",  # Config files
+            ".txt",  # README, LICENSE, etc.
+            ".md",  # Documentation
+            ".me3",  # ME3 profile files
+            ".log",  # Log files
+            ".cfg",  # Config files
+        }
+
+        # Filenames that are always allowed (case-insensitive)
+        allowed_filenames = {
+            "readme",
+            "license",
+            "changelog",
+            "credits",
+            "readme.txt",
+            "license.txt",
+            "changelog.txt",
+            "readme.md",
+            "license.md",
+            "changelog.md",
+        }
+
+        dll_stems = set()
+        has_game_content = False
+
+        for item in folder.iterdir():
+            if item.is_file():
+                ext = item.suffix.lower()
+                name_lower = item.name.lower()
+
+                if ext == ".dll":
+                    dll_stems.add(item.stem)
+                elif ext in allowed_extensions or name_lower in allowed_filenames:
+                    # Allowed non-DLL files - skip
+                    continue
+                else:
+                    # Has game content files (like .pak, .bin, etc.)
+                    has_game_content = True
+                    break
+            elif item.is_dir():
+                # Check if it's a config folder for a DLL (will verify after scan)
+                # For now, just continue and verify later
+                pass
+
+        if has_game_content or not dll_stems:
+            return False
+
+        # Verify all folders are either config folders for DLLs or don't contain game files
+        for item in folder.iterdir():
+            if item.is_dir():
+                # Config folders named after DLLs are always ok
+                if item.name in dll_stems:
+                    continue
+                # Check if this subfolder contains game content
+                if self._folder_has_game_content(item):
+                    return False
+
+        return True
+
+    def _folder_has_game_content(self, folder: Path) -> bool:
+        """Check if a folder contains game content files (like .pak, .bin, etc.)."""
+        game_extensions = {".pak", ".bin", ".bdt", ".bhd", ".dcx", ".flver", ".tpf"}
+        try:
+            for item in folder.rglob("*"):
+                if item.is_file() and item.suffix.lower() in game_extensions:
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _folder_has_no_game_content(self, folder: Path) -> bool:
+        """
+        Check if a folder has no game content and can be safely deleted.
+
+        This is used for cleanup after deleting nested mods. A folder can be
+        deleted if it only contains non-essential files like:
+        - Executables (.exe) - mod launchers/tools
+        - Config files (.ini, .toml, .json, .cfg)
+        - Documentation (.txt, .md)
+        - Empty directories
+        """
+        if not folder.is_dir():
+            return False
+
+        # Game content extensions that should NOT be deleted
+        game_extensions = {".pak", ".bin", ".bdt", ".bhd", ".dcx", ".flver", ".tpf"}
+
+        try:
+            for item in folder.rglob("*"):
+                if item.is_file():
+                    ext = item.suffix.lower()
+                    if ext in game_extensions:
+                        return False  # Has game content
+        except Exception:
+            return False
+
+        return True
+
     def remove_mod(self, game_name: str, mod_path: str) -> tuple[bool, str]:
         """
         Remove a mod completely with robust error handling.
@@ -1003,6 +1234,7 @@ class ImprovedModManager:
             # Check if this is a nested mod
             mods_dir = self.config_manager.get_mods_dir(game_name)
             is_nested_mod = False
+            wrapper_folder = None
 
             if mod_path_obj.is_file() and mod_path_obj.suffix.lower() == ".dll":
                 try:
@@ -1010,27 +1242,89 @@ class ImprovedModManager:
                     # If relative path has more than one part, it's nested
                     if len(relative_path.parts) > 1:
                         is_nested_mod = True
+                        # Check if the parent folder is a DLL-only wrapper
+                        wrapper_folder = mod_path_obj.parent
                 except ValueError:
                     pass
 
+            # Create metadata manager access
+            nexus_metadata = NexusMetadataManager(
+                self.config_manager.config_root,
+                game_name,
+                legacy_roots=[
+                    self.config_manager.config_root,
+                    self.config_manager.get_mods_dir(game_name),
+                ],
+            )
+
+            # Helper to remove metadata for a path
+            def _remove_meta(path_to_remove: Path):
+                try:
+                    # Metadata uses normalized paths, but maybe absolute or relative depending on type
+                    # Try both forms to be safe
+
+                    # 1. Absolute resolved path (most consistent key)
+                    resolved = str(path_to_remove.resolve())
+                    nexus_metadata.remove_mod_metadata(resolved)
+
+                    # 2. Key format used in _get_config_key_for_mod
+                    config_key = self._get_config_key_for_mod(
+                        str(path_to_remove), game_name
+                    )
+                    if config_key != resolved:
+                        nexus_metadata.remove_mod_metadata(config_key)
+                except Exception:
+                    pass
+
             if is_nested_mod:
-                # Nested mod - just remove from profile, don't delete file
-                return True, f"Removed nested mod from profile: {mod_path_obj.name}"
+                # Check if the DLL is in a "DLL-only wrapper folder"
+                if wrapper_folder and self._is_dll_only_wrapper_folder(wrapper_folder):
+                    # Delete the entire wrapper folder
+                    shutil.rmtree(wrapper_folder)
+                    _remove_meta(mod_path_obj)  # Remove metadata for the DLL
+
+                    deleted_folder_name = wrapper_folder.name
+
+                    # Check if parent folders should also be cleaned up
+                    parent = wrapper_folder.parent
+                    while parent != mods_dir and parent.is_relative_to(mods_dir):
+                        # If parent is empty, delete it
+                        remaining = list(parent.iterdir())
+                        if not remaining:
+                            parent.rmdir()
+                            deleted_folder_name = parent.name
+                            parent = parent.parent
+                        elif self._folder_has_no_game_content(parent):
+                            # Parent only has non-essential files (exe, txt, etc.)
+                            shutil.rmtree(parent)
+                            deleted_folder_name = parent.name
+                            break
+                        else:
+                            break
+
+                    return True, f"Deleted DLL mod folder: {deleted_folder_name}"
+                else:
+                    # True nested mod inside a package - just remove from profile
+                    _remove_meta(mod_path_obj)  # Remove metadata for the nested mod
+                    return True, f"Removed nested mod from profile: {mod_path_obj.name}"
             elif mod_path_obj.is_dir():
                 # Handle folder mod
                 if mod_path_obj.parent == mods_dir:
                     # Internal folder mod - delete from filesystem
                     shutil.rmtree(mod_path_obj)
+                    _remove_meta(mod_path_obj)  # Remove metadata for the folder
                     return True, f"Deleted folder mod: {mod_path_obj.name}"
                 else:
                     # External folder mod - just untrack it
                     self.config_manager.untrack_external_mod(game_name, mod_path)
+                    _remove_meta(mod_path_obj)  # Remove metadata for the external mod
                     return True, f"Untracked external mod: {mod_path_obj.name}"
             else:
                 # Handle DLL mod
                 if mod_path_obj.parent == mods_dir:
                     # Internal DLL mod - delete from filesystem
                     mod_path_obj.unlink()
+                    _remove_meta(mod_path_obj)  # Remove metadata for the DLL
 
                     # Also remove config folder if it exists
                     config_folder = mod_path_obj.parent / mod_path_obj.stem
@@ -1041,6 +1335,7 @@ class ImprovedModManager:
                 else:
                     # External DLL mod - just untrack it
                     self.config_manager.untrack_external_mod(game_name, mod_path)
+                    _remove_meta(mod_path_obj)  # Remove metadata for the external DLL
                     return True, f"Untracked external mod: {mod_path_obj.name}"
 
         except Exception as e:

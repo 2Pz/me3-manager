@@ -15,30 +15,36 @@ class GameRegistry:
             "profile": "eldenring-default.me3",
             "cli_id": "elden-ring",
             "executable": "eldenring.exe",
+            # Nexus Mods game domain
+            "nexus_domain": "eldenring",
         },
         "Nightreign": {
             "mods_dir": "nightreign-mods",
             "profile": "nightreign-default.me3",
             "cli_id": "nightreign",
             "executable": "nightreign.exe",
+            "nexus_domain": "eldenringnightreign",
         },
         "Sekiro": {
             "mods_dir": "sekiro-mods",
             "profile": "sekiro-default.me3",
             "cli_id": "sekiro",
             "executable": "sekiro.exe",
+            "nexus_domain": "sekiro",
         },
         "Dark Souls 3": {
             "mods_dir": "darksouls3-mods",
             "profile": "darksouls3-default.me3",
             "cli_id": "ds3",
             "executable": "DarkSoulsIII.exe",
+            "nexus_domain": "darksouls3",
         },
         "Armoredcore6": {
             "mods_dir": "armoredcore6-mods",
             "profile": "armoredcore6-default.me3",
             "cli_id": "armoredcore6",
             "executable": "armoredcore6.exe",
+            "nexus_domain": "armoredcore6firesofrubicon",
         },
     }
 
@@ -141,6 +147,8 @@ class GameRegistry:
             "profile": profile,
             "cli_id": cli_id,
             "executable": executable,
+            # Optional: Nexus Mods game domain (e.g., "eldenring")
+            "nexus_domain": "",
         }
         self.settings_manager.set("games", games)
         game_order = self.settings_manager.get("game_order", [])
@@ -185,12 +193,20 @@ class GameRegistry:
         games = self.settings_manager.get("games", {})
         if name not in games:
             return False
-        valid_keys = ["mods_dir", "profile", "cli_id", "executable"]
+        valid_keys = ["mods_dir", "profile", "cli_id", "executable", "nexus_domain"]
         for key, value in kwargs.items():
             if key in valid_keys:
                 games[name][key] = value
         self.settings_manager.set("games", games)
         return True
+
+    def get_game_nexus_domain(self, game_name: str) -> str | None:
+        """Get Nexus Mods game domain for a game (e.g., 'eldenring')."""
+        game = self.get_game(game_name)
+        if not game:
+            return None
+        val = game.get("nexus_domain")
+        return str(val) if val else None
 
     def get_game_order(self) -> list[str]:
         """
