@@ -217,7 +217,8 @@ jobs:
         run: |
           # Generate changelog for PR body using the target version tag
           # This includes all commits since the previous tag up to NEXT_VERSION
-          pr_changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --tag "$NEXT_VERSION")
+          # Use --strip header to remove file header but keep commit entries
+          pr_changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip header --tag "$NEXT_VERSION")
           
           # Save to file to handle multiline content
           echo "$pr_changelog" > pr_changelog.txt
@@ -264,7 +265,8 @@ jobs:
           NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
         run: |
           # Generate changelog for release notes using the target version tag
-          changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --tag "$NEXT_VERSION")
+          # Use --strip header to remove file header but keep commit entries
+          changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip header --tag "$NEXT_VERSION")
           
           {
             echo "content<<EOF"
