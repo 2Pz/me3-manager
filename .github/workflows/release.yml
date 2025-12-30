@@ -211,9 +211,11 @@ jobs:
 
       - name: Generate changelog for PR
         id: pr-changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Generate changelog for PR body
-          pr_changelog=$(git cliff --strip=all --unreleased)
+          pr_changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --unreleased)
           
           # Save to file to handle multiline content
           echo "$pr_changelog" > pr_changelog.txt
@@ -228,8 +230,11 @@ jobs:
       - name: Create or update pull request
         run: |
           # Check if PR already exists
-          if gh pr view "release-$NEXT_VERSION" --json state >/dev/null 2>&1; then
-            echo "PR already exists, skipping creation..."
+          existing_pr=$(gh pr list --head "release-$NEXT_VERSION" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          
+          if [ -n "$existing_pr" ]; then
+            echo "Updating existing PR #$existing_pr..."
+            gh pr edit "$existing_pr" --body-file pr_changelog.txt
           else
             echo "Creating new PR..."
             gh pr create \
@@ -252,9 +257,11 @@ jobs:
 
       - name: Generate changelog for release
         id: release-changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Generate changelog for release notes
-          changelog=$(git cliff --strip=all --unreleased)
+          changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --unreleased)
           
           {
             echo "content<<EOF"
