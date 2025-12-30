@@ -81,8 +81,11 @@ jobs:
           # Update uv.lock with new version
           uv sync
           
-          # Update changelog
-          git cliff --tag "$NEXT_VERSION" -o CHANGELOG.md
+          # Update changelog only if this version section doesn't already exist
+          # This allows manual edits to be preserved on subsequent runs
+          if ! grep -q "^## 📦 Release $NEXT_VERSION" CHANGELOG.md 2>/dev/null; then
+            git cliff --tag "$NEXT_VERSION" -o CHANGELOG.md
+          fi
           
           # Commit changes
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
