@@ -95,14 +95,25 @@ class SteamService:
                 except Exception:
                     startupinfo = None
 
-                # Prefer explicit path
-                if steam_path and steam_path.exists():
-                    subprocess.Popen([str(steam_path)], startupinfo=startupinfo)
-                    return True
+                # Prefer explicit path from ME3 info
+                # Note: steam_path may be a directory or an exe, handle both cases
+                if steam_path:
+                    steam_exe = steam_path
+                    # If it's a directory, append steam.exe
+                    if steam_path.is_dir():
+                        steam_exe = steam_path / "steam.exe"
+                    if steam_exe.exists():
+                        subprocess.Popen(
+                            [str(steam_exe), "-silent"], startupinfo=startupinfo
+                        )
+                        return True
 
                 # Fallback to PATH
-                subprocess.Popen(["steam"], startupinfo=startupinfo)
-                return True
+                try:
+                    subprocess.Popen(["steam", "-silent"], startupinfo=startupinfo)
+                    return True
+                except FileNotFoundError:
+                    return False
 
             # Non-Windows: build candidate commands
             candidates: list[list[str]] = []

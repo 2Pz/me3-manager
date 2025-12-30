@@ -178,10 +178,20 @@ class ME3InfoManager:
             if steam_status_match:
                 info["steam_status"] = steam_status_match.group(1).strip()
 
-        # Steam path: Try to find it in the old format (may not exist in new format)
-        steam_path_match = re.search(r"Steam.*?Path:\s*(.+)", output, re.DOTALL)
+        # Steam path: Handle both old and new formats
+        # New format: "● Steam\n    Status: Found\n      Path: E:\..."
+        steam_path_match = re.search(
+            r"● Steam\s*\n\s*Status:\s*\S+\s*\n\s*Path:\s*(.+)", output, re.MULTILINE
+        )
         if steam_path_match:
             info["steam_path"] = steam_path_match.group(1).strip()
+        else:
+            # Fallback to old format pattern
+            steam_path_fallback = re.search(
+                r"Steam.*?Path:\s*(.+?)(?:\n|$)", output, re.DOTALL
+            )
+            if steam_path_fallback:
+                info["steam_path"] = steam_path_fallback.group(1).strip()
 
         # Installation status: New field in the bullet format
         install_status_match = re.search(r"Status:\s*(.+)", output)
