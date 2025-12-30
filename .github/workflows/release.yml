@@ -213,9 +213,11 @@ jobs:
         id: pr-changelog
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
         run: |
-          # Generate changelog for PR body
-          pr_changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --unreleased)
+          # Generate changelog for PR body using the target version tag
+          # This includes all commits since the previous tag up to NEXT_VERSION
+          pr_changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --tag "$NEXT_VERSION")
           
           # Save to file to handle multiline content
           echo "$pr_changelog" > pr_changelog.txt
@@ -259,9 +261,10 @@ jobs:
         id: release-changelog
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
         run: |
-          # Generate changelog for release notes
-          changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --unreleased)
+          # Generate changelog for release notes using the target version tag
+          changelog=$(git cliff --github-repo "2Pz/me3-manager" --strip=all --tag "$NEXT_VERSION")
           
           {
             echo "content<<EOF"
