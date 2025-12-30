@@ -229,18 +229,20 @@ jobs:
 
       - name: Create or update pull request
         run: |
-          # Check if PR already exists using REST API (gh pr view uses REST, not GraphQL)
-          if gh pr view "release-$NEXT_VERSION" --json number --jq '.number' >/dev/null 2>&1; then
-            existing_pr=$(gh pr view "release-$NEXT_VERSION" --json number --jq '.number')
-            echo "Updating existing PR #$existing_pr..."
-            gh pr edit "$existing_pr" --body-file pr_changelog.txt
-          else
+          # Read changelog content
+          pr_changelog=$(cat pr_changelog.txt)
+          
+          # Check if PR already exists (gh pr view without --json uses REST API)
+          if ! gh pr view "release-$NEXT_VERSION" >/dev/null 2>&1; then
             echo "Creating new PR..."
             gh pr create \
               -B main \
               --title "🚀 Release: Me3 Manager $NEXT_VERSION" \
-              --body-file pr_changelog.txt \
+              -b "$pr_changelog" \
               --head "release-$NEXT_VERSION"
+          else
+            echo "Updating existing PR..."
+            gh pr edit "release-$NEXT_VERSION" -b "$pr_changelog"
           fi
         env:
           NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
