@@ -50,6 +50,8 @@ render_always = true
 conventional_commits = true
 filter_unconventional = false
 split_commits = false
+# Match both versioned tags (1.x.x) and v-prefixed tags (v1.x.x)
+tag_pattern = "v?[0-9]+\\.[0-9]+\\.[0-9]+"
 
 commit_preprocessors = [
   # Auto-fix common commit formats
