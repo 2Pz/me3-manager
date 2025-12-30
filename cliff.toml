@@ -19,8 +19,9 @@ body = """
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | striptags | trim | upper_first }}
 
-{% for commit in commits | unique(attribute="message") %}
-- {{ commit.message | upper_first | trim }}{% if commit.scope %} `[{{ commit.scope }}]`{% endif %}{% if commit.breaking %} ⚠️ **BREAKING CHANGE**{% endif %}
+{% for commit in commits | unique(attribute="id") %}
+{%- set pr_num = commit.remote.pr_number | default(value=0) -%}
+- {{ commit.message | upper_first | trim }}{% if commit.scope %} `[{{ commit.scope }}]`{% endif %}{% if pr_num > 0 %} ([#{{ pr_num }}](https://github.com/2Pz/me3-manager/pull/{{ pr_num }})){% endif %}{% if commit.breaking %} ⚠️ **BREAKING CHANGE**{% endif %}
 
 {% endfor %}
 {% endfor %}
@@ -51,8 +52,6 @@ filter_unconventional = false
 split_commits = false
 
 commit_preprocessors = [
-  # Clean up PR references
-  { pattern = '\s*\(#[0-9]+\)', replace = "" },
   # Auto-fix common commit formats
   { pattern = "^Fix ", replace = "fix: " },
   { pattern = "^Add ", replace = "feat: " },
