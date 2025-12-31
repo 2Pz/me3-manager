@@ -54,7 +54,7 @@ class DragDropHandler:
 
     def _is_game_asset_item(self, path: Path) -> bool:
         """Check if path is a game asset folder or regulation.bin file."""
-        if path.is_dir() and path.name in ACCEPTABLE_FOLDERS:
+        if path.is_dir() and path.name.lower() in ACCEPTABLE_FOLDERS:
             return True
         if path.is_file() and path.name.lower() in (
             "regulation.bin",

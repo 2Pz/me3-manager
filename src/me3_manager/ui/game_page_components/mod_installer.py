@@ -330,27 +330,16 @@ class ModInstaller:
         """
         children = _filter_children(folder)
 
-        # Determine if current folder is potentially a mod
-        # (This prevents unwrapping valid mods that just happen to have 1 folder?)
-        # Actually our wrapper logic is safe because we check TYPE.
-        # But wait, if ambiguity exists, unwrapping might HIDE the outer candidate?
-        # NO, _find_mod_root is called BEFORE scanning.
-        # If folder has 1 child "Grand Merchant", and inside is "Mod", "modengine2".
-        # Unwrap "Grand Merchant". Now root is "Grand Merchant" folder content.
-        # Scan candidates on THAT.
-        # That seems correct.
-
         if not children:
+            return folder
+
+        # Stop unwrapping if the current folder is already a valid mod package
+        if self._detect_mod_type(folder) in ("me3", "native", "package"):
             return folder
 
         # If single child folder, check if it's the real mod
         if len(children) == 1 and children[0].is_dir():
             child = children[0]
-            # Verify we aren't unwrapping a valid mod (like a packge with just 'msg' folder?)
-            # But 'msg' is acceptable folder.
-            # _detect_mod_type(child)
-            # If child IS a mod, we return child?
-            # Existing logic:
             child_type = self._detect_mod_type(child)
             if child_type in ("me3", "native", "package"):
                 return child
@@ -406,7 +395,7 @@ class ModInstaller:
         # Check for DLLs and game folders
         dlls = [c for c in children if c.is_file() and c.suffix.lower() == ".dll"]
         has_game_folders = any(
-            c.is_dir() and c.name in ACCEPTABLE_FOLDERS for c in children
+            c.is_dir() and c.name.lower() in ACCEPTABLE_FOLDERS for c in children
         )
         has_regulation = (folder / "regulation.bin").exists() or (
             folder / "regulation.bin.disabled"
