@@ -635,10 +635,10 @@ class GamePage(QWidget):
                         log.debug("Folder doesn't exist: %s", folder_path)
 
                     log.debug("Saving metadata with local_path=%s", local_path)
-                    self.nexus_metadata.update_after_download(
+                    self.nexus_metadata.upsert_cache_for_mod(
                         game_domain=mod.game_domain,
-                        local_mod_path=local_path,
                         mod_id=mod.mod_id,
+                        local_mod_path=local_path,
                         file_id=chosen.file_id,
                         mod_name=mod.name,
                         mod_version=mod.version,

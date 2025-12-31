@@ -117,6 +117,16 @@ class ExportService:
         return data
 
     @staticmethod
+    def _append_note_preserving_line_ending(line: str, note: str) -> str:
+        """Append a note to a line while preserving its original line ending."""
+        if line.endswith("\r\n"):
+            return line[:-2] + note + "\r\n"
+        elif line.endswith("\n"):
+            return line[:-1] + note + "\n"
+        else:
+            return line + note
+
+    @staticmethod
     def export_profile_and_mods(
         *,
         game_name: str,
@@ -318,14 +328,11 @@ class ExportService:
                                     ):
                                         # Append inline note once
                                         if inline_note.strip() not in stripped:
-                                            if ln.endswith("\r\n"):
-                                                lines[i] = (
-                                                    ln[:-2] + inline_note + "\r\n"
+                                            lines[i] = (
+                                                ExportService._append_note_preserving_line_ending(
+                                                    ln, inline_note
                                                 )
-                                            elif ln.endswith("\n"):
-                                                lines[i] = ln[:-1] + inline_note + "\n"
-                                            else:
-                                                lines[i] = ln + inline_note
+                                            )
                                             modified = True
                                         missing_paths.remove(miss)
                                         break
@@ -341,14 +348,11 @@ class ExportService:
                                         and f'"{miss}"' in stripped
                                     ):
                                         if inline_note.strip() not in stripped:
-                                            if ln.endswith("\r\n"):
-                                                lines[i] = (
-                                                    ln[:-2] + inline_note + "\r\n"
+                                            lines[i] = (
+                                                ExportService._append_note_preserving_line_ending(
+                                                    ln, inline_note
                                                 )
-                                            elif ln.endswith("\n"):
-                                                lines[i] = ln[:-1] + inline_note + "\n"
-                                            else:
-                                                lines[i] = ln + inline_note
+                                            )
                                             modified = True
                                         missing_paths.remove(miss)
                                         break

@@ -53,7 +53,23 @@ class FileWatcher(QObject):
             target_dirs.add(str(default_mods_dir))
 
         # Add custom profile directories and files
-        for profile in game_profiles:
+        self._collect_profile_paths(game_profiles, target_dirs, target_files)
+
+        # Update watched paths
+        self._update_watched_paths(target_dirs, target_files)
+
+    def _collect_profile_paths(
+        self, profiles: list, target_dirs: set[str], target_files: set[str]
+    ) -> None:
+        """
+        Collect mods directories and profile file paths from a list of profiles.
+
+        Args:
+            profiles: List of profile dictionaries
+            target_dirs: Set to add directory paths to
+            target_files: Set to add file paths to
+        """
+        for profile in profiles:
             if profile.get("id") != "default":
                 # Add custom mods directory
                 mods_path_str = profile.get("mods_path")
@@ -64,9 +80,6 @@ class FileWatcher(QObject):
                 profile_path_str = profile.get("profile_path")
                 if profile_path_str and Path(profile_path_str).is_file():
                     target_files.add(profile_path_str)
-
-        # Update watched paths
-        self._update_watched_paths(target_dirs, target_files)
 
     def setup_global(self, path_manager, settings_manager, game_registry) -> None:
         """
@@ -94,17 +107,9 @@ class FileWatcher(QObject):
                 target_dirs.add(str(default_mods_dir))
 
             # Add custom profile directories and files
-            for profile in profiles.get(game_name, []):
-                if profile.get("id") != "default":
-                    # Add custom mods directory
-                    mods_path_str = profile.get("mods_path")
-                    if mods_path_str and Path(mods_path_str).is_dir():
-                        target_dirs.add(mods_path_str)
-
-                    # Add profile file
-                    profile_path_str = profile.get("profile_path")
-                    if profile_path_str and Path(profile_path_str).is_file():
-                        target_files.add(profile_path_str)
+            self._collect_profile_paths(
+                profiles.get(game_name, []), target_dirs, target_files
+            )
 
         # Update watched paths
         self._update_watched_paths(target_dirs, target_files)
