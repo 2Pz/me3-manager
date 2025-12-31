@@ -1,3 +1,29 @@
+# =============================================================================
+# ME3 Manager - Git Cliff Configuration
+# =============================================================================
+#
+# This file configures git-cliff for automatic changelog generation.
+# Documentation: https://git-cliff.org/docs/configuration
+#
+# Conventional Commit Types:
+#   feat:     New features (✨ New Features)
+#   fix:      Bug fixes (🔧 Bug Fixes)
+#   ui/ux:    UI changes (🎨 User Interface)
+#   docs:     Documentation (📖 Documentation)
+#   perf:     Performance (⚡ Performance Improvements)
+#   refactor: Code refactoring (♻️ Code Refactoring)
+#   test:     Tests (skipped)
+#   ci:       CI/CD (skipped)
+#   build:    Build system (skipped)
+#   chore:    Maintenance (🧹 Maintenance)
+#   security: Security fixes (🔒 Security)
+#   revert:   Reverted changes (⏪ Reverted Changes)
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Changelog Output Format
+# -----------------------------------------------------------------------------
 [changelog]
 header = """
 # 📜 Me3 Manager - Release History
@@ -21,7 +47,8 @@ body = """
 
 {% for commit in commits | unique(attribute="id") %}
 {%- set pr_num = commit.remote.pr_number | default(value=0) -%}
-- {{ commit.message | upper_first | trim }}{% if commit.scope %} `[{{ commit.scope }}]`{% endif %}{% if pr_num > 0 %} ([#{{ pr_num }}](https://github.com/2Pz/me3-manager/pull/{{ pr_num }})){% endif %}{% if commit.breaking %} ⚠️ **BREAKING CHANGE**{% endif %}
+{%- set short_id = commit.id | truncate(length=7, end="") -%}
+- {{ commit.message | upper_first | trim }}{% if commit.scope %} `[{{ commit.scope }}]`{% endif %}{% if pr_num > 0 %} ([#{{ pr_num }}](https://github.com/2Pz/me3-manager/pull/{{ pr_num }})){% endif %} ([{{ short_id }}](https://github.com/2Pz/me3-manager/commit/{{ commit.id }})){% if commit.breaking %} ⚠️ **BREAKING CHANGE**{% endif %}
 
 {% endfor %}
 {% endfor %}
@@ -46,6 +73,9 @@ https://github.com/2Pz/me3-manager
 trim = true
 render_always = true
 
+# -----------------------------------------------------------------------------
+# Git Configuration
+# -----------------------------------------------------------------------------
 [git]
 conventional_commits = true
 filter_unconventional = false
@@ -53,12 +83,20 @@ split_commits = false
 # Match both versioned tags (1.x.x) and v-prefixed tags (v1.x.x)
 tag_pattern = "v?[0-9]+\\.[0-9]+\\.[0-9]+"
 
+# -----------------------------------------------------------------------------
+# Commit Preprocessors
+# -----------------------------------------------------------------------------
+# Auto-fix common non-conventional commit formats to conventional format
 commit_preprocessors = [
-  # Auto-fix common commit formats
   { pattern = "^Fix ", replace = "fix: " },
   { pattern = "^Add ", replace = "feat: " },
   { pattern = "^Update ", replace = "chore: " },
 ]
+
+# -----------------------------------------------------------------------------
+# Commit Parsers
+# -----------------------------------------------------------------------------
+# Define how commits are categorized into changelog sections
 
 commit_parsers = [
   # Skip merge commits
@@ -106,9 +144,16 @@ commit_parsers = [
   { message = "^revert", group = "<!-- 11 -->⏪ Reverted Changes" },
 ]
 
+# -----------------------------------------------------------------------------
+# Additional Settings
+# -----------------------------------------------------------------------------
 filter_commits = false
 protect_breaking_commits = true
 
+# -----------------------------------------------------------------------------
+# Link Parsers
+# -----------------------------------------------------------------------------
+# Auto-link issue numbers and RFC references to GitHub
 link_parsers = [
   { pattern = "#(\\d+)", href = "https://github.com/2Pz/me3-manager/issues/$1" },
   { pattern = "RFC-(\\d+)", href = "https://github.com/2Pz/me3-manager/discussions/$1" },

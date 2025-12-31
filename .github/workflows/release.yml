@@ -1,3 +1,22 @@
+# =============================================================================
+# ME3 Manager - Automated Release Workflow
+# =============================================================================
+#
+# This workflow automates the release process:
+#   1. PLAN: Detect version changes from conventional commits
+#   2. CREATE: Bump version, update changelog, create release branch
+#   3. BUILD: Build platform artifacts (Linux AppImage, Windows exe)
+#   4. FINALIZE: Create PR, draft release with artifacts
+#
+# Triggers:
+#   - Push to main branch (auto-release on merge)
+#   - Manual workflow dispatch
+#
+# Required Secrets:
+#   - PUSH_TOKEN: GitHub PAT with repo and workflow permissions
+#
+# =============================================================================
+
 name: Create Release Draft
 
 on:
@@ -13,7 +32,17 @@ concurrency:
 permissions:
   contents: read
 
+# =============================================================================
+# Environment Variables (Shared across jobs via outputs)
+# =============================================================================
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Plan Release
+  # ---------------------------------------------------------------------------
+  # Determines if a release is needed by comparing current version with
+  # the next version calculated from conventional commits.
+  # ---------------------------------------------------------------------------
   plan:
     name: Plan Release
     runs-on: ubuntu-latest
@@ -22,6 +51,7 @@ jobs:
     outputs:
       current_version: ${{ steps.get-versions.outputs.current_version }}
       next_version: ${{ steps.get-versions.outputs.next_version }}
+      version_no_v: ${{ steps.get-versions.outputs.version_no_v }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -43,19 +73,29 @@ jobs:
           next_version=$(git cliff --bumped-version --unreleased)
           echo "next_version=$next_version" >> "$GITHUB_OUTPUT"
           
-          echo "Current version: v$current_version"
-          echo "Next version: $next_version"
+          # Also output version without 'v' prefix for artifact naming
+          version_no_v="${next_version#v}"
+          echo "version_no_v=$version_no_v" >> "$GITHUB_OUTPUT"
+          
+          echo "📌 Current version: v$current_version"
+          echo "📌 Next version: $next_version"
 
-  create-release-draft:
-    needs:
-      - plan
-    name: Create Release
+  # ---------------------------------------------------------------------------
+  # Job 2: Create Release Branch
+  # ---------------------------------------------------------------------------
+  # Creates the release branch with version bump, changelog update,
+  # and prepares for artifact builds.
+  # ---------------------------------------------------------------------------
+  create-release-branch:
+    needs: plan
+    name: Create Release Branch
     permissions:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    # Only run if version changed
-    if: ${{ needs.plan.outputs.current_version != needs.plan.outputs.next_version }}
+    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version
+    env:
+      NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -73,7 +113,7 @@ jobs:
         with:
           tool: git-cliff
 
-      - name: Bump version
+      - name: Bump version and update changelog
         run: |
           # Bump version in pyproject.toml
           uv run scripts/bump_version.py "$NEXT_VERSION"
@@ -86,29 +126,26 @@ jobs:
           if ! grep -q "^## 📦 Release $NEXT_VERSION" CHANGELOG.md 2>/dev/null; then
             git cliff --tag "$NEXT_VERSION" -o CHANGELOG.md
           fi
-          
-          # Commit changes
+
+      - name: Commit and push release branch
+        run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions"
           git add pyproject.toml uv.lock CHANGELOG.md
           git commit -m "🚀 Release: Prepare Me3 Manager $NEXT_VERSION"
-        env:
-          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
-
-      - name: Push release branch
-        run: |
           git push origin "HEAD:refs/heads/release-$NEXT_VERSION" --force
-        env:
-          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
 
-      - name: Install dependencies
-        run: uv sync --locked --dev
-
+  # ---------------------------------------------------------------------------
+  # Job 3: Build Platform Artifacts
+  # ---------------------------------------------------------------------------
+  # Builds the application for each supported platform.
+  # Runs in parallel for faster builds.
+  # ---------------------------------------------------------------------------
   build-artifacts:
     needs:
       - plan
-      - create-release-draft
-    name: Build Release Artifacts
+      - create-release-branch
+    name: Build ${{ matrix.build-name }}
     strategy:
       matrix:
         include:
@@ -119,12 +156,14 @@ jobs:
             build-name: Windows
             artifact-name: me3-manager-windows-release
     runs-on: ${{ matrix.os }}
-    if: ${{ needs.plan.outputs.current_version != needs.plan.outputs.next_version }}
+    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version
+    env:
+      NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
+      VERSION_NO_V: ${{ needs.plan.outputs.version_no_v }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: release-${{ needs.plan.outputs.next_version }}
-          # Checkout from the release branch which has the version bump commit
 
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
@@ -134,14 +173,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --locked --dev
-
-      - name: Get version without v prefix
-        id: version-strip
-        shell: bash
-        run: |
-          version_no_v="${{ needs.plan.outputs.next_version }}"
-          version_no_v="${version_no_v#v}"
-          echo "version=$version_no_v" >> "$GITHUB_OUTPUT"
 
       - name: Build Linux AppImage
         if: matrix.os == 'ubuntu-latest'
@@ -158,105 +189,91 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.artifact-name }}
-          path: dist/linux-${{ steps.version-strip.outputs.version }}/Me3_Manager.AppImage
+          path: dist/linux-${{ env.VERSION_NO_V }}/Me3_Manager.AppImage
 
       - name: Upload Windows artifact
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ matrix.artifact-name }}
-          path: dist/windows-${{ steps.version-strip.outputs.version }}
+          path: dist/windows-${{ env.VERSION_NO_V }}
 
+  # ---------------------------------------------------------------------------
+  # Job 4: Finalize Release
+  # ---------------------------------------------------------------------------
+  # Downloads all artifacts, creates PR and draft release.
+  # Uses helper scripts for cleaner, more maintainable logic.
+  # ---------------------------------------------------------------------------
   finalize-release:
     needs:
       - plan
-      - create-release-draft
+      - create-release-branch
       - build-artifacts
     name: Finalize Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    if: ${{ needs.plan.outputs.current_version != needs.plan.outputs.next_version }}
+    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version
+    env:
+      NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
+      VERSION_NO_V: ${{ needs.plan.outputs.version_no_v }}
+      GH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           ref: release-${{ needs.plan.outputs.next_version }}
           token: ${{ secrets.PUSH_TOKEN }}
 
-      - name: Get version without v prefix
-        id: version-strip
-        run: |
-          version_no_v="${{ needs.plan.outputs.next_version }}"
-          version_no_v="${version_no_v#v}"
-          echo "version=$version_no_v" >> "$GITHUB_OUTPUT"
-
       - name: Download all artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           path: artifacts/
 
-      - name: Display downloaded artifacts
-        run: ls -R artifacts/
-
-      - name: Rename Linux AppImage for consistency
+      - name: Prepare artifacts for release
         run: |
-          version_no_v="${NEXT_VERSION#v}"
-          mv "artifacts/me3-manager-linux-release/Me3_Manager.AppImage" \
-             "artifacts/me3-manager-linux-release/Me3_Manager_${version_no_v}_Linux.AppImage"
-        env:
-          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
+          chmod +x scripts/prepare_artifacts.sh
+          ./scripts/prepare_artifacts.sh "$NEXT_VERSION"
 
-
-      - uses: taiki-e/install-action@9ca1734d8940023f074414ee621fd530c4ce10f2 # v2.55.3
-        with:
-          tool: git-cliff
-
-      - name: Generate changelog for PR
-        id: pr-changelog
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
+      - name: Extract changelog for this release
+        id: changelog
         run: |
-          # Read changelog from CHANGELOG.md file (already generated in release branch)
-          # Extract just the current release section (from "## 📦 Release X.Y.Z" to next "---")
-          pr_changelog=$(sed -n '/^## 📦 Release '"$NEXT_VERSION"'/,/^---$/p' CHANGELOG.md | head -n -1)
+          chmod +x scripts/extract_changelog.sh
+          changelog=$(./scripts/extract_changelog.sh "$NEXT_VERSION")
           
-          # If extraction fails, fall back to showing the first release section
-          if [ -z "$pr_changelog" ]; then
-            pr_changelog=$(sed -n '/^## 📦 Release/,/^---$/p' CHANGELOG.md | head -n -1 | head -100)
-          fi
+          # Save to file for PR body
+          echo "$changelog" > release_changelog.txt
           
-          # Save to file to handle multiline content
-          echo "$pr_changelog" > pr_changelog.txt
-          
-          # Also set output (for release notes)
+          # Also set as output for release notes
           {
             echo "content<<EOF"
-            echo "$pr_changelog"
+            echo "$changelog"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create or update pull request
         run: |
-          # Read changelog content
-          pr_changelog=$(cat pr_changelog.txt)
+          changelog=$(cat release_changelog.txt)
+          pr_title="🚀 Release: Me3 Manager $NEXT_VERSION"
+          
+          # Add "Unreleased" banner at the top of PR body
+          pr_body="## 🚧 UNRELEASED
+          
+> **This release is still under development.**  
+> Changes in this PR will be included in the final release once merged.
+
+---
+
+$changelog"
           
           # Try to create PR first, if it fails because PR already exists, update it
-          if gh pr create \
-              -B main \
-              --title "🚀 Release: Me3 Manager $NEXT_VERSION" \
-              -b "$pr_changelog" \
-              --head "release-$NEXT_VERSION" 2>/dev/null; then
-            echo "Created new PR"
+          if gh pr create -B main --title "$pr_title" -b "$pr_body" --head "release-$NEXT_VERSION" 2>/dev/null; then
+            echo "✅ Created new PR"
           else
-            echo "PR already exists, updating..."
-            gh pr edit "release-$NEXT_VERSION" -b "$pr_changelog"
+            echo "ℹ️  PR already exists, updating..."
+            gh pr edit "release-$NEXT_VERSION" -b "$pr_body"
           fi
-        env:
-          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
-          GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
-          GH_TOKEN: ${{ secrets.PUSH_TOKEN }}
 
       - name: Delete old release drafts
         uses: hugo19941994/delete-draft-releases@v2.0.0
@@ -265,61 +282,7 @@ jobs:
         with:
           threshold: "1s"
 
-      - name: Generate changelog for release
-        id: release-changelog
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
+      - name: Create draft release with artifacts
         run: |
-          # Read changelog from CHANGELOG.md file (already generated in release branch)
-          # Extract just the current release section
-          changelog=$(sed -n '/^## 📦 Release '"$NEXT_VERSION"'/,/^---$/p' CHANGELOG.md | head -n -1)
-          
-          # If extraction fails, fall back to showing the first release section
-          if [ -z "$changelog" ]; then
-            changelog=$(sed -n '/^## 📦 Release/,/^---$/p' CHANGELOG.md | head -n -1 | head -100)
-          fi
-          
-          {
-            echo "content<<EOF"
-            echo "$changelog"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create release draft with artifacts
-        run: |
-          commit=$(git rev-parse --verify HEAD)
-          version_no_v="${NEXT_VERSION#v}"
-          
-          # Delete existing release if it exists (draft or otherwise)
-          if gh release view "$NEXT_VERSION" >/dev/null 2>&1; then
-            echo "Deleting existing release $NEXT_VERSION..."
-            gh release delete "$NEXT_VERSION" --yes
-          fi
-          
-          # Create array of artifact files
-          artifacts=(
-            "artifacts/me3-manager-linux-release/Me3_Manager_${version_no_v}_Linux.AppImage"
-          )
-          
-          # Add Windows artifacts if they exist
-          if [ -d "artifacts/me3-manager-windows-release" ]; then
-            # Create a zip of Windows files for easier download
-            cd "artifacts/me3-manager-windows-release"
-            zip -r "../../Me3_Manager_${version_no_v}_Windows.zip" .
-            cd ../..
-            artifacts+=("Me3_Manager_${version_no_v}_Windows.zip")
-          fi
-          
-          # Create release with all artifacts
-          gh release create \
-            --target "$commit" \
-            --title "$NEXT_VERSION" \
-            --notes "${{ steps.release-changelog.outputs.content }}" \
-            --draft \
-            "$NEXT_VERSION" \
-            "${artifacts[@]}"
-        env:
-          NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
-          GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
-          GH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+          chmod +x scripts/create_release.sh
+          ./scripts/create_release.sh "$NEXT_VERSION" "${{ steps.changelog.outputs.content }}"
