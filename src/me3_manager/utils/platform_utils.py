@@ -414,6 +414,31 @@ class PlatformUtils:
         return qenv
 
     @staticmethod
+    def _try_subprocess_candidates(candidates: list[list[str]], env: dict) -> bool:
+        """
+        Try executing commands from a list of candidates.
+        Wraps with flatpak-spawn --host if running inside Flatpak.
+
+        Returns True if any command succeeds.
+        """
+        for cmd in candidates:
+            try:
+                final_cmd = cmd
+                if sys.platform == "linux" and PlatformUtils.is_flatpak():
+                    final_cmd = ["flatpak-spawn", "--host"] + cmd
+                subprocess.Popen(
+                    final_cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=env,
+                    start_new_session=True,
+                )
+                return True
+            except Exception:
+                continue
+        return False
+
+    @staticmethod
     def _fallback_open_local(target: str) -> bool:
         """
         Try to open a local path using common desktop tools with a sanitized env.
@@ -449,22 +474,7 @@ class PlatformUtils:
             return False
 
         env = PlatformUtils._sanitized_env_for_desktop_open()
-        for cmd in candidates:
-            try:
-                final_cmd = cmd
-                if sys.platform == "linux" and PlatformUtils.is_flatpak():
-                    final_cmd = ["flatpak-spawn", "--host"] + cmd
-                subprocess.Popen(
-                    final_cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    env=env,
-                    start_new_session=True,
-                )
-                return True
-            except Exception:
-                continue
-        return False
+        return PlatformUtils._try_subprocess_candidates(candidates, env)
 
     @staticmethod
     def _fallback_open_textual(url_or_text: str) -> bool:
@@ -480,19 +490,4 @@ class PlatformUtils:
         if shutil.which("gio"):
             candidates.append(["gio", "open", url_or_text])
 
-        for cmd in candidates:
-            try:
-                final_cmd = cmd
-                if sys.platform == "linux" and PlatformUtils.is_flatpak():
-                    final_cmd = ["flatpak-spawn", "--host"] + cmd
-                subprocess.Popen(
-                    final_cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    env=env,
-                    start_new_session=True,
-                )
-                return True
-            except Exception:
-                continue
-        return False
+        return PlatformUtils._try_subprocess_candidates(candidates, env)

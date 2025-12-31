@@ -37,6 +37,15 @@ from me3_manager.utils.translator import tr
 
 log = logging.getLogger(__name__)
 
+GAME_BUTTON_STYLE = """
+    QPushButton {
+        background-color: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px;
+        padding: 8px 16px; text-align: left; font-size: 13px; font-weight: 500;
+    }
+    QPushButton:hover { background-color: #3d3d3d; border-color: #4d4d4d; }
+    QPushButton:checked { background-color: #0078d4; border-color: #0078d4; color: white; }
+"""
+
 
 class ModEngine3Manager(QMainWindow):
     """Main application window"""
@@ -129,18 +138,7 @@ class ModEngine3Manager(QMainWindow):
         # 4. Rebuild the sidebar with the new game order
         game_order = self.config_manager.get_game_order()
         for game_name in game_order:
-            btn = DraggableGameButton(game_name)
-            btn.setFixedHeight(45)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px;
-                    padding: 8px 16px; text-align: left; font-size: 13px; font-weight: 500;
-                }
-                QPushButton:hover { background-color: #3d3d3d; border-color: #4d4d4d; }
-                QPushButton:checked { background-color: #0078d4; border-color: #0078d4; color: white; }
-            """)
-            btn.setCheckable(True)
-            btn.clicked.connect(lambda checked, name=game_name: self.switch_game(name))
+            btn = self._create_game_button(game_name)
             self.game_container.add_game_button(game_name, btn)
             self.game_buttons[game_name] = btn
 
@@ -294,18 +292,7 @@ class ModEngine3Manager(QMainWindow):
         self.game_buttons = {}
         game_order = self.config_manager.get_game_order()
         for game_name in game_order:
-            btn = DraggableGameButton(game_name)
-            btn.setFixedHeight(45)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px;
-                    padding: 8px 16px; text-align: left; font-size: 13px; font-weight: 500;
-                }
-                QPushButton:hover { background-color: #3d3d3d; border-color: #4d4d4d; }
-                QPushButton:checked { background-color: #0078d4; border-color: #0078d4; color: white; }
-            """)
-            btn.setCheckable(True)
-            btn.clicked.connect(lambda checked, name=game_name: self.switch_game(name))
+            btn = self._create_game_button(game_name)
             self.game_container.add_game_button(game_name, btn)
             self.game_buttons[game_name] = btn
         self.game_container.set_game_order(game_order)
@@ -335,6 +322,15 @@ class ModEngine3Manager(QMainWindow):
         self.update_footer_text()  # Set initial text
         layout.addWidget(self.footer_label)
         parent.addWidget(sidebar)
+
+    def _create_game_button(self, game_name: str) -> DraggableGameButton:
+        """Create a styled game button for the sidebar."""
+        btn = DraggableGameButton(game_name)
+        btn.setFixedHeight(45)
+        btn.setStyleSheet(GAME_BUTTON_STYLE)
+        btn.setCheckable(True)
+        btn.clicked.connect(lambda checked, name=game_name: self.switch_game(name))
+        return btn
 
     def show_help_dialog(self):
         dialog = HelpAboutDialog(self, initial_setup=False)

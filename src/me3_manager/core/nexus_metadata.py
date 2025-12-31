@@ -349,6 +349,7 @@ class NexusMetadataManager:
         *,
         game_domain: str,
         mod_id: int,
+        local_mod_path: str | None = None,
         mod_name: str | None = None,
         mod_version: str | None = None,
         mod_author: str | None = None,
@@ -367,33 +368,40 @@ class NexusMetadataManager:
     ) -> None:
         """
         Update cached details for a mod.
-        If the mod is already installed (tracked), update its record (on disk).
-        Otherwise, update the runtime cache (in memory only).
+        If local_mod_path is provided, it updates/creates the installed record (on disk).
+        Otherwise:
+          - If the mod is already installed (found by ID), update its record (on disk).
+          - If not installed, update the runtime cache (in memory only).
         """
         self.ensure_dirs()
         items = self.load_game(game_domain)
         target_mod_id = int(mod_id)
 
-        # Find existing installed record
         target_key = None
         existing = None
 
-        for key, mod in items.items():
-            if key.startswith("__cache__:"):
-                continue
-            if mod.mod_id == target_mod_id and mod.game_domain == game_domain:
-                target_key = key
-                existing = mod
-                break
+        if local_mod_path:
+            target_key = local_mod_path
+            existing = items.get(local_mod_path)
+            # When explicitly providing path (e.g. after install), we treat it as installed
+            is_installed_mod = True
+        else:
+            # Find existing installed record by ID
+            for key, mod in items.items():
+                if key.startswith("__cache__:"):
+                    continue
+                if mod.mod_id == target_mod_id and mod.game_domain == game_domain:
+                    target_key = key
+                    existing = mod
+                    break
 
-        # Determine strict mode: installed (disk) vs runtime (memory)
-        is_installed_mod = existing is not None
+            is_installed_mod = existing is not None
 
-        if not is_installed_mod:
-            # Use runtime cache
-            cache_key = self.cache_key(game_domain, mod_id)
-            target_key = cache_key
-            existing = self._runtime_cache.get(cache_key)
+            if not is_installed_mod:
+                # Use runtime cache
+                cache_key = self.cache_key(game_domain, mod_id)
+                target_key = cache_key
+                existing = self._runtime_cache.get(cache_key)
 
         tracked = existing or TrackedNexusMod(
             local_mod_path=target_key,
@@ -404,6 +412,12 @@ class NexusMetadataManager:
         # Ensure ID/Domain are set (in case of new object)
         tracked.game_domain = game_domain
         tracked.mod_id = int(mod_id)
+
+        # If we are effectively installing/updating a real mod, ensure installed_at is set
+        if is_installed_mod and not tracked.installed_at:
+            tracked.installed_at = TrackedNexusMod.now_iso()
+
+        # Always update cached_at for freshness
         tracked.cached_at = TrackedNexusMod.now_iso()
 
         if nexus_url:
@@ -443,6 +457,11 @@ class NexusMetadataManager:
 
         if is_installed_mod:
             items[target_key] = tracked
+            # Cleanup duplicate cache entry from runtime cache if we just promoted it
+            cache_key = self.cache_key(game_domain, mod_id)
+            if cache_key in self._runtime_cache:
+                del self._runtime_cache[cache_key]
+
             self.save_game(game_domain, items)
         else:
             self._runtime_cache[target_key] = tracked
@@ -541,58 +560,3 @@ class NexusMetadataManager:
         """Get the user-specified folder path rule for a mod."""
         cached = self.get_cached_for_mod(game_domain, mod_id)
         return cached.mod_root_path if cached else None
-
-    def update_after_download(
-        self,
-        *,
-        game_domain: str,
-        local_mod_path: str,
-        mod_id: int,
-        file_id: int | None,
-        mod_name: str | None,
-        mod_version: str | None,
-        mod_author: str | None = None,
-        mod_endorsements: int | None = None,
-        mod_unique_downloads: int | None = None,
-        mod_total_downloads: int | None = None,
-        mod_picture_url: str | None = None,
-        mod_summary: str | None = None,
-        file_name: str | None,
-        file_version: str | None,
-        file_size_kb: int | None,
-        file_category: str | None = None,
-        file_uploaded_timestamp: int | None = None,
-        nexus_url: str | None,
-    ) -> None:
-        self.ensure_dirs()
-        items = self.load_game(game_domain)
-        record = TrackedNexusMod(
-            local_mod_path=local_mod_path,
-            game_domain=game_domain,
-            mod_id=int(mod_id),
-            file_id=(int(file_id) if file_id is not None else None),
-            mod_name=mod_name,
-            mod_version=mod_version,
-            mod_author=mod_author,
-            mod_endorsements=mod_endorsements,
-            mod_unique_downloads=mod_unique_downloads,
-            mod_total_downloads=mod_total_downloads,
-            mod_picture_url=mod_picture_url,
-            mod_summary=mod_summary,
-            file_name=file_name,
-            file_version=file_version,
-            file_size_kb=file_size_kb,
-            file_category=file_category,
-            file_uploaded_timestamp=file_uploaded_timestamp,
-            nexus_url=nexus_url,
-            installed_at=TrackedNexusMod.now_iso(),
-            cached_at=TrackedNexusMod.now_iso(),
-        )
-        items[local_mod_path] = record
-
-        # Cleanup duplicate cache entry from runtime cache
-        cache_key = self.cache_key(game_domain, mod_id)
-        if cache_key in self._runtime_cache:
-            del self._runtime_cache[cache_key]
-
-        self.save_game(game_domain, items)

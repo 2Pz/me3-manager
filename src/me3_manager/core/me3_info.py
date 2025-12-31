@@ -35,11 +35,6 @@ class ME3InfoManager:
             return self._is_installed
 
         try:
-            startupinfo = None
-            if sys.platform == "win32":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
             command = self._prepare_command(["me3", "--version"])
             returncode, stdout, _ = CommandRunner.run(
                 command, timeout=10, capture_output=True, text=True
@@ -71,11 +66,6 @@ class ME3InfoManager:
             return self._info_cache
 
         try:
-            startupinfo = None
-            if sys.platform == "win32":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
             command = self._prepare_command(["me3", "info"])
             returncode, stdout, stderr = CommandRunner.run(
                 command, timeout=15, capture_output=True, text=True
@@ -243,11 +233,6 @@ class ME3InfoManager:
             return info["version"]
 
         try:
-            startupinfo = None
-            if sys.platform == "win32":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-
             command = self._prepare_command(["me3", "--version"])
             returncode, stdout, _ = CommandRunner.run(
                 command, timeout=10, capture_output=True, text=True

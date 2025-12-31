@@ -24,20 +24,29 @@ class ModActionHandler:
         self.game_page = game_page
         self.mod_manager = game_page.mod_manager
 
+    def _handle_result(
+        self, success: bool, message: str, error_title: str, delay_ms: int = 2000
+    ):
+        """
+        Common handler for mod operation results.
+        Shows status message on success, warning dialog on failure.
+        """
+        if success:
+            self.game_page.status_label.setText(message)
+            self.game_page.load_mods(reset_page=False)
+            QTimer.singleShot(
+                delay_ms,
+                lambda: self.game_page.status_label.setText(tr("status_ready")),
+            )
+        else:
+            QMessageBox.warning(self.game_page, tr(error_title), message)
+
     def toggle_mod(self, mod_path: str, enabled: bool):
         """Toggles a mod's enabled state."""
         success, message = self.mod_manager.set_mod_enabled(
             self.game_page.game_name, mod_path, enabled
         )
-
-        if success:
-            self.game_page.load_mods(reset_page=False)
-            self.game_page.status_label.setText(message)
-            QTimer.singleShot(
-                2000, lambda: self.game_page.status_label.setText(tr("status_ready"))
-            )
-        else:
-            QMessageBox.warning(self.game_page, tr("toggle_mod_error_title"), message)
+        self._handle_result(success, message, "toggle_mod_error_title")
 
     def delete_mod(self, mod_path: str):
         """Deletes a mod after user confirmation."""
@@ -53,16 +62,7 @@ class ModActionHandler:
             success, message = self.mod_manager.remove_mod(
                 self.game_page.game_name, mod_path
             )
-
-            if success:
-                self.game_page.load_mods(reset_page=False)
-                self.game_page.status_label.setText(message)
-                QTimer.singleShot(
-                    2000,
-                    lambda: self.game_page.status_label.setText(tr("status_ready")),
-                )
-            else:
-                QMessageBox.warning(self.game_page, tr("delete_error_title"), message)
+            self._handle_result(success, message, "delete_error_title")
 
     def add_external_mod(self):
         """Opens a file dialog to add a new external DLL mod."""
@@ -76,18 +76,7 @@ class ModActionHandler:
             success, message = self.mod_manager.add_external_mod(
                 self.game_page.game_name, file_name
             )
-
-            if success:
-                self.game_page.status_label.setText(message)
-                self.game_page.load_mods(reset_page=False)
-                QTimer.singleShot(
-                    3000,
-                    lambda: self.game_page.status_label.setText(tr("status_ready")),
-                )
-            else:
-                QMessageBox.warning(
-                    self.game_page, tr("add_external_mod_error_title"), message
-                )
+            self._handle_result(success, message, "add_external_mod_error_title", 3000)
 
     def add_external_package_mod(self):
         """Opens a folder dialog to add a new external package mod."""
@@ -101,18 +90,7 @@ class ModActionHandler:
             success, message = self.mod_manager.add_external_mod(
                 self.game_page.game_name, folder_path
             )
-
-            if success:
-                self.game_page.status_label.setText(message)
-                self.game_page.load_mods(reset_page=False)
-                QTimer.singleShot(
-                    3000,
-                    lambda: self.game_page.status_label.setText(tr("status_ready")),
-                )
-            else:
-                QMessageBox.warning(
-                    self.game_page, tr("add_external_mod_error_title"), message
-                )
+            self._handle_result(success, message, "add_external_mod_error_title", 3000)
 
     def activate_regulation_mod(self, mod_path: str):
         """Activates the regulation.bin file for a specific mod."""
@@ -126,12 +104,4 @@ class ModActionHandler:
             success, message = self.mod_manager.set_regulation_active(
                 self.game_page.game_name, mod_path
             )
-
-        if success:
-            self.game_page.load_mods(reset_page=False)
-            self.game_page.status_label.setText(message)
-            QTimer.singleShot(
-                3000, lambda: self.game_page.status_label.setText(tr("status_ready"))
-            )
-        else:
-            QMessageBox.warning(self.game_page, tr("regulation_error_title"), message)
+        self._handle_result(success, message, "regulation_error_title", 3000)
