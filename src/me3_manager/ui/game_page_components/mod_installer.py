@@ -779,7 +779,36 @@ class ModInstaller:
             "profileVersion", current_profile.get("profileVersion", "v1")
         )
 
-        for key in ("start_online", "disable_arxan", "supports", "savefile"):
+        # Handle savefile conflict detection
+        current_savefile = current_profile.get("savefile")
+        imported_savefile = profile_data.get("savefile")
+
+        # If both have different savefiles, ask user which to use
+        if (
+            current_savefile
+            and imported_savefile
+            and current_savefile != imported_savefile
+        ):
+            reply = QMessageBox.question(
+                self.game_page,
+                tr("savefile_preference_title"),
+                tr(
+                    "savefile_preference_message",
+                    current_savefile=current_savefile,
+                    imported_savefile=imported_savefile,
+                ),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                # User chose to use imported savefile
+                updated_profile["savefile"] = imported_savefile
+            # else: keep current savefile (don't modify)
+        elif imported_savefile:
+            # No conflict - just apply imported savefile
+            updated_profile["savefile"] = imported_savefile
+
+        # Apply other profile options (excluding savefile which was handled above)
+        for key in ("start_online", "disable_arxan", "supports"):
             if key in profile_data:
                 updated_profile[key] = profile_data.get(key)
 

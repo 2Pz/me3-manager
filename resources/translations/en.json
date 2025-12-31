@@ -314,7 +314,7 @@
   "copy_failed_msg": "Failed to copy '{name}': {error}",
   "absolute_path_in_profile_msg": "Profile contains an absolute path, which is not allowed for security reasons.",
   "invalid_mod_name_msg": "Invalid mod name. The name contains illegal characters, is a reserved system name, or is too long.",
-  "overwrite_dll_confirm_text": "The following DLLs already exist in the mods folder. Overwrite?\n\n",
+  "overwrite_dll_confirm_text": "The following mods already exist. Overwrite?\n\n",
   "dll_install_cancelled_status": "DLL installation cancelled or no new DLLs to install.",
   "dll_copy_failed_msg": "Failed to copy DLL {name}: {error}",
   "dll_install_success_status": "Successfully installed {count} DLL mod(s).",
