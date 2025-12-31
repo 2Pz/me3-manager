@@ -257,15 +257,19 @@ jobs:
           changelog=$(cat release_changelog.txt)
           pr_title="🚀 Release: Me3 Manager $NEXT_VERSION"
           
-          # Add "Unreleased" banner at the top of PR body
-          pr_body="## 🚧 UNRELEASED
+          # Create PR body with unreleased banner (write to file to avoid YAML issues)
+          {
+            echo "## 🚧 UNRELEASED"
+            echo ""
+            echo "**This release is still under development.**"
+            echo "Changes in this PR will be included in the final release once merged."
+            echo ""
+            echo "---"
+            echo ""
+            echo "$changelog"
+          } > pr_body.txt
           
-> **This release is still under development.**  
-> Changes in this PR will be included in the final release once merged.
-
----
-
-$changelog"
+          pr_body=$(cat pr_body.txt)
           
           # Try to create PR first, if it fails because PR already exists, update it
           if gh pr create -B main --title "$pr_title" -b "$pr_body" --head "release-$NEXT_VERSION" 2>/dev/null; then
