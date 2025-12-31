@@ -61,8 +61,13 @@ commit_preprocessors = [
 ]
 
 commit_parsers = [
-  # Skip CI related commits globally
+  # Skip merge commits
+  { message = "^Merge pull request", skip = true },
+  { message = "^Merge branch", skip = true },
+  
+  # Skip CI related commits globally (both [ci] suffix and (ci) scope)
   { message = "\\[ci\\]", skip = true },
+  { message = "\\(ci\\):", skip = true },
 
   # Primary categories
   { message = "^feat", group = "<!-- 0 -->✨ New Features" },
@@ -83,7 +88,6 @@ commit_parsers = [
   { message = "^test", skip = true },
   { message = "^ci", skip = true },
   { message = "^build", skip = true },
-  { message = "\\[ci\\]", skip = true },
   
   # Maintenance
   { message = "^chore\\(release\\)", skip = true },
