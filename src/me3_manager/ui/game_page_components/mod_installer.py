@@ -525,6 +525,10 @@ class ModInstaller:
 
                 profile_data = ProfileConverter.normalize(raw_data)
 
+            # Use the profile file's parent as the base for resolving paths
+            # Profile paths are relative to the .me3 file location, not the import_folder
+            profile_base = profile_file.parent
+
             # Show merge/replace dialog
             dialog = QDialog(self.game_page)
             dialog.setWindowTitle(
@@ -534,7 +538,7 @@ class ModInstaller:
             layout = QVBoxLayout()
             layout.addWidget(QLabel(tr("import_profile_mods_desc")))
             layout.addWidget(
-                QLabel(tr("importing_from_label", folder=import_folder.name))
+                QLabel(tr("importing_from_label", folder=profile_base.name))
             )
 
             button_layout = QHBoxLayout()
@@ -574,7 +578,7 @@ class ModInstaller:
             for i, pkg in enumerate(profile_data.get("packages", [])):
                 if isinstance(pkg, dict) and (pkg.get("source") or pkg.get("path")):
                     pkg_rel = Path(pkg.get("source") or pkg.get("path"))
-                    pkg_abs = self._safe_join(import_folder, pkg_rel)
+                    pkg_abs = self._safe_join(profile_base, pkg_rel)
                     if pkg_abs and pkg_abs.is_dir():
                         dest_name = (
                             mod_name_override
@@ -596,7 +600,7 @@ class ModInstaller:
                 if not (isinstance(native, dict) and native.get("path")):
                     continue
                 nat_rel = Path(native["path"])
-                nat_abs = self._safe_join(import_folder, nat_rel)
+                nat_abs = self._safe_join(profile_base, nat_rel)
                 if (
                     not nat_abs
                     or not nat_abs.is_file()
@@ -604,7 +608,7 @@ class ModInstaller:
                 ):
                     continue
                 # Skip if in a package
-                if any((import_folder / p / nat_abs.name).exists() for p in pkg_names):
+                if any((profile_base / p / nat_abs.name).exists() for p in pkg_names):
                     continue
                 items_to_install.append((nat_abs, nat_abs.name))
                 cfg_dir = nat_abs.parent / nat_abs.stem
