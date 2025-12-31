@@ -314,7 +314,7 @@
   "copy_failed_msg": "复制 '{name}' 失败: {error}",
   "absolute_path_in_profile_msg": "出于安全考虑，配置文件中不允许包含绝对路径",
   "invalid_mod_name_msg": "模组名称无效。名称可能包含非法字符、属于系统保留名称或过长",
-  "overwrite_dll_confirm_text": "以下 DLL 已存在于模组文件夹中。是否覆盖？\n\n",
+  "overwrite_dll_confirm_text": "以下模组已存在。是否覆盖？\n\n",
   "dll_install_cancelled_status": "DLL 安装已取消或没有新的 DLL 要安装。",
   "dll_copy_failed_msg": "复制 DLL {name} 失败: {error}",
   "dll_install_success_status": "成功安装 {count} 个 DLL 模组。",

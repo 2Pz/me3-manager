@@ -314,7 +314,7 @@
   "copy_failed_msg": "ما قدرت أنسخ '{name}': {error}",
   "absolute_path_in_profile_msg": "البروفايل فيه مسار مطلق، وهذا شيء ممنوع عشان الأمان.",
   "invalid_mod_name_msg": "اسم المود هذا ما ينفع. يمكن الاسم فيه حروف ممنوعة، أو اسم محجوز للنظام، أو مرة طويل.",
-  "overwrite_dll_confirm_text": "ملفات DLL التالية موجودة من أول في مجلد المودات. تبغى تستبدلها؟\n\n",
+  "overwrite_dll_confirm_text": "المودات التالية موجودة بالفعل. تبغى تستبدلها؟\n\n",
   "dll_install_cancelled_status": "تم إلغاء تثبيت DLL أو لا توجد ملفات DLL جديدة للتثبيت.",
   "dll_copy_failed_msg": "فشل نسخ DLL {name}: {error}",
   "dll_install_success_status": "تم تثبيت {count} مود DLL بنجاح.",
