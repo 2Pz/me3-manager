@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -57,6 +58,7 @@ class NexusModDetailsSidebar(QWidget):
         self._file: NexusModFile | None = None
         self._nexus_url: str | None = None
         self._target_width = 360
+        self._min_height = 550  # Minimum height to ensure content is always visible
         self._animation: QPropertyAnimation | None = None
         self._build()
         # Set fixed width for the overlay
@@ -77,13 +79,29 @@ class NexusModDetailsSidebar(QWidget):
         return super().eventFilter(watched, event)
 
     def _update_position(self):
-        """Position the sidebar at the right edge of the parent."""
+        """Position the sidebar at the right edge of the parent.
+
+        Uses the main window's geometry to calculate height, ensuring the sidebar
+        is not affected by the mod list size.
+        """
         if self.parent():
-            parent_rect = self.parent().rect()
+            parent_widget = self.parent()
+            parent_rect = parent_widget.rect()
+
+            # Get the main window to calculate available height
+            main_window = parent_widget.window()
+            if main_window:
+                # Use main window height for a consistent sidebar size
+                window_height = main_window.height()
+                # Calculate height based on window, not parent widget
+                height = max(self._min_height, window_height - 100)
+            else:
+                # Fallback to minimum height if no window
+                height = max(self._min_height, parent_rect.height() - 48)
+
             # Position at right edge with some margin
             x = parent_rect.width() - self._target_width - 24
             y = 24  # Top margin
-            height = parent_rect.height() - 48  # Leave margin at top and bottom
             self.setGeometry(x, y, self._target_width, height)
 
     def _adjust_content_margin(self, expand: bool):
@@ -101,6 +119,10 @@ class NexusModDetailsSidebar(QWidget):
                         self._target_width + 36,  # sidebar width + gap
                         margins.bottom(),
                     )
+                    # Set minimum height on mods_widget to prevent clipping the sidebar
+                    if hasattr(parent, "mods_widget"):
+                        # Calculate minimum height based on sidebar needs
+                        parent.mods_widget.setMinimumHeight(self._min_height - 80)
                 else:
                     # Restore original right margin
                     parent.main_layout.setContentsMargins(
@@ -109,6 +131,9 @@ class NexusModDetailsSidebar(QWidget):
                         24,  # Original right margin
                         margins.bottom(),
                     )
+                    # Remove minimum height constraint
+                    if hasattr(parent, "mods_widget"):
+                        parent.mods_widget.setMinimumHeight(0)
         except Exception:
             pass
 
@@ -226,7 +251,7 @@ class NexusModDetailsSidebar(QWidget):
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(12)
 
-        # Header row
+        # Header row (outside scroll area so it's always visible)
         header_row = QHBoxLayout()
         header_row.setSpacing(8)
 
@@ -244,6 +269,46 @@ class NexusModDetailsSidebar(QWidget):
 
         root.addLayout(header_row)
 
+        # Scroll area for content - ensures content doesn't overlap when space is limited
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollArea > QWidget > QWidget {
+                background: transparent;
+            }
+            QScrollBar:vertical {
+                background-color: #2d2d2d;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #4d4d4d;
+                border-radius: 4px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #5d5d5d;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+
+        # Content widget inside scroll area
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background: transparent;")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(
+            0, 0, 4, 0
+        )  # Small right margin for scrollbar
+        content_layout.setSpacing(12)
+
         # Thumbnail - scales with image
         self.thumb = QLabel()
         self.thumb.setMinimumHeight(80)
@@ -256,20 +321,20 @@ class NexusModDetailsSidebar(QWidget):
             font-size: 11px;
         """)
         self.thumb.setText(tr("nexus_no_thumb"))
-        root.addWidget(self.thumb)
+        content_layout.addWidget(self.thumb)
 
         # Mod name - limit to 2 lines
         self.mod_name = QLabel("-")
         self.mod_name.setWordWrap(True)
         self.mod_name.setMaximumHeight(50)  # ~2 lines
         self.mod_name.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        root.addWidget(self.mod_name)
+        content_layout.addWidget(self.mod_name)
 
         # Author - single line with elide
         self.author = QLabel("-")
         self.author.setStyleSheet("color: #888888; font-size: 11px;")
         self.author.setMaximumHeight(20)
-        root.addWidget(self.author)
+        content_layout.addWidget(self.author)
 
         # Stats container
         stats_widget = QWidget()
@@ -302,19 +367,19 @@ class NexusModDetailsSidebar(QWidget):
         add_stat_row("nexus_file_size_label", self.file_size)
         add_stat_row("nexus_cached_label", self.cached)
 
-        root.addWidget(stats_widget)
+        content_layout.addWidget(stats_widget)
 
         # Status
         self.status = QLabel("")
         self.status.setWordWrap(True)
         self.status.setStyleSheet("color: #888888; font-size: 11px;")
-        root.addWidget(self.status)
+        content_layout.addWidget(self.status)
 
         # Primary button
         self.open_page_btn = QPushButton(tr("nexus_open_page_button"))
         self.open_page_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.open_page_btn.clicked.connect(self.open_page_clicked.emit)
-        root.addWidget(self.open_page_btn)
+        content_layout.addWidget(self.open_page_btn)
 
         # Secondary buttons row
         actions_row = QHBoxLayout()
@@ -332,7 +397,7 @@ class NexusModDetailsSidebar(QWidget):
         self.install_btn.clicked.connect(self.install_clicked.emit)
         actions_row.addWidget(self.install_btn, 1)
 
-        root.addLayout(actions_row)
+        content_layout.addLayout(actions_row)
 
         # Mod root path input (for mods with unknown structure)
         self.folder_container = QWidget()
@@ -368,7 +433,7 @@ class NexusModDetailsSidebar(QWidget):
         folder_hint.setStyleSheet("color: #666666; font-size: 9px;")
         folder_layout.addWidget(folder_hint)
 
-        root.addWidget(self.folder_container)
+        content_layout.addWidget(self.folder_container)
 
         # Link button
         self.link_btn = QPushButton(tr("nexus_link_button"))
@@ -376,9 +441,13 @@ class NexusModDetailsSidebar(QWidget):
         self.link_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.link_btn.clicked.connect(self.link_clicked.emit)
         self.link_btn.setVisible(False)
-        root.addWidget(self.link_btn)
+        content_layout.addWidget(self.link_btn)
 
-        root.addStretch()
+        content_layout.addStretch()
+
+        # Set the content widget in the scroll area and add to root layout
+        scroll_area.setWidget(content_widget)
+        root.addWidget(scroll_area)
 
     def set_thumbnail(self, pix: QPixmap | None):
         if not pix or pix.isNull():
