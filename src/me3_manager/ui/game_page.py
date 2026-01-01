@@ -154,13 +154,11 @@ class GamePage(QWidget):
     def _safe_disconnect(signal) -> None:
         """Disconnect all slots from a Qt signal without raising warnings/errors."""
         try:
-            # Check if signal has any connected slots before disconnecting
-            # This prevents RuntimeWarning when disconnecting unconnected signals
-            if signal.receivers() > 0:
-                signal.disconnect()
-        except (TypeError, RuntimeError, AttributeError):
+            # Directly disconnect all slots from the signal
+            # In PySide6, disconnect() with no args disconnects all slots
+            signal.disconnect()
+        except (TypeError, RuntimeError):
             # RuntimeError: signal may already be disconnected or has no slots
-            # AttributeError: signal may not have receivers() method
             pass
         except Exception:
             pass
