@@ -244,6 +244,9 @@ class NexusModDetailsSidebar(QWidget):
                 border: 1px solid #3d3d3d;
                 border-radius: 8px;
             }
+            #ScrollContent {
+                background: transparent;
+            }
             """
         )
 
@@ -302,7 +305,7 @@ class NexusModDetailsSidebar(QWidget):
 
         # Content widget inside scroll area
         content_widget = QWidget()
-        content_widget.setStyleSheet("background: transparent;")
+        content_widget.setObjectName("ScrollContent")
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(
             0, 0, 4, 0
