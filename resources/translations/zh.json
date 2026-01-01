@@ -505,7 +505,7 @@
   "nexus_cached_secs_ago": "{seconds}秒前",
   "nexus_cached_mins_ago": "{minutes}分钟前",
   "nexus_cached_hours_ago": "{hours}小时前",
-  "nexus_update_available_status": "有更新可用。",
+  "nexus_update_available_status": "有更新可用 ({version})。",
   "nexus_up_to_date_status": "已是最新。",
   "nexus_update_check_failed_status": "检查更新失败：{error}",
   "nexus_open_search_in_browser": "在浏览器中打开 Nexus 网站搜索",

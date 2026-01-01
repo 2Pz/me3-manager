@@ -505,7 +505,7 @@
   "nexus_cached_secs_ago": "قبل {seconds} ثانية",
   "nexus_cached_mins_ago": "قبل {minutes} دقيقة",
   "nexus_cached_hours_ago": "قبل {hours} ساعة",
-  "nexus_update_available_status": "يتوفر تحديث.",
+  "nexus_update_available_status": "يتوفر تحديث ({version}).",
   "nexus_up_to_date_status": "محدث.",
   "nexus_update_check_failed_status": "فشل التحقق من التحديث: {error}",
   "nexus_open_search_in_browser": "فتح بحث موقع Nexus في المتصفح",

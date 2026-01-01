@@ -495,7 +495,6 @@ class GamePage(QWidget):
         """Download and install the currently selected Nexus mod (zip only)."""
         sidebar = getattr(self, "nexus_details_sidebar", None)
         mod = sidebar.current_mod() if sidebar else None
-        file = sidebar.current_file() if sidebar else None
         if not mod:
             return
 
@@ -507,7 +506,9 @@ class GamePage(QWidget):
 
         try:
             files = self.nexus_service.get_mod_files(mod.game_domain, mod.mod_id)
-            chosen = file or self.nexus_service.pick_latest_main_file(files)
+            # Always download the latest file - don't use cached file as that's the
+            # currently installed version, not the update we want to install
+            chosen = self.nexus_service.pick_latest_main_file(files)
             if not chosen:
                 raise NexusError("No downloadable files found for this mod.")
 
@@ -707,24 +708,9 @@ class GamePage(QWidget):
 
             files = self.nexus_service.get_mod_files(mod.game_domain, mod.mod_id)
             latest = self.nexus_service.pick_latest_main_file(files)
-            sidebar.set_details(mod, latest)
-            sidebar.set_cached_text(tr("nexus_cached_just_now"))
-            # Cache refreshed mod-level details for offline viewing
-            # NOTE: Do NOT update file_id/file_version here - that would overwrite
-            # the currently installed version. File metadata should only update on install.
-            if latest:
-                self.nexus_metadata.upsert_cache_for_mod(
-                    game_domain=mod.game_domain,
-                    mod_id=mod.mod_id,
-                    mod_name=mod.name,
-                    mod_author=mod.author,
-                    mod_endorsements=mod.endorsement_count,
-                    mod_unique_downloads=mod.unique_downloads,
-                    mod_total_downloads=mod.total_downloads,
-                    mod_picture_url=mod.picture_url,
-                    mod_summary=mod.summary,
-                    nexus_url=sidebar.current_url(),
-                )
+            # NOTE: Do NOT update sidebar details or cache here - checking for updates
+            # should only notify about availability without modifying displayed info.
+            # Details are updated only after user installs the update.
 
             if (
                 tracked
@@ -732,7 +718,9 @@ class GamePage(QWidget):
                 and tracked.file_id
                 and latest.file_id != tracked.file_id
             ):
-                sidebar.set_status(tr("nexus_update_available_status"))
+                sidebar.set_status(
+                    tr("nexus_update_available_status", version=latest.version or "")
+                )
             else:
                 sidebar.set_status(tr("nexus_up_to_date_status"))
         except Exception as e:
