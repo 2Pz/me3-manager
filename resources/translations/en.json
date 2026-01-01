@@ -505,7 +505,7 @@
   "nexus_cached_secs_ago": "{seconds}s ago",
   "nexus_cached_mins_ago": "{minutes}m ago",
   "nexus_cached_hours_ago": "{hours}h ago",
-  "nexus_update_available_status": "Update available.",
+  "nexus_update_available_status": "Update available ({version}).",
   "nexus_up_to_date_status": "Up to date.",
   "nexus_update_check_failed_status": "Update check failed: {error}",
   "nexus_open_search_in_browser": "Open Nexus website search in browser",
