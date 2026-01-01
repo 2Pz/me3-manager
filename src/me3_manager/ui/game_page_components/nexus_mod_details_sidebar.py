@@ -499,7 +499,10 @@ class NexusModDetailsSidebar(QWidget):
         self.author.setText(tr("nexus_by_author", author=mod.author or "-"))
         self.endorsements.setText(_fmt_int(mod.endorsement_count))
         self.total_dls.setText(_fmt_int(mod.total_downloads))
-        self.version.setText(mod.version or "-")
+        # Show file version if available (actual installed version), otherwise mod page version
+        self.version.setText(
+            file.version if file and file.version else (mod.version or "-")
+        )
         self.file_size.setText(_fmt_size_kb(file.size_kb if file else None))
         self.open_page_btn.setEnabled(True)
         self.check_update_btn.setEnabled(True)
