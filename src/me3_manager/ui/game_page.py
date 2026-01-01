@@ -442,7 +442,7 @@ class GamePage(QWidget):
                                 game_domain=mod.game_domain,
                                 mod_id=mod.mod_id,
                                 mod_name=mod.name,
-                                mod_version=mod.version,
+                                mod_version=latest.version,
                                 mod_author=mod.author,
                                 mod_endorsements=mod.endorsement_count,
                                 mod_unique_downloads=mod.unique_downloads,
@@ -641,7 +641,7 @@ class GamePage(QWidget):
                         local_mod_path=local_path,
                         file_id=chosen.file_id,
                         mod_name=mod.name,
-                        mod_version=mod.version,
+                        mod_version=chosen.version,
                         mod_author=mod.author,
                         mod_endorsements=mod.endorsement_count,
                         mod_unique_downloads=mod.unique_downloads,
@@ -658,6 +658,9 @@ class GamePage(QWidget):
                     log.debug("Metadata saved successfully")
                     self._update_status(tr("nexus_install_success_status"))
                     if sidebar:
+                        # Refresh sidebar details with updated file info
+                        sidebar.set_details(mod, chosen)
+                        sidebar.set_cached_text(tr("nexus_cached_just_now"))
                         sidebar.set_status(tr("nexus_install_success_status"))
                 else:
                     if sidebar:
@@ -706,25 +709,20 @@ class GamePage(QWidget):
             latest = self.nexus_service.pick_latest_main_file(files)
             sidebar.set_details(mod, latest)
             sidebar.set_cached_text(tr("nexus_cached_just_now"))
-            # Cache refreshed details for offline viewing
+            # Cache refreshed mod-level details for offline viewing
+            # NOTE: Do NOT update file_id/file_version here - that would overwrite
+            # the currently installed version. File metadata should only update on install.
             if latest:
                 self.nexus_metadata.upsert_cache_for_mod(
                     game_domain=mod.game_domain,
                     mod_id=mod.mod_id,
                     mod_name=mod.name,
-                    mod_version=mod.version,
                     mod_author=mod.author,
                     mod_endorsements=mod.endorsement_count,
                     mod_unique_downloads=mod.unique_downloads,
                     mod_total_downloads=mod.total_downloads,
                     mod_picture_url=mod.picture_url,
                     mod_summary=mod.summary,
-                    file_id=latest.file_id,
-                    file_name=latest.name,
-                    file_version=latest.version,
-                    file_size_kb=latest.size_kb,
-                    file_category=latest.category_name,
-                    file_uploaded_timestamp=latest.uploaded_timestamp,
                     nexus_url=sidebar.current_url(),
                 )
 
