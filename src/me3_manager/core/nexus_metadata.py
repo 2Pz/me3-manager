@@ -322,6 +322,23 @@ class NexusMetadataManager:
     def cache_key(game_domain: str, mod_id: int) -> str:
         return f"__cache__:{game_domain}:{int(mod_id)}"
 
+    def _find_installed_mod_key(
+        self, items: dict[str, TrackedNexusMod], game_domain: str, mod_id: int
+    ) -> str | None:
+        """Find the key of an installed mod by ID, skipping cache entries."""
+        target_mod_id = int(mod_id)
+        for key, mod in items.items():
+            if key.startswith("__cache__:"):
+                continue
+            if mod.mod_id == target_mod_id and mod.game_domain == game_domain:
+                return key
+        return None
+
+    def _invalidate_runtime_cache(self, game_domain: str, mod_id: int) -> None:
+        """Remove a mod from the runtime cache if present."""
+        cache_key = self.cache_key(game_domain, mod_id)
+        self._runtime_cache.pop(cache_key, None)
+
     def get_cached_for_mod(
         self, game_domain: str, mod_id: int
     ) -> TrackedNexusMod | None:
@@ -332,14 +349,10 @@ class NexusMetadataManager:
         """
         items = self.load_game(game_domain)
 
-        target_mod_id = int(mod_id)
-
         # Search for installed mod with this ID
-        for key, mod in items.items():
-            if key.startswith("__cache__:"):
-                continue
-            if mod.mod_id == target_mod_id and mod.game_domain == game_domain:
-                return mod
+        key = self._find_installed_mod_key(items, game_domain, mod_id)
+        if key:
+            return items[key]
 
         # Fallback to runtime cache key
         return self._runtime_cache.get(self.cache_key(game_domain, mod_id))
@@ -375,7 +388,6 @@ class NexusMetadataManager:
         """
         self.ensure_dirs()
         items = self.load_game(game_domain)
-        target_mod_id = int(mod_id)
 
         target_key = None
         existing = None
@@ -387,13 +399,8 @@ class NexusMetadataManager:
             is_installed_mod = True
         else:
             # Find existing installed record by ID
-            for key, mod in items.items():
-                if key.startswith("__cache__:"):
-                    continue
-                if mod.mod_id == target_mod_id and mod.game_domain == game_domain:
-                    target_key = key
-                    existing = mod
-                    break
+            target_key = self._find_installed_mod_key(items, game_domain, mod_id)
+            existing = items.get(target_key) if target_key else None
 
             is_installed_mod = existing is not None
 
@@ -458,9 +465,7 @@ class NexusMetadataManager:
         if is_installed_mod:
             items[target_key] = tracked
             # Cleanup duplicate cache entry from runtime cache if we just promoted it
-            cache_key = self.cache_key(game_domain, mod_id)
-            if cache_key in self._runtime_cache:
-                del self._runtime_cache[cache_key]
+            self._invalidate_runtime_cache(game_domain, mod_id)
 
             self.save_game(game_domain, items)
         else:
@@ -500,9 +505,7 @@ class NexusMetadataManager:
         items[local_mod_path] = tracked
 
         # Cleanup any cache duplicate from runtime cache
-        cache_key = self.cache_key(game_domain, mod_id)
-        if cache_key in self._runtime_cache:
-            del self._runtime_cache[cache_key]
+        self._invalidate_runtime_cache(game_domain, mod_id)
 
         self.save_game(game_domain, items)
 
@@ -516,15 +519,7 @@ class NexusMetadataManager:
         """Set the user-specified folder path rule for a mod."""
         items = self.load_game(game_domain)
         # Try finding installed mod first
-        target_mod_id = int(mod_id)
-        target_key = None
-
-        for key, mod in items.items():
-            if key.startswith("__cache__:"):
-                continue
-            if mod.mod_id == target_mod_id and mod.game_domain == game_domain:
-                target_key = key
-                break
+        target_key = self._find_installed_mod_key(items, game_domain, mod_id)
 
         if target_key:
             existing = items.get(target_key)

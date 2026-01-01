@@ -76,10 +76,7 @@ class DraggableGameButton(QPushButton):
             event.ignore()
 
     def dragMoveEvent(self, event):
-        if event.mimeData().hasText() and event.source() != self:
-            event.acceptProposedAction()
-        else:
-            event.ignore()
+        self.dragEnterEvent(event)
 
     def dropEvent(self, event):
         if event.mimeData().hasText() and event.source() != self:

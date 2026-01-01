@@ -137,12 +137,7 @@ class ModEngine3Manager(QMainWindow):
 
         # 4. Rebuild the sidebar with the new game order
         game_order = self.config_manager.get_game_order()
-        for game_name in game_order:
-            btn = self._create_game_button(game_name)
-            self.game_container.add_game_button(game_name, btn)
-            self.game_buttons[game_name] = btn
-
-        self.game_container.set_game_order(game_order)
+        self._populate_game_buttons(game_order)
 
         # 5. Rebuild the game pages in the content area
         # Iterate through the ordered list to add pages sequentially
@@ -291,11 +286,7 @@ class ModEngine3Manager(QMainWindow):
         self.game_container.game_order_changed.connect(self.on_game_order_changed)
         self.game_buttons = {}
         game_order = self.config_manager.get_game_order()
-        for game_name in game_order:
-            btn = self._create_game_button(game_name)
-            self.game_container.add_game_button(game_name, btn)
-            self.game_buttons[game_name] = btn
-        self.game_container.set_game_order(game_order)
+        self._populate_game_buttons(game_order)
         layout.addWidget(self.game_container)
         layout.addStretch()
 
@@ -331,6 +322,14 @@ class ModEngine3Manager(QMainWindow):
         btn.setCheckable(True)
         btn.clicked.connect(lambda checked, name=game_name: self.switch_game(name))
         return btn
+
+    def _populate_game_buttons(self, game_order: list[str]) -> None:
+        """Populate the game container with buttons for each game in the order list."""
+        for game_name in game_order:
+            btn = self._create_game_button(game_name)
+            self.game_container.add_game_button(game_name, btn)
+            self.game_buttons[game_name] = btn
+        self.game_container.set_game_order(game_order)
 
     def show_help_dialog(self):
         dialog = HelpAboutDialog(self, initial_setup=False)

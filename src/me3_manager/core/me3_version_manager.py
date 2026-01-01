@@ -236,9 +236,18 @@ class ME3VersionManager(QObject):
             return None
         return None
 
-    def _fetch_github_release_info(self) -> tuple[str | None, str | None]:
-        """Fetch latest stable GitHub release information via service."""
-        asset_name = "me3_installer.exe" if sys.platform == "win32" else "installer.sh"
+    def _fetch_github_release_info(
+        self, asset_name: str | None = None
+    ) -> tuple[str | None, str | None]:
+        """Fetch latest stable GitHub release information via service.
+
+        Args:
+            asset_name: Override asset name. If None, auto-detects based on platform.
+        """
+        if asset_name is None:
+            asset_name = (
+                "me3_installer.exe" if sys.platform == "win32" else "installer.sh"
+            )
         release = self.me3_service.fetch_latest_release()
         version_tag = self.me3_service.get_latest_version_tag(release)
         url = self.me3_service.get_asset_url(release, asset_name)
@@ -479,7 +488,7 @@ class ME3VersionManager(QObject):
             return
 
         # Get the ZIP download URL
-        version, zip_url = self._fetch_github_release_info_zip()
+        version, zip_url = self._fetch_github_release_info("me3-windows-amd64.zip")
         if not zip_url:
             QMessageBox.warning(
                 self.parent,
@@ -528,14 +537,6 @@ class ME3VersionManager(QObject):
 
         self.thread.start()
         self.progress_dialog.show()
-
-    def _fetch_github_release_info_zip(self) -> tuple[str | None, str | None]:
-        """Fetch GitHub release information for ZIP distribution via service."""
-        asset_name = "me3-windows-amd64.zip"
-        release = self.me3_service.fetch_latest_release()
-        version_tag = self.me3_service.get_latest_version_tag(release)
-        url = self.me3_service.get_asset_url(release, asset_name)
-        return version_tag, url
 
     def _cancel_custom_install(self):
         """Cancel the current custom installation."""

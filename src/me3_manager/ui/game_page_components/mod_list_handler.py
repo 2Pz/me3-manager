@@ -212,48 +212,32 @@ class ModListHandler:
             text_color = "#FFD700"
 
         mod_info = gp.mod_infos.get(mod_path)
-        if mod_info:
-            if mod_info.mod_type.value == "nested":
-                mod_type, type_icon = (
-                    tr("mod_type_nested_dll"),
-                    QIcon(resource_path("resources/icon/dll.svg")),
-                )
-            elif regulation_active:
-                mod_type, type_icon = (
-                    tr("mod_type_active_regulation"),
-                    QIcon(resource_path("resources/icon/regulation_active.svg")),
-                )
-            elif has_regulation:
-                mod_type, type_icon = (
-                    tr("mod_type_package_with_regulation"),
-                    QIcon(resource_path("resources/icon/folder.svg")),
-                )
-            elif is_folder_mod:
-                mod_type, type_icon = (
-                    tr("mod_type_package"),
-                    QIcon(resource_path("resources/icon/folder.svg")),
-                )
-            else:
-                mod_type, type_icon = (
-                    tr("mod_type_native"),
-                    QIcon(resource_path("resources/icon/dll.svg")),
-                )
-        else:  # Fallback
-            if regulation_active:
-                mod_type, type_icon = (
-                    tr("mod_type_active_regulation"),
-                    QIcon(resource_path("resources/icon/regulation_active.svg")),
-                )
-            elif is_folder_mod:
-                mod_type, type_icon = (
-                    tr("mod_type_package"),
-                    QIcon(resource_path("resources/icon/folder.svg")),
-                )
-            else:
-                mod_type, type_icon = (
-                    tr("mod_type_native"),
-                    QIcon(resource_path("resources/icon/dll.svg")),
-                )
+        # Determine mod type and icon based on conditions
+        if mod_info and mod_info.mod_type.value == "nested":
+            mod_type, type_icon = (
+                tr("mod_type_nested_dll"),
+                QIcon(resource_path("resources/icon/dll.svg")),
+            )
+        elif regulation_active:
+            mod_type, type_icon = (
+                tr("mod_type_active_regulation"),
+                QIcon(resource_path("resources/icon/regulation_active.svg")),
+            )
+        elif has_regulation:
+            mod_type, type_icon = (
+                tr("mod_type_package_with_regulation"),
+                QIcon(resource_path("resources/icon/folder.svg")),
+            )
+        elif is_folder_mod:
+            mod_type, type_icon = (
+                tr("mod_type_package"),
+                QIcon(resource_path("resources/icon/folder.svg")),
+            )
+        else:
+            mod_type, type_icon = (
+                tr("mod_type_native"),
+                QIcon(resource_path("resources/icon/dll.svg")),
+            )
 
         has_advanced_options = (
             gp.mod_manager.has_advanced_options(mod_info) if mod_info else False

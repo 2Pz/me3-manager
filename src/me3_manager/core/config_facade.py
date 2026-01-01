@@ -4,8 +4,6 @@ Provides the same interface as the old ConfigManager while delegating to new com
 """
 
 import logging
-import os
-import sys
 from pathlib import Path
 
 from PySide6.QtCore import QFileSystemWatcher
@@ -53,33 +51,15 @@ class ConfigFacade:
 
     def _get_initial_settings_path(self) -> Path:
         """Get the initial settings file path."""
+        from me3_manager.core.paths.profile_paths import get_me3_profiles_root
+
         # Try to get from ME3 info
         if self.me3_info_manager and self.me3_info_manager.is_me3_installed():
             profile_dir = self.me3_info_manager.get_profile_directory()
             if profile_dir:
                 return Path(profile_dir).parent / "manager_settings.json"
-        if sys.platform == "win32":
-            localappdata = os.environ.get("LOCALAPPDATA")
-            if localappdata:
-                config_root = (
-                    Path(localappdata) / "garyttierney" / "me3" / "config" / "profiles"
-                )
-            else:
-                config_root = (
-                    Path.home()
-                    / "AppData"
-                    / "Local"
-                    / "garyttierney"
-                    / "me3"
-                    / "config"
-                    / "profiles"
-                )
-        else:
-            xdg_config = os.environ.get("XDG_CONFIG_HOME")
-            if xdg_config:
-                config_root = Path(xdg_config) / "me3" / "profiles"
-            else:
-                config_root = Path.home() / ".config" / "me3" / "profiles"
+
+        config_root = get_me3_profiles_root()
         return config_root.parent / "manager_settings.json"
 
     def _sync_legacy_attributes(self):
@@ -101,6 +81,19 @@ class ConfigFacade:
         self.custom_mods_paths = {}
         self.stored_custom_profile_paths = {}
         self.stored_custom_mods_paths = {}
+
+    def _create_default_profile_data(self) -> dict:
+        """Create default profile data structure with version from settings."""
+        try:
+            default_version = self.ui_settings.get_default_profile_version()
+        except Exception:
+            default_version = "v1"
+        return {
+            "profileVersion": default_version,
+            "natives": [],
+            "packages": [],
+            "supports": [],
+        }
 
     # Clean accessors (preferred over legacy attributes)
 
@@ -356,16 +349,7 @@ class ConfigFacade:
             }
             default_mods_path.mkdir(parents=True, exist_ok=True)
             # Write an initial profile file using default profile version
-            try:
-                default_version = self.ui_settings.get_default_profile_version()
-            except Exception:
-                default_version = "v1"
-            initial_profile = {
-                "profileVersion": default_version,
-                "natives": [],
-                "packages": [],
-                "supports": [],
-            }
+            initial_profile = self._create_default_profile_data()
             try:
                 self._write_toml_config(
                     default_profile_file_path, initial_profile, game_name
@@ -427,16 +411,7 @@ class ConfigFacade:
         profile_file_path = mods_dir / f"{safe_filename.replace(' ', '_')}.me3"
 
         # Create initial profile contents using default profile version
-        try:
-            default_version = self.ui_settings.get_default_profile_version()
-        except Exception:
-            default_version = "v1"
-        initial_profile = {
-            "profileVersion": default_version,
-            "natives": [],
-            "packages": [],
-            "supports": [],
-        }
+        initial_profile = self._create_default_profile_data()
 
         # Attempt to write the profile file
         try:
@@ -665,16 +640,7 @@ class ConfigFacade:
         profile_path = self.get_profile_path(game_name)
         if not profile_path.exists():
             # Create default profile if it doesn't exist
-            try:
-                default_version = self.ui_settings.get_default_profile_version()
-            except Exception:
-                default_version = "v1"
-            config_data = {
-                "profileVersion": default_version,
-                "natives": [],
-                "packages": [],
-                "supports": [],
-            }
+            config_data = self._create_default_profile_data()
             self._write_toml_config(profile_path, config_data, game_name)
 
         try:
