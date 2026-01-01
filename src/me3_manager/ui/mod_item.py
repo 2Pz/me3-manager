@@ -59,11 +59,7 @@ class ModItem(QWidget):
         self, icon_text: str, bg_color: str, text_color: str = "white", size: int = 20
     ) -> QIcon:
         """Create a circular status icon with text"""
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.GlobalColor.transparent)
-
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pixmap, painter = self._create_transparent_pixmap(size)
 
         # Draw circle background
         painter.setBrush(Qt.GlobalColor.transparent)
@@ -87,11 +83,7 @@ class ModItem(QWidget):
 
     def _create_diamond_icon(self, bg_color: str, size: int = 18) -> QIcon:
         """Create a diamond-shaped status icon"""
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.GlobalColor.transparent)
-
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pixmap, painter = self._create_transparent_pixmap(size)
 
         from PySide6.QtCore import QPoint
         from PySide6.QtGui import QBrush, QColor, QPolygon
@@ -112,6 +104,14 @@ class ModItem(QWidget):
 
         painter.end()
         return QIcon(pixmap)
+
+    def _create_transparent_pixmap(self, size: int) -> tuple[QPixmap, QPainter]:
+        """Create a transparent pixmap with antialiased painter."""
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        return pixmap, painter
 
     def _setup_styling(self, item_bg_color, is_nested):
         """Setup widget styling based on mod type"""

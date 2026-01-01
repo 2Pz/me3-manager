@@ -3,8 +3,6 @@ Path management for ME3 Manager.
 Handles all path resolution, custom paths, and directory management.
 """
 
-import os
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +29,8 @@ class PathManager:
 
     def _initialize_config_root(self):
         """Initialize the configuration root directory."""
+        from me3_manager.core.paths.profile_paths import get_me3_profiles_root
+
         # Try to get dynamic config root from ME3
         if self.me3_info:
             dynamic_profile_dir = self.me3_info.get_profile_directory()
@@ -38,29 +38,8 @@ class PathManager:
                 self._config_root = Path(dynamic_profile_dir)
                 return
 
-        # Use platform-specific paths for ME3 config
-        if sys.platform == "win32":
-            localappdata = os.environ.get("LOCALAPPDATA")
-            if localappdata:
-                self._config_root = (
-                    Path(localappdata) / "garyttierney" / "me3" / "config" / "profiles"
-                )
-            else:
-                self._config_root = (
-                    Path.home()
-                    / "AppData"
-                    / "Local"
-                    / "garyttierney"
-                    / "me3"
-                    / "config"
-                    / "profiles"
-                )
-        else:
-            xdg_config = os.environ.get("XDG_CONFIG_HOME")
-            if xdg_config:
-                self._config_root = Path(xdg_config) / "me3" / "profiles"
-            else:
-                self._config_root = Path.home() / ".config" / "me3" / "profiles"
+        # Use shared platform-specific path resolution
+        self._config_root = get_me3_profiles_root()
 
     @property
     def config_root(self) -> Path:

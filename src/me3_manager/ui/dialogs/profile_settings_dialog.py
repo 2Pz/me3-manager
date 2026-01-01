@@ -397,6 +397,17 @@ class ProfileSettingsDialog(QDialog):
                 tr("could_not_perform_action", e=str(e)),
             )
 
+    def _set_version_combo_to_default(self):
+        """Set the version combo box to the default profile version."""
+        try:
+            default_version = (
+                self.config_manager.ui_settings.get_default_profile_version()
+            )
+        except Exception:
+            default_version = "v1"
+        idx = 1 if default_version == "v2" else 0
+        self.version_combo.setCurrentIndex(idx)
+
     def load_current_settings(self):
         """Load current profile settings"""
         try:
@@ -449,14 +460,7 @@ class ProfileSettingsDialog(QDialog):
 
                 self.current_settings = config_data
                 # Load default profile version from UI settings
-                try:
-                    default_version = (
-                        self.config_manager.ui_settings.get_default_profile_version()
-                    )
-                except Exception:
-                    default_version = "v1"
-                idx = 1 if default_version == "v2" else 0
-                self.version_combo.setCurrentIndex(idx)
+                self._set_version_combo_to_default()
             else:
                 # Profile doesn't exist, use defaults
                 self.custom_savefile_cb.setChecked(False)
@@ -465,14 +469,7 @@ class ProfileSettingsDialog(QDialog):
                 self.on_custom_savefile_toggled(False)
                 self.current_settings = {}
                 self.seamless_enabled = False
-                try:
-                    default_version = (
-                        self.config_manager.ui_settings.get_default_profile_version()
-                    )
-                except Exception:
-                    default_version = "v1"
-                idx = 1 if default_version == "v2" else 0
-                self.version_combo.setCurrentIndex(idx)
+                self._set_version_combo_to_default()
 
         except Exception as e:
             QMessageBox.warning(

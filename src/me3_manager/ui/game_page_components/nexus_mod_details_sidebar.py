@@ -125,27 +125,21 @@ class NexusModDetailsSidebar(QWidget):
         self.raise_()  # Ensure it's on top
         self.setVisible(True)
 
-        # Use opacity animation via graphics effect
-        from PySide6.QtWidgets import QGraphicsOpacityEffect
-
-        effect = QGraphicsOpacityEffect(self)
-        self.setGraphicsEffect(effect)
-
-        if self._animation:
-            self._animation.stop()
-
-        self._animation = QPropertyAnimation(effect, b"opacity")
-        self._animation.setDuration(200)
-        self._animation.setStartValue(0.0)
-        self._animation.setEndValue(1.0)
-        self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self._animation.start()
+        self._start_opacity_animation(0.0, 1.0, 200, QEasingCurve.Type.OutCubic)
 
     def hide_animated(self):
         """Hide the sidebar with a smooth fade-out animation."""
         if not self.isVisible():
             return
 
+        self._start_opacity_animation(
+            1.0, 0.0, 150, QEasingCurve.Type.InCubic, self._on_hide_finished
+        )
+
+    def _start_opacity_animation(
+        self, start: float, end: float, duration: int, easing, on_finished=None
+    ):
+        """Start an opacity animation with the given parameters."""
         from PySide6.QtWidgets import QGraphicsOpacityEffect
 
         effect = QGraphicsOpacityEffect(self)
@@ -155,11 +149,12 @@ class NexusModDetailsSidebar(QWidget):
             self._animation.stop()
 
         self._animation = QPropertyAnimation(effect, b"opacity")
-        self._animation.setDuration(150)
-        self._animation.setStartValue(1.0)
-        self._animation.setEndValue(0.0)
-        self._animation.setEasingCurve(QEasingCurve.Type.InCubic)
-        self._animation.finished.connect(self._on_hide_finished)
+        self._animation.setDuration(duration)
+        self._animation.setStartValue(start)
+        self._animation.setEndValue(end)
+        self._animation.setEasingCurve(easing)
+        if on_finished:
+            self._animation.finished.connect(on_finished)
         self._animation.start()
 
     def _on_hide_finished(self):

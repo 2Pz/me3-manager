@@ -12,6 +12,19 @@ class SteamService:
     Best-effort, silent; returns True if a launch attempt was made without error.
     """
 
+    def _check_process(self, cmd: str, name: str) -> bool:
+        """Check if a process is running using the given command (pgrep or pidof)."""
+        try:
+            args = [cmd, "-f", name] if cmd == "pgrep" else [cmd, name]
+            res = subprocess.run(
+                args,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return res.returncode == 0
+        except (FileNotFoundError, Exception):
+            return False
+
     def is_running(self) -> bool:
         """Return True if a Steam process appears to be running."""
         try:
@@ -30,31 +43,10 @@ class SteamService:
 
             names = ["steam", "com.valvesoftware.Steam"]
             for name in names:
-                try:
-                    res = subprocess.run(
-                        ["pgrep", "-f", name],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    if res.returncode == 0:
-                        return True
-                except FileNotFoundError:
-                    pass
-                except Exception:
-                    pass
-
-                try:
-                    res = subprocess.run(
-                        ["pidof", name],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    if res.returncode == 0:
-                        return True
-                except FileNotFoundError:
-                    pass
-                except Exception:
-                    pass
+                if self._check_process("pgrep", name) or self._check_process(
+                    "pidof", name
+                ):
+                    return True
 
             try:
                 for pid in os.listdir("/proc"):
