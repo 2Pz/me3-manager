@@ -74,18 +74,22 @@ class GameRegistry:
         """Initialize games configuration, using defaults only if no games are saved."""
         saved_games = self.settings_manager.get("games")
         if not saved_games:
-            # If no games configuration exists or it's empty, populate with defaults.
             self.settings_manager.set(
                 "games", self.DEFAULT_GAMES.copy(), auto_save=False
             )
             return
         # Merge missing fields from DEFAULT_GAMES into saved games.
-        # This ensures older settings get new fields like nexus_domain.
         updated = False
         for game_name, default_cfg in self.DEFAULT_GAMES.items():
             if game_name in saved_games:
                 for key, default_value in default_cfg.items():
                     if key not in saved_games[game_name]:
+                        saved_games[game_name][key] = default_value
+                        updated = True
+                    elif (
+                        key == "executable"
+                        and saved_games[game_name][key] != default_value
+                    ):
                         saved_games[game_name][key] = default_value
                         updated = True
         if updated:
