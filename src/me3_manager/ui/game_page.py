@@ -604,6 +604,18 @@ class GamePage(QWidget):
                     mod_root_path=mod_root_path,
                 )
 
+                # Capture interactively selected root path if one wasn't provided upfront
+                if not mod_root_path:
+                    selected_root = self.mod_installer.get_last_selected_mod_root_path()
+                    if selected_root:
+                        self.nexus_metadata.set_mod_root_path(
+                            game_domain=mod.game_domain,
+                            mod_id=mod.mod_id,
+                            mod_root_path=selected_root,
+                        )
+                        if sidebar:
+                            sidebar.set_mod_root_path(selected_root)
+
                 if installed:
                     # Track metadata for update checking
                     mods_dir = self.config_manager.get_mods_dir(self.game_name)
