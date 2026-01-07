@@ -284,6 +284,38 @@ class ConfigFacade:
         nexus.pop("api_key", None)
         self.settings_manager.set("nexus", nexus)
 
+    def get_nexus_user_info(self) -> dict | None:
+        """Get cached Nexus user info (name, profile_url)."""
+        try:
+            nexus = self.settings_manager.get("nexus", {}) or {}
+            if not isinstance(nexus, dict):
+                return None
+            user_info = nexus.get("user_info")
+            if isinstance(user_info, dict) and user_info.get("name"):
+                return user_info
+            return None
+        except Exception:
+            return None
+
+    def set_nexus_user_info(self, name: str | None, profile_url: str | None) -> None:
+        """Cache Nexus user info for display."""
+        nexus = self.settings_manager.get("nexus", {}) or {}
+        if not isinstance(nexus, dict):
+            nexus = {}
+        nexus["user_info"] = {
+            "name": name,
+            "profile_url": profile_url,
+        }
+        self.settings_manager.set("nexus", nexus)
+
+    def clear_nexus_user_info(self) -> None:
+        """Clear cached user info on logout."""
+        nexus = self.settings_manager.get("nexus", {}) or {}
+        if not isinstance(nexus, dict):
+            nexus = {}
+        nexus.pop("user_info", None)
+        self.settings_manager.set("nexus", nexus)
+
     # Path Management (delegated to PathManager)
     def get_mods_dir(self, game_name: str) -> Path:
         """Get mods directory for a game."""

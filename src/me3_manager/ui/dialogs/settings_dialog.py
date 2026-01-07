@@ -6,8 +6,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QMessageBox,
     QPushButton,
     QTabWidget,
     QVBoxLayout,
@@ -48,7 +46,6 @@ class SettingsDialog(QDialog):
 
         # Create tabs
         self.tab_widget.addTab(self._create_general_tab(), tr("settings_tab_general"))
-        self.tab_widget.addTab(self._create_nexus_tab(), tr("settings_tab_nexus"))
         self.tab_widget.addTab(self._create_updates_tab(), tr("settings_tab_updates"))
 
         layout.addWidget(self.tab_widget)
@@ -102,64 +99,6 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return tab
 
-    def _create_nexus_tab(self):
-        """Create the Nexus Mods settings tab"""
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setContentsMargins(16, 20, 16, 16)
-        layout.setSpacing(16)
-
-        # Nexus Header
-        nexus_header = QLabel(tr("nexus_header"))
-        nexus_header.setObjectName("SectionHeader")
-        layout.addWidget(nexus_header)
-
-        # Description
-        desc = QLabel(tr("nexus_desc"))
-        desc.setWordWrap(True)
-        desc.setStyleSheet("color: #cccccc; font-size: 12px;")
-        layout.addWidget(desc)
-
-        # API Key input row
-        row = QHBoxLayout()
-        row.setSpacing(10)
-
-        self.nexus_api_key_input = QLineEdit()
-        self.nexus_api_key_input.setPlaceholderText(tr("nexus_api_key_placeholder"))
-        self.nexus_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.nexus_api_key_input.setText(self.config_manager.get_nexus_api_key() or "")
-        self.nexus_api_key_input.setMinimumHeight(36)
-        row.addWidget(self.nexus_api_key_input, 1)
-
-        layout.addLayout(row)
-
-        # Action buttons row
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(10)
-
-        validate_btn = QPushButton(tr("nexus_validate_button"))
-        validate_btn.clicked.connect(self.on_validate_nexus_key)
-        btn_row.addWidget(validate_btn)
-
-        save_btn = QPushButton(tr("save_button"))
-        save_btn.clicked.connect(self.on_save_nexus_key)
-        btn_row.addWidget(save_btn)
-
-        clear_btn = QPushButton(tr("clear_button"))
-        clear_btn.clicked.connect(self.on_clear_nexus_key)
-        btn_row.addWidget(clear_btn)
-
-        btn_row.addStretch()
-        layout.addLayout(btn_row)
-
-        # Status label
-        self.nexus_status_label = QLabel("")
-        self.nexus_status_label.setObjectName("StatusInfo")
-        layout.addWidget(self.nexus_status_label)
-
-        layout.addStretch()
-        return tab
-
     def _create_updates_tab(self):
         """Create the Updates settings tab"""
         tab = QWidget()
@@ -199,34 +138,6 @@ class SettingsDialog(QDialog):
         button_layout.addWidget(close_button)
 
         parent_layout.addLayout(button_layout)
-
-    def on_save_nexus_key(self):
-        key = (self.nexus_api_key_input.text() or "").strip()
-        self.config_manager.set_nexus_api_key(key)
-        self.nexus_status_label.setText(tr("nexus_saved_status"))
-
-    def on_clear_nexus_key(self):
-        self.config_manager.clear_nexus_api_key()
-        self.nexus_api_key_input.setText("")
-        self.nexus_status_label.setText(tr("nexus_cleared_status"))
-
-    def on_validate_nexus_key(self):
-        key = (self.nexus_api_key_input.text() or "").strip()
-        if not key:
-            QMessageBox.warning(self, tr("ERROR"), tr("nexus_key_required"))
-            return
-        try:
-            from me3_manager.services.nexus_service import NexusService
-
-            svc = NexusService(key)
-            user = svc.validate_user()
-            self.nexus_status_label.setText(
-                tr("nexus_valid_status", user_name=user.name or tr("not_installed"))
-            )
-        except Exception as e:
-            QMessageBox.warning(
-                self, tr("ERROR"), tr("nexus_invalid_status", error=str(e))
-            )
 
     def _get_tab_style(self):
         """Return modern tab widget styling"""

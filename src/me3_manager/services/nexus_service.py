@@ -34,6 +34,7 @@ class NexusUser:
     user_id: int | None
     name: str | None
     email: str | None
+    profile_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -267,12 +268,164 @@ class NexusService:
     # --- Auth ---
 
     def validate_user(self) -> NexusUser:
+        """Validate user and get profile info including avatar from GraphQL."""
         j = self._request("GET", "/users/validate")
+        user_id = _safe_int(j.get("user_id") or j.get("id"))
+        name = _safe_str(j.get("name"))
+        email = _safe_str(j.get("email"))
+
+        # Try to get avatar from GraphQL API v2
+        avatar_url = self._get_user_avatar(user_id)
+
         return NexusUser(
-            user_id=_safe_int(j.get("user_id") or j.get("id")),
-            name=_safe_str(j.get("name")),
-            email=_safe_str(j.get("email")),
+            user_id=user_id,
+            name=name,
+            email=email,
+            profile_url=avatar_url,
         )
+
+    def _get_user_avatar(self, user_id: int | None = None) -> str | None:
+        """Fetch user's avatar from Nexus GraphQL API v2."""
+        if not user_id:
+            return None
+
+        graphql_url = "https://api.nexusmods.com/v2/graphql"
+        # Try to query user by ID
+        query = """
+        query GetUser($userId: Int!) {
+            user(id: $userId) {
+                memberId
+                name
+                avatar
+            }
+        }
+        """
+        try:
+            log.debug("Fetching user avatar from GraphQL API for user_id=%s", user_id)
+            resp = self._session.post(
+                graphql_url,
+                json={"query": query, "variables": {"userId": user_id}},
+                timeout=10,
+            )
+            log.debug("GraphQL response status: %s", resp.status_code)
+            if resp.status_code == 200:
+                data = resp.json()
+                log.debug("GraphQL response data: %s", data)
+
+                # Check for errors
+                if "errors" in data:
+                    log.debug("GraphQL errors: %s", data["errors"])
+                    return None
+
+                user_data = data.get("data", {}).get("user", {})
+                if user_data:
+                    avatar = _safe_str(user_data.get("avatar"))
+                    log.debug("Avatar URL from GraphQL: %s", avatar)
+                    return avatar
+                else:
+                    log.debug("No user data in response")
+            else:
+                log.debug("GraphQL error response: %s", resp.text[:500])
+        except Exception as e:
+            log.debug("Failed to fetch avatar from GraphQL: %s", e)
+        return None
+
+    # --- Mod Search (GraphQL v2) ---
+
+    def search_mods_by_name(
+        self, game_domain: str, query: str, *, count: int = 10
+    ) -> list[NexusMod]:
+        """
+        Search mods by name using Nexus GraphQL v2 API.
+
+        Args:
+            game_domain: Game domain (e.g., "eldenring")
+            query: Search query (mod name)
+            count: Max results to return (default 10)
+
+        Returns:
+            List of NexusMod objects matching the search
+        """
+        graphql_url = "https://api.nexusmods.com/v2/graphql"
+        # Build inline query - filters must be arrays
+        gql_query = f"""
+        query SearchMods {{
+            mods(filter: {{
+                name: [{{ value: "{query}", op: WILDCARD }}]
+                gameDomainName: [{{ value: "{game_domain}", op: EQUALS }}]
+            }}, count: {count}) {{
+                nodes {{
+                    modId
+                    name
+                    summary
+                    version
+                    author
+                    pictureUrl
+                    downloads
+                    endorsements
+                }}
+            }}
+        }}
+        """
+
+        try:
+            log.debug("Searching mods: domain=%s, query=%s", game_domain, query)
+            resp = self._session.post(
+                graphql_url,
+                json={"query": gql_query},
+                timeout=20,
+            )
+            if resp.status_code != 200:
+                log.debug("GraphQL search error: %s", resp.text[:500])
+                return []
+
+            data = resp.json()
+            log.debug("GraphQL response: %s", str(data)[:1000])
+            if "errors" in data:
+                log.debug("GraphQL errors: %s", data["errors"])
+                return []
+
+            nodes = data.get("data", {}).get("mods", {}).get("nodes", [])
+            results = []
+            for node in nodes:
+                results.append(
+                    NexusMod(
+                        game_domain=game_domain,
+                        mod_id=node.get("modId"),
+                        name=_safe_str(node.get("name")),
+                        summary=_safe_str(node.get("summary")),
+                        author=_safe_str(node.get("author")),
+                        version=_safe_str(node.get("version")),
+                        picture_url=_safe_str(node.get("pictureUrl")),
+                        endorsement_count=_safe_int(node.get("endorsements")),
+                        unique_downloads=None,
+                        total_downloads=_safe_int(node.get("downloads")),
+                    )
+                )
+            log.debug("Found %d mods", len(results))
+            return results
+
+        except Exception as e:
+            log.debug("Failed to search mods: %s", e)
+            return []
+
+    def _get_game_id(self, game_domain: str) -> int | None:
+        """Map game domain to numeric game ID for GraphQL v2."""
+        # Common games - add more as needed
+        GAME_IDS = {
+            "eldenring": 4333,
+            "eldenringnightreign": 7698,
+            "nightreign": 7698,
+            "darksouls3": 496,
+            "sekiro": 2763,
+            "armoredcore6": 5235,
+            "darksoulsremastered": 2014,
+            "darksouls": 162,
+            "darksouls2": 261,
+            "demonssouls": 4428,
+            # Add more as needed
+        }
+        return GAME_IDS.get(game_domain.lower())
 
     # --- Mod info ---
 

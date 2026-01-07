@@ -3,7 +3,7 @@ import re
 import sys
 
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -278,10 +278,12 @@ class ModEngine3Manager(QMainWindow):
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(16, 24, 16, 24)
         layout.setSpacing(8)
-        title = QLabel("Mod Engine 3")
-        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        title.setStyleSheet("color: #ffffff; margin-bottom: 16px;")
-        layout.addWidget(title)
+
+        # Nexus login widget at the top
+        from me3_manager.ui.nexus_user_widget import NexusUserWidget
+
+        self.nexus_user_widget = NexusUserWidget(self.config_manager, self)
+        layout.addWidget(self.nexus_user_widget)
         self.game_container = DraggableGameContainer()
         self.game_container.game_order_changed.connect(self.on_game_order_changed)
         self.game_buttons = {}
