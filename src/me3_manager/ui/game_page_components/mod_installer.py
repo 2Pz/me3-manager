@@ -208,10 +208,20 @@ class ModInstaller:
         self.game_page = game_page
         self.config_manager = game_page.config_manager
         self._log = logging.getLogger(__name__)
+        # Track the last selected mod root path for metadata storage
+        self._last_selected_mod_root_path: str | None = None
 
     # =========================================================================
     # PUBLIC API - Single Entry Point
     # =========================================================================
+
+    def get_last_selected_mod_root_path(self) -> str | None:
+        """Get the relative path selected by user during last installation.
+
+        This is set when the user chooses a subfolder from the folder selection
+        dialog during mod installation. Can be saved to metadata for updates.
+        """
+        return self._last_selected_mod_root_path
 
     def install_mod(
         self,
@@ -233,6 +243,9 @@ class ModInstaller:
         Returns:
             List of installed mod folder/file names
         """
+        # Reset the last selected path before each install
+        self._last_selected_mod_root_path = None
+
         try:
             # Handle archives
             if source.is_file() and source.suffix.lower() == ".zip":
@@ -296,6 +309,15 @@ class ModInstaller:
                 if ok and selected_item:
                     idx = items.index(selected_item)
                     mod_root, mod_type = candidates[idx]
+                    # Calculate relative path from source to selected mod_root
+                    # This path can be saved for future updates
+                    try:
+                        rel_path = mod_root.relative_to(source)
+                        if str(rel_path) != ".":
+                            self._last_selected_mod_root_path = str(rel_path)
+                    except ValueError:
+                        # mod_root is not relative to source, shouldn't happen
+                        pass
                 else:
                     return []
             elif len(candidates) == 1:
