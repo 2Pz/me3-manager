@@ -10,7 +10,6 @@ from PySide6.QtGui import (
     QDesktopServices,
     QDragEnterEvent,
     QDropEvent,
-    QIcon,
     QPixmap,
 )
 from PySide6.QtWidgets import QInputDialog, QMenu, QMessageBox, QProgressDialog, QWidget
@@ -231,7 +230,9 @@ class GamePage(QWidget):
         except Exception:
             game_domain = None
 
+        mods = []
         try:
+            # First, try to parse as mod ID or URL
             domain, mod_id = self.nexus_service.parse_mod_query(
                 query, fallback_game_domain=game_domain
             )
@@ -254,10 +255,25 @@ class GamePage(QWidget):
             else:
                 mod = self.nexus_service.get_mod(domain, mod_id)
                 mods = [mod]
-        except NexusError as e:
-            self._update_status(str(e))
-            self._show_nexus_dropdown(error_text=str(e))
-            return
+        except NexusError:
+            # Not a valid ID or URL - try searching by name using GraphQL v2
+            if game_domain:
+                try:
+                    mods = self.nexus_service.search_mods_by_name(game_domain, query)
+                    if not mods:
+                        self._update_status(tr("nexus_results_empty"))
+                        self._show_nexus_dropdown(error_text=tr("nexus_results_empty"))
+                        return
+                except Exception as e:
+                    self._update_status(tr("nexus_search_failed", error=str(e)))
+                    self._show_nexus_dropdown(
+                        error_text=tr("nexus_search_failed", error=str(e))
+                    )
+                    return
+            else:
+                self._update_status(tr("nexus_game_not_supported"))
+                self._show_nexus_dropdown(error_text=tr("nexus_game_not_supported"))
+                return
         except Exception as e:
             self._update_status(tr("nexus_search_failed", error=str(e)))
             self._show_nexus_dropdown(
@@ -326,23 +342,8 @@ class GamePage(QWidget):
                             author=m.author or "-",
                         )
                         act = QAction(text, self)
-                        # Best-effort thumbnail icon (usually 1 result, OK to fetch sync)
-                        try:
-                            if m.picture_url:
-                                pix = self._load_thumbnail_pixmap(m.picture_url)
-                                if pix and not pix.isNull():
-                                    act.setIcon(
-                                        QIcon(
-                                            pix.scaled(
-                                                18,
-                                                18,
-                                                Qt.AspectRatioMode.KeepAspectRatio,
-                                                Qt.TransformationMode.SmoothTransformation,
-                                            )
-                                        )
-                                    )
-                        except Exception:
-                            pass
+                        # Note: Thumbnails removed from dropdown for faster display
+                        # Images are shown in the details sidebar after selection
 
                         def _mk(mod):
                             return lambda: self._select_nexus_mod_from_dropdown(mod)
