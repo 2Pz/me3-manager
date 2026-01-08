@@ -6,7 +6,7 @@ A GUI manager tool designed to simplify the use of [me3](https://me3.help/).
 
 ## Download and usage
 
-Visit [ME3 Manager Help](https://2pz.github.io/me3-manager-help/).
+Visit [ME3 Manager Help](https://me3-manager.github.io/me3-manager-help/).
 
 ## Development
 

@@ -113,7 +113,7 @@ class HelpAboutDialog(QDialog):
 
         # Documentation link
         doc_link = QLabel(
-            '<a href="https://2pz.github.io/me3-manager-help/">ME3 Manager Help</a>'
+            '<a href="https://me3-manager.github.io/me3-manager-help/">ME3 Manager Help</a>'
         )
         doc_link.setObjectName("VideoLinkLabel")
         doc_link.setOpenExternalLinks(True)

@@ -20,7 +20,7 @@ dependencies = [
 Homepage = "https://github.com/2Pz/me3-manager"
 Repository = "https://github.com/2Pz/me3-manager"
 Issues = "https://github.com/2Pz/me3-manager/issues"
-Documentation = "https://2pz.github.io/me3-manager-help/"
+Documentation = "https://me3-manager.github.io/me3-manager-help/"
 
 
 [project.scripts]
