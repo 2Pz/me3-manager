@@ -43,7 +43,7 @@ class SSOAuthDialog(QDialog):
         """Initialize the dialog UI."""
         self.setWindowTitle(tr("nexus_sso_title", default="Nexus Mods Login"))
         self.setMinimumWidth(400)
-        self.setMinimumHeight(180)
+        self.setMinimumHeight(200)
         self.setModal(True)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
