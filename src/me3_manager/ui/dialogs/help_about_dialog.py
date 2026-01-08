@@ -178,7 +178,7 @@ class HelpAboutDialog(QDialog):
         if versions_info["stable"]["version"]:
             custom_btn_text += f" ({versions_info['stable']['version']})"
         self.custom_button = QPushButton(custom_btn_text)
-        self.custom_button.setObjectName("DownloadStableButton")
+        # self.custom_button.setObjectName("DownloadStableButton")
         self.custom_button.clicked.connect(self.handle_custom_install)
         if not versions_info["stable"]["available"]:
             self.custom_button.setDisabled(True)
@@ -190,7 +190,7 @@ class HelpAboutDialog(QDialog):
         if versions_info["stable"]["version"]:
             btn_text += f" ({versions_info['stable']['version']})"
         self.stable_button = QPushButton(btn_text)
-        self.stable_button.setObjectName("DownloadStableButton")
+        # self.stable_button.setObjectName("DownloadStableButton")
         self.stable_button.clicked.connect(self.handle_linux_install)
         if not versions_info["stable"]["available"]:
             self.stable_button.setDisabled(True)
