@@ -53,9 +53,14 @@ class _TrKeyCollector(ast.NodeVisitor):
       - tr("key", ...)
       - something.tr("key", ...)
     when the first positional argument is a literal string.
+
+    Also collects *any* string literal in code that exactly matches a known
+    translation key. This avoids false "unused" reports for code that passes
+    translation keys through helpers (e.g. add_stat_row("nexus_endorsements_label", ...)).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, known_keys: set[str]) -> None:
+        self._known_keys = known_keys
         self.keys: set[str] = set()
 
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802 (ast API)
@@ -71,8 +76,15 @@ class _TrKeyCollector(ast.NodeVisitor):
 
         self.generic_visit(node)
 
+    def visit_Constant(self, node: ast.Constant) -> None:  # noqa: N802 (ast API)
+        if isinstance(node.value, str) and node.value in self._known_keys:
+            self.keys.add(node.value)
+        self.generic_visit(node)
 
-def collect_used_translation_keys(py_files: Iterable[Path]) -> set[str]:
+
+def collect_used_translation_keys(
+    py_files: Iterable[Path], known_keys: set[str]
+) -> set[str]:
     used: set[str] = set()
 
     for path in py_files:
@@ -89,7 +101,7 @@ def collect_used_translation_keys(py_files: Iterable[Path]) -> set[str]:
             # If any file can't be parsed (unlikely), skip it rather than failing.
             continue
 
-        v = _TrKeyCollector()
+        v = _TrKeyCollector(known_keys=known_keys)
         v.visit(tree)
         used |= v.keys
 
@@ -183,8 +195,15 @@ def main(argv: list[str]) -> int:
         print(f"No translation files found in: {translations_dir}")
         return 1
 
+    # Use English as the authoritative set of possible keys.
+    master_en = translations_dir / "en.json"
+    if not master_en.exists():
+        print(f"Master translation file not found: {master_en}", file=sys.stderr)
+        return 1
+    known_keys = set(load_json(master_en).keys())
+
     scan_paths = [root / p for p in args.paths]
-    used_keys = collect_used_translation_keys(iter_python_files(scan_paths))
+    used_keys = collect_used_translation_keys(iter_python_files(scan_paths), known_keys)
 
     all_keys: set[str] = set()
     per_file_keys: dict[Path, set[str]] = {}
