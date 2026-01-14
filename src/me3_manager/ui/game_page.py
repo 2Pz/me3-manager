@@ -788,6 +788,11 @@ class GamePage(QWidget):
                         sidebar.set_details(mod, chosen)
                         sidebar.set_cached_text(tr("nexus_cached_just_now"))
                         sidebar.set_status(tr("nexus_install_success_status"))
+                    # Refresh mod list so any cached "update available" badge disappears immediately
+                    try:
+                        self.load_mods(reset_page=False)
+                    except Exception:
+                        pass
                 else:
                     if sidebar:
                         sidebar.set_status(tr("nexus_install_cancelled_status"))
@@ -843,13 +848,120 @@ class GamePage(QWidget):
                 and tracked.file_id
                 and latest.file_id != tracked.file_id
             ):
+                if self.selected_local_mod_path:
+                    self.nexus_metadata.set_update_check_result(
+                        local_mod_path=self.selected_local_mod_path,
+                        update_available=True,
+                        latest_file_id=latest.file_id,
+                        latest_version=latest.version,
+                        error=None,
+                    )
                 sidebar.set_status(
                     tr("nexus_update_available_status", version=latest.version or "")
                 )
             else:
+                if self.selected_local_mod_path and tracked:
+                    self.nexus_metadata.set_update_check_result(
+                        local_mod_path=self.selected_local_mod_path,
+                        update_available=False,
+                        latest_file_id=latest.file_id if latest else None,
+                        latest_version=latest.version if latest else None,
+                        error=None,
+                    )
                 sidebar.set_status(tr("nexus_up_to_date_status"))
         except Exception as e:
+            if self.selected_local_mod_path:
+                self.nexus_metadata.set_update_check_error(
+                    local_mod_path=self.selected_local_mod_path, error=str(e)
+                )
             sidebar.set_status(tr("nexus_update_check_failed_status", error=str(e)))
+
+    def check_updates_for_all_installed_mods_on_startup(self) -> None:
+        """
+        Background check for updates for all installed mods that are linked to Nexus.
+        Non-blocking: runs in a worker thread and refreshes the mod list when done.
+        """
+        try:
+            api_key = self.config_manager.get_nexus_api_key()
+        except Exception:
+            api_key = None
+
+        self.nexus_service.set_api_key(api_key)
+        if not self.nexus_service.has_api_key:
+            return
+
+        try:
+            items = self.nexus_metadata.load_game("unknown")
+        except Exception:
+            items = {}
+
+        tracked_mods = [
+            m
+            for m in items.values()
+            if m
+            and m.local_mod_path
+            and m.mod_id
+            and m.game_domain
+            and m.file_id is not None
+        ]
+        if not tracked_mods:
+            return
+
+        # Avoid duplicate workers
+        if getattr(self, "_startup_update_worker", None) is not None:
+            try:
+                if self._startup_update_worker.isRunning():
+                    return
+            except Exception:
+                pass
+
+        from PySide6.QtCore import QThread, Signal
+
+        class _StartupUpdateWorker(QThread):
+            finished_refresh = Signal()
+
+            def __init__(self, gp: "GamePage", mods):
+                super().__init__(gp)
+                self.gp = gp
+                self.mods = mods
+
+            def run(self):
+                for t in self.mods:
+                    try:
+                        files = self.gp.nexus_service.get_mod_files(
+                            t.game_domain, int(t.mod_id)
+                        )
+                        latest = self.gp.nexus_service.pick_latest_main_file(files)
+                        if latest and t.file_id and latest.file_id != t.file_id:
+                            self.gp.nexus_metadata.set_update_check_result(
+                                local_mod_path=str(t.local_mod_path),
+                                update_available=True,
+                                latest_file_id=latest.file_id,
+                                latest_version=latest.version,
+                                error=None,
+                            )
+                        else:
+                            self.gp.nexus_metadata.set_update_check_result(
+                                local_mod_path=str(t.local_mod_path),
+                                update_available=False,
+                                latest_file_id=latest.file_id if latest else None,
+                                latest_version=latest.version if latest else None,
+                                error=None,
+                            )
+                    except Exception as e:
+                        try:
+                            self.gp.nexus_metadata.set_update_check_error(
+                                local_mod_path=str(t.local_mod_path), error=str(e)
+                            )
+                        except Exception:
+                            pass
+                self.finished_refresh.emit()
+
+        self._startup_update_worker = _StartupUpdateWorker(self, tracked_mods)
+        self._startup_update_worker.finished_refresh.connect(
+            lambda: self.load_mods(reset_page=False)
+        )
+        self._startup_update_worker.start()
 
     def link_selected_nexus_mod(self):
         """

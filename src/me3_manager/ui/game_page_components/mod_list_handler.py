@@ -78,6 +78,7 @@ class ModListHandler:
         final_mods = {}
         for mod_path, mod_info in gp.mod_infos.items():
             display_name = mod_info.name
+            update_available_version = None
             # If this mod was downloaded/linked from Nexus, prefer Nexus display name.
             try:
                 linked = gp.nexus_metadata.find_for_local_mod(
@@ -85,6 +86,8 @@ class ModListHandler:
                 )
                 if linked and linked.mod_name:
                     display_name = linked.mod_name
+                if linked and linked.update_available and linked.update_latest_version:
+                    update_available_version = linked.update_latest_version
             except Exception:
                 pass
             final_mods[mod_path] = {
@@ -95,6 +98,7 @@ class ModListHandler:
                 "has_regulation": mod_info.has_regulation,
                 "regulation_active": mod_info.regulation_active,
                 "advanced_options": mod_info.advanced_options,
+                "update_available_version": update_available_version,
             }
 
         gp.all_mods_data = final_mods
@@ -259,6 +263,7 @@ class ModListHandler:
             is_nested=is_nested,
             has_children=has_children,
             is_expanded=is_expanded,
+            update_available_version=info.get("update_available_version"),
         )
 
         # Connect signals to the GamePage's delegating methods

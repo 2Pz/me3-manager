@@ -35,6 +35,7 @@ class ModItem(QWidget):
         is_nested: bool = False,
         has_children: bool = False,
         is_expanded: bool = False,
+        update_available_version: str | None = None,
     ):
         super().__init__()
         self.mod_path = mod_path
@@ -49,6 +50,7 @@ class ModItem(QWidget):
         self.is_nested = is_nested
         self.has_children = has_children
         self.is_expanded = is_expanded
+        self.update_available_version = update_available_version
 
         self._setup_styling(item_bg_color, is_nested)
         self._create_layout(text_color, has_advanced_options)
@@ -193,6 +195,20 @@ class ModItem(QWidget):
         name_label.setFont(font)
         name_label.setStyleSheet(f"color: {text_color}; padding: 2px 0px;")
         left_layout.addWidget(name_label)
+
+        # Update available badge (only for main mods)
+        if (not self.is_nested) and self.update_available_version:
+            update_label = QLabel(
+                tr(
+                    "nexus_update_available_status",
+                    version=str(self.update_available_version),
+                )
+            )
+            update_label.setStyleSheet(
+                "color: #ffb020; font-size: 10px; padding: 2px 0px 2px 6px;"
+            )
+            update_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+            left_layout.addWidget(update_label)
 
         # Status indicators with icons (only for main mods)
         if not self.is_nested:
