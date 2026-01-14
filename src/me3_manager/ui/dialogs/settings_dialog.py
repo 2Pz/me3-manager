@@ -119,11 +119,17 @@ class SettingsDialog(QDialog):
         self.check_updates_checkbox.toggled.connect(self.on_check_updates_toggled)
         layout.addWidget(self.check_updates_checkbox)
 
-        # Info text
-        info = QLabel(tr("settings_updates_info"))
-        info.setWordWrap(True)
-        info.setStyleSheet("color: #888888; font-size: 11px; margin-top: 8px;")
-        layout.addWidget(info)
+        # Check for mod updates checkbox (Nexus)
+        self.check_mod_updates_checkbox = QCheckBox(
+            tr("check_for_mod_updates_checkbox")
+        )
+        self.check_mod_updates_checkbox.setChecked(
+            self.config_manager.get_check_mod_updates_on_startup()
+        )
+        self.check_mod_updates_checkbox.toggled.connect(
+            self.on_check_mod_updates_toggled
+        )
+        layout.addWidget(self.check_mod_updates_checkbox)
 
         layout.addStretch()
         return tab
@@ -261,3 +267,7 @@ class SettingsDialog(QDialog):
     def on_check_updates_toggled(self, checked):
         """Handle check for updates setting change"""
         self.config_manager.set_check_for_updates(checked)
+
+    def on_check_mod_updates_toggled(self, checked):
+        """Handle check for Nexus mod updates setting change"""
+        self.config_manager.set_check_mod_updates_on_startup(checked)

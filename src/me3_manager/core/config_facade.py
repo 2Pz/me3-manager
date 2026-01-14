@@ -248,6 +248,14 @@ class ConfigFacade:
         """Set check for updates setting."""
         self.ui_settings.set_check_for_updates(enabled)
 
+    def get_check_mod_updates_on_startup(self) -> bool:
+        """Get check for Nexus mod updates on startup setting."""
+        return self.ui_settings.get_check_mod_updates_on_startup()
+
+    def set_check_mod_updates_on_startup(self, enabled: bool):
+        """Set check for Nexus mod updates on startup setting."""
+        self.ui_settings.set_check_mod_updates_on_startup(enabled)
+
     def get_auto_launch_steam(self) -> bool:
         """Get auto launch Steam setting."""
         return self.ui_settings.get_auto_launch_steam()

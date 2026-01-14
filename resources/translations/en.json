@@ -405,6 +405,7 @@
   "steam_path_unavailable_tooltip": "Steam path not available - requires ME3 to be installed",
   "me3_updates_header": "Mod Engine 3 Updates",
   "check_for_updates_checkbox": "Check for ME3 updates on startup",
+  "check_for_mod_updates_checkbox": "Check for mod updates on startup (Nexus)",
   "settings_tab_general": "General",
   "settings_tab_nexus": "Nexus Mods",
   "settings_tab_updates": "Updates",

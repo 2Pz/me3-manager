@@ -405,6 +405,7 @@
   "steam_path_unavailable_tooltip": "مسار ستيم مو متاح - لازم يكون ME3 مثبت",
   "me3_updates_header": "تحديثات Mod Engine 3",
   "check_for_updates_checkbox": "شيك على تحديثات ME3 عند التشغيل",
+  "check_for_mod_updates_checkbox": "شيك على تحديثات المودات عند التشغيل (Nexus)",
   "settings_tab_general": "عام",
   "settings_tab_nexus": "Nexus Mods",
   "settings_tab_updates": "التحديثات",
