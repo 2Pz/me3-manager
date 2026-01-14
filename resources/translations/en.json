@@ -568,5 +568,6 @@
   "nexus_login_button": "Nexus Login",
   "nexus_logout_button": "Logout",
   "nexus_logged_in_as": "Logged in as {user_name}",
-  "nexus_game_not_supported": "This game is not supported for mod search"
+  "nexus_game_not_supported": "This game is not supported for mod search",
+  "nexus_browser_download_waiting": "Download in your browser...\nWaiting for the downloaded .zip to appear in your Downloads folder."
 }

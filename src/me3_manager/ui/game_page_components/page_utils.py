@@ -70,10 +70,11 @@ class PageUtils:
             if not path.exists():
                 continue
             if path.is_file():
-                if (
-                    path.suffix.lower() in [".dll", ".me3"]
-                    or path.name.lower() == "regulation.bin"
-                ):
+                if path.suffix.lower() in [
+                    ".dll",
+                    ".me3",
+                    ".zip",
+                ] or path.name.lower() in ("regulation.bin", "regulation.bin.disabled"):
                     return True
             elif path.is_dir():
                 if path.name in self.game_page.acceptable_folders:

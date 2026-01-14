@@ -1,4 +1,3 @@
-import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -43,17 +42,19 @@ class NexusDownloadWorker(QThread):
     status_signal = Signal(str)
     finished_signal = Signal(bool, str)
 
-    def __init__(self, nexus_service, url, download_path, extract_dir):
+    def __init__(self, nexus_service, url, download_path):
         super().__init__()
         self.nexus_service = nexus_service
         self.url = url
         self.download_path = download_path
-        self.extract_dir = extract_dir
         self.success = False
         self.error_message = ""
 
     def run(self):
         try:
+            if self.download_path.suffix.lower() != ".zip":
+                raise NexusError("Only .zip downloads are supported right now.")
+
             self.status_signal.emit(tr("nexus_downloading_status"))
 
             def on_progress(current, total):
@@ -68,16 +69,6 @@ class NexusDownloadWorker(QThread):
 
             if self.isInterruptionRequested():
                 return
-
-            self.status_signal.emit(tr("nexus_installing_status"))
-
-            # Unzip
-            if self.download_path.suffix.lower() != ".zip":
-                raise NexusError("Only .zip downloads are supported right now.")
-
-            self.extract_dir.mkdir(parents=True, exist_ok=True)
-            with zipfile.ZipFile(self.download_path, "r") as z:
-                z.extractall(self.extract_dir)
 
             self.success = True
             self.finished_signal.emit(True, "")
@@ -494,6 +485,8 @@ class GamePage(QWidget):
 
     def download_selected_nexus_mod(self):
         """Download and install the currently selected Nexus mod (zip only)."""
+        import logging
+
         sidebar = getattr(self, "nexus_details_sidebar", None)
         mod = sidebar.current_mod() if sidebar else None
         if not mod:
@@ -505,6 +498,8 @@ class GamePage(QWidget):
                 sidebar.set_status(tr("nexus_api_key_missing_status"))
             return
 
+        log = logging.getLogger(__name__)
+
         try:
             files = self.nexus_service.get_mod_files(mod.game_domain, mod.mod_id)
             # Always download the latest file - don't use cached file as that's the
@@ -513,17 +508,138 @@ class GamePage(QWidget):
             if not chosen:
                 raise NexusError("No downloadable files found for this mod.")
 
-            links = self.nexus_service.get_download_links(
-                mod.game_domain, mod.mod_id, chosen.file_id
-            )
-            if not links:
-                raise NexusError("No download link returned by Nexus.")
-            url = links[0].url
+            url = None
+            try:
+                links = self.nexus_service.get_download_links(
+                    mod.game_domain, mod.mod_id, chosen.file_id
+                )
+                if links:
+                    url = links[0].url
+            except NexusError as e:
+                # Free users frequently get 403 here; fall back to WebView automation.
+                log.info("API download_link blocked; falling back to WebView: %s", e)
+                url = None
+
+            if not url:
+                # Compliant fallback for free users: open system browser and watch Downloads.
+                from me3_manager.services.download_watcher import (
+                    DownloadWatcher,
+                    get_downloads_dir,
+                )
+
+                base = f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}"
+                candidates = [
+                    f"{base}?tab=files&file_id={chosen.file_id}",
+                    f"{base}?tab=files&file_id={chosen.file_id}&nmm=1",
+                ]
+
+                # NOTE: Nexus often blocks direct access to internal widget endpoints like
+                # DownloadPopUp with an "Access Denied" page. Prefer full mod pages.
+                try:
+                    QDesktopServices.openUrl(QUrl(candidates[0]))
+                except Exception:
+                    QDesktopServices.openUrl(QUrl(base))
+
+                downloads_dir = get_downloads_dir()
+                watcher = DownloadWatcher(
+                    directory=downloads_dir, allowed_exts=(".zip",)
+                )
+
+                progress = QProgressDialog(
+                    tr("nexus_browser_download_waiting"),
+                    tr("cancel_button"),
+                    0,
+                    0,
+                    self,
+                )
+                progress.setWindowModality(Qt.WindowModality.WindowModal)
+                progress.setMinimumDuration(0)
+
+                found_path: dict[str, str] = {}
+
+                def _on_found(p: str):
+                    found_path["path"] = p
+                    progress.close()
+
+                def _on_failed(msg: str):
+                    found_path["error"] = msg
+                    progress.close()
+
+                watcher.found.connect(_on_found)
+                watcher.failed.connect(_on_failed)
+                progress.canceled.connect(watcher.requestInterruption)
+                watcher.start()
+                progress.exec()
+                watcher.wait()
+
+                if "path" not in found_path:
+                    raise NexusError(
+                        found_path.get("error") or "Failed to resolve download."
+                    )
+
+                # Install directly from the downloaded archive.
+                dl_file = Path(found_path["path"])
+                installed = self.mod_installer.install_mod(
+                    dl_file,
+                    mod_name_hint=(
+                        mod.name
+                        or chosen.name
+                        or f"nexus_{mod.mod_id}_{chosen.file_id}"
+                    ),
+                )
+                if installed:
+                    # Track metadata for update checking (match API install behavior).
+                    mods_dir = self.config_manager.get_mods_dir(self.game_name)
+                    installed_name = (
+                        installed[0]
+                        if isinstance(installed[0], str)
+                        else installed[0].name
+                    )
+                    folder_path = mods_dir / installed_name
+
+                    # Prefer a DLL inside the installed folder as local_mod_path when available.
+                    if folder_path.exists() and folder_path.is_dir():
+                        dlls_inside = list(folder_path.rglob("*.dll"))
+                        local_path = (
+                            str(dlls_inside[0].resolve())
+                            if dlls_inside
+                            else str(folder_path.resolve())
+                        )
+                    else:
+                        local_path = str(folder_path.resolve())
+
+                    self.nexus_metadata.upsert_cache_for_mod(
+                        game_domain=mod.game_domain,
+                        mod_id=mod.mod_id,
+                        local_mod_path=local_path,
+                        file_id=chosen.file_id,
+                        mod_name=mod.name,
+                        mod_version=chosen.version,
+                        mod_author=mod.author,
+                        mod_endorsements=mod.endorsement_count,
+                        mod_unique_downloads=mod.unique_downloads,
+                        mod_total_downloads=mod.total_downloads,
+                        mod_picture_url=mod.picture_url,
+                        mod_summary=mod.summary,
+                        file_name=chosen.name,
+                        file_version=chosen.version,
+                        file_size_kb=chosen.size_kb,
+                        file_category=chosen.category_name,
+                        file_uploaded_timestamp=chosen.uploaded_timestamp,
+                        nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
+                    )
+
+                    self._update_status(tr("nexus_install_success_status"))
+                    if sidebar:
+                        # Refresh sidebar details with updated file info
+                        sidebar.set_details(mod, chosen)
+                        sidebar.set_cached_text(tr("nexus_cached_just_now"))
+                        sidebar.set_status(tr("nexus_install_success_status"))
+                return
 
             with TemporaryDirectory() as tmp:
                 tmp_dir = Path(tmp)
                 dl_path = tmp_dir / f"{mod.mod_id}-{chosen.file_id}.zip"
-                extract_dir = tmp_dir / "extract"
 
                 # Setup Progress Dialog
                 progress = QProgressDialog(
@@ -539,9 +655,7 @@ class GamePage(QWidget):
                 progress.setMinimumDuration(0)
 
                 # Setup Worker
-                worker = NexusDownloadWorker(
-                    self.nexus_service, url, dl_path, extract_dir
-                )
+                worker = NexusDownloadWorker(self.nexus_service, url, dl_path)
 
                 dl_label = mod.name or chosen.name or tr("nexus_downloading_status")
 
@@ -556,8 +670,6 @@ class GamePage(QWidget):
 
                 def on_status(text):
                     progress.setLabelText(text)
-                    if text == tr("nexus_installing_status"):
-                        progress.setRange(0, 0)  # indeterminate for extraction
 
                 def on_finished(success, msg):
                     progress.close()
@@ -599,7 +711,7 @@ class GamePage(QWidget):
 
                 # Install using unified API
                 installed = self.mod_installer.install_mod(
-                    extract_dir,
+                    dl_path,
                     mod_name_hint=mod_name_hint,
                     mod_root_path=mod_root_path,
                 )

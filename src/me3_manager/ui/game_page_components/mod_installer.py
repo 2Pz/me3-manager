@@ -458,11 +458,23 @@ class ModInstaller:
                 self._show_error(tr("download_file_not_vaild"))
                 return []
 
-            return self.install_mod(
+            installed = self.install_mod(
                 extract_dir,
                 mod_name_hint=mod_name_hint or archive.stem,
                 mod_root_path=mod_root_path,
             )
+            if installed:
+                try:
+                    archive.unlink()
+                except Exception as e:
+                    # Best-effort cleanup; install already succeeded.
+                    QMessageBox.warning(
+                        self.game_page,
+                        tr("ERROR"),
+                        f"Installed successfully, but failed to delete archive:\n{archive}\n\n{e}",
+                    )
+
+            return installed
 
     def _install_me3_mod(self, mod_root: Path, mod_name_hint: str | None) -> list[str]:
         """Install mod using its .me3 profile."""

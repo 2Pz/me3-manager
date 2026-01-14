@@ -569,5 +569,6 @@
   "nexus_login_button": "Nexus 登录",
   "nexus_logout_button": "退出登录",
   "nexus_logged_in_as": "已登录为 {user_name}",
-  "nexus_game_not_supported": "此游戏不支持模组搜索"
+  "nexus_game_not_supported": "此游戏不支持模组搜索",
+  "nexus_browser_download_waiting": "在浏览器中下载...\n等待下载的 .zip 文件出现在您的下载文件夹中。"
 }

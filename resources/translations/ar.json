@@ -569,5 +569,6 @@
   "nexus_login_button": "دخول Nexus",
   "nexus_logout_button": "تسجيل الخروج",
   "nexus_logged_in_as": "مسجل دخول باسم {user_name}",
-  "nexus_game_not_supported": "هذه اللعبة غير مدعومة للبحث عن المودات"
+  "nexus_game_not_supported": "هذه اللعبة غير مدعومة للبحث عن المودات",
+  "nexus_browser_download_waiting": "جاري التحميل في المتصفح...\nفي انتظار ظهور ملف .zip في مجلد التحميلات."
 }
