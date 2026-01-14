@@ -49,6 +49,12 @@ class TrackedNexusMod:
     # User-specified mod root path (for mods with unknown structure)
     # This is a relative path within the extracted archive to use as the mod root
     mod_root_path: str | None = None
+    # Update-check cache (set by "Check update" and automatic startup checks)
+    update_available: bool | None = None
+    update_latest_file_id: int | None = None
+    update_latest_version: str | None = None
+    update_checked_at: str | None = None  # ISO8601
+    update_error: str | None = None
 
     @staticmethod
     def now_iso() -> str:
@@ -226,6 +232,19 @@ class NexusMetadataManager:
                     mod_picture_url=data.get("mod_picture_url"),
                     mod_summary=data.get("mod_summary"),
                     mod_root_path=data.get("mod_root_path"),
+                    update_available=(
+                        bool(data["update_available"])
+                        if data.get("update_available") is not None
+                        else None
+                    ),
+                    update_latest_file_id=(
+                        int(data["update_latest_file_id"])
+                        if data.get("update_latest_file_id") is not None
+                        else None
+                    ),
+                    update_latest_version=data.get("update_latest_version"),
+                    update_checked_at=data.get("update_checked_at"),
+                    update_error=data.get("update_error"),
                 )
             except Exception:
                 continue
@@ -299,6 +318,60 @@ class NexusMetadataManager:
                 json.dump(payload, f, indent=2, ensure_ascii=False)
         except Exception as e:
             log.warning("Failed to save Nexus metadata %s: %s", path, e)
+
+    def set_update_check_result(
+        self,
+        *,
+        local_mod_path: str,
+        update_available: bool,
+        latest_file_id: int | None,
+        latest_version: str | None,
+        error: str | None = None,
+    ) -> bool:
+        """
+        Persist a cached update-check result for an installed mod.
+        Returns True if the mod was found and updated.
+        """
+        try:
+            self.ensure_dirs()
+            items = self.load_game("unknown")
+            tracked = items.get(local_mod_path)
+            if not tracked:
+                return False
+
+            tracked.update_checked_at = TrackedNexusMod.now_iso()
+            tracked.update_error = error
+            tracked.update_available = bool(update_available)
+
+            if tracked.update_available:
+                tracked.update_latest_file_id = (
+                    int(latest_file_id) if latest_file_id else None
+                )
+                tracked.update_latest_version = latest_version
+            else:
+                tracked.update_latest_file_id = None
+                tracked.update_latest_version = None
+
+            # Save to this game's file (domain is stored inside record; file selection ignores it)
+            self.save_game(tracked.game_domain or "unknown", items)
+            return True
+        except Exception:
+            return False
+
+    def set_update_check_error(self, *, local_mod_path: str, error: str) -> bool:
+        """Persist an update-check error without overwriting existing availability state."""
+        try:
+            self.ensure_dirs()
+            items = self.load_game("unknown")
+            tracked = items.get(local_mod_path)
+            if not tracked:
+                return False
+            tracked.update_checked_at = TrackedNexusMod.now_iso()
+            tracked.update_error = error
+            self.save_game(tracked.game_domain or "unknown", items)
+            return True
+        except Exception:
+            return False
 
     def get_for_local_mod(
         self, game_domain: str, local_mod_path: str
@@ -415,6 +488,7 @@ class NexusMetadataManager:
             game_domain=game_domain,
             mod_id=int(mod_id),
         )
+        prev_file_id = tracked.file_id
 
         # Ensure ID/Domain are set (in case of new object)
         tracked.game_domain = game_domain
@@ -461,6 +535,19 @@ class NexusMetadataManager:
             tracked.file_category = file_category
         if file_uploaded_timestamp is not None:
             tracked.file_uploaded_timestamp = int(file_uploaded_timestamp)
+
+        # If we just installed/updated a file (file_id written), any previously cached
+        # "update available" state should be cleared so the UI badge disappears.
+        if (
+            is_installed_mod
+            and (file_id is not None)
+            and (tracked.file_id != prev_file_id)
+        ):
+            tracked.update_available = False
+            tracked.update_latest_file_id = None
+            tracked.update_latest_version = None
+            tracked.update_error = None
+            tracked.update_checked_at = TrackedNexusMod.now_iso()
 
         if is_installed_mod:
             items[target_key] = tracked

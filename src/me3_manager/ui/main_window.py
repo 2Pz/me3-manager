@@ -463,6 +463,18 @@ class ModEngine3Manager(QMainWindow):
         # Step 4: Update the file watcher to only monitor directories that still exist.
         self.config_manager.setup_file_watcher()
 
+    def check_all_mod_updates_on_startup(self):
+        """
+        Trigger background update checks for all installed Nexus-linked mods across all games.
+        Safe to call multiple times; each GamePage will ignore duplicates while a worker runs.
+        """
+        try:
+            for game_page in self.game_pages.values():
+                if isinstance(game_page, GamePage):
+                    game_page.check_updates_for_all_installed_mods_on_startup()
+        except Exception:
+            return
+
     def on_game_order_changed(self, new_order):
         self.config_manager.set_game_order(new_order)
 
