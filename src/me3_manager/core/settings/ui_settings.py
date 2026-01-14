@@ -26,6 +26,7 @@ class UISettings:
         defaults = {
             "mods_per_page": 5,
             "check_for_updates": True,
+            "check_mod_updates_on_startup": True,
             "auto_launch_steam": False,
             "theme": "default",
             "window_geometry": None,
@@ -88,6 +89,27 @@ class UISettings:
         """
         ui_settings = self.settings_manager.get("ui_settings", {})
         ui_settings["check_for_updates"] = enabled
+        self.settings_manager.set("ui_settings", ui_settings)
+
+    def get_check_mod_updates_on_startup(self) -> bool:
+        """
+        Get whether to check for Nexus mod updates on startup.
+
+        Returns:
+            True if mod updates should be checked
+        """
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        return ui_settings.get("check_mod_updates_on_startup", True)
+
+    def set_check_mod_updates_on_startup(self, enabled: bool) -> None:
+        """
+        Set whether to check for Nexus mod updates on startup.
+
+        Args:
+            enabled: Whether to check for mod updates
+        """
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        ui_settings["check_mod_updates_on_startup"] = enabled
         self.settings_manager.set("ui_settings", ui_settings)
 
     def get_auto_launch_steam(self) -> bool:

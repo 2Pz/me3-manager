@@ -51,6 +51,9 @@ class AppController:
 
         # Background Nexus mod update checks (runs after UI is up)
         try:
-            QTimer.singleShot(1500, self.main_window.check_all_mod_updates_on_startup)
+            if self.config_manager.get_check_mod_updates_on_startup():
+                QTimer.singleShot(
+                    1500, self.main_window.check_all_mod_updates_on_startup
+                )
         except Exception:
             pass

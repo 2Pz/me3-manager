@@ -405,6 +405,7 @@
   "steam_path_unavailable_tooltip": "Steam 路径不可用 - 需要安装 ME3",
   "me3_updates_header": "Mod Engine 3 更新",
   "check_for_updates_checkbox": "启动时检查 ME3 更新",
+  "check_for_mod_updates_checkbox": "启动时检查模组更新（Nexus）",
   "settings_tab_general": "常规",
   "settings_tab_nexus": "Nexus Mods",
   "settings_tab_updates": "更新",
