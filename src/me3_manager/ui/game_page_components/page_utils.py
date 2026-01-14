@@ -71,8 +71,8 @@ class PageUtils:
                 continue
             if path.is_file():
                 if (
-                    path.suffix.lower() in [".dll", ".me3"]
-                    or path.name.lower() == "regulation.bin"
+                    path.suffix.lower() in [".dll", ".me3", ".zip"]
+                    or path.name.lower() in ("regulation.bin", "regulation.bin.disabled")
                 ):
                     return True
             elif path.is_dir():
