@@ -546,8 +546,7 @@ class GamePage(QWidget):
                 )
 
                 progress = QProgressDialog(
-                    "Complete the Slow Download in your browser...\n"
-                    "Waiting for the downloaded .zip to appear in your Downloads folder.",
+                    tr("nexus_browser_download_waiting"),
                     tr("cancel_button"),
                     0,
                     0,
