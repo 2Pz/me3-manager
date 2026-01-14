@@ -317,12 +317,7 @@ class NexusModDetailsSidebar(QWidget):
         self.thumb.setMinimumHeight(80)
         self.thumb.setMaximumHeight(180)
         self.thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.thumb.setStyleSheet("""
-            background-color: #2d2d2d;
-            border-radius: 8px;
-            color: #666666;
-            font-size: 11px;
-        """)
+
         self.thumb.setText(tr("nexus_no_thumb"))
         content_layout.addWidget(self.thumb)
 
@@ -457,6 +452,13 @@ class NexusModDetailsSidebar(QWidget):
             self.thumb.setText(tr("nexus_no_thumb"))
             self.thumb.setFixedHeight(80)
             return
+
+        from PySide6.QtCore import QRectF
+        from PySide6.QtGui import QPainter, QPainterPath
+
+        # Clear any text
+        self.thumb.setText("")
+
         # Scale image to fit width while keeping aspect ratio
         available_width = self._target_width - 32  # account for margins
         scaled = pix.scaledToWidth(
@@ -469,8 +471,22 @@ class NexusModDetailsSidebar(QWidget):
                 180,
                 Qt.TransformationMode.SmoothTransformation,
             )
-        self.thumb.setFixedHeight(scaled.height())
-        self.thumb.setPixmap(scaled)
+
+        # Create rounded pixmap
+        rounded = QPixmap(scaled.size())
+        rounded.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(rounded)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(rounded.rect()), 8, 8)
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, scaled)
+        painter.end()
+
+        self.thumb.setFixedHeight(rounded.height())
+        self.thumb.setPixmap(rounded)
 
     def set_details(self, mod: NexusMod | None, file: NexusModFile | None = None):
         self._mod = mod
