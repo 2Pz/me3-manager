@@ -571,5 +571,10 @@
   "nexus_logout_button": "退出登录",
   "nexus_logged_in_as": "已登录为 {user_name}",
   "nexus_game_not_supported": "此游戏不支持模组搜索",
-  "nexus_browser_download_waiting": "在浏览器中下载...\n等待下载的 .zip 文件出现在您的下载文件夹中。"
+  "nexus_browser_download_waiting": "在浏览器中下载...\n等待下载的 .zip 文件出现在您的下载文件夹中。",
+  "rename_mod_context_menu": "重命名",
+  "rename_mod_title": "重命名模组",
+  "rename_mod_msg": "请输入新名称：",
+  "mod_renamed_status": "模组重命名成功",
+  "mod_rename_failed_status": "模组重命名失败：{error}"
 }

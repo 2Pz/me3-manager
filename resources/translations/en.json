@@ -570,5 +570,10 @@
   "nexus_logout_button": "Logout",
   "nexus_logged_in_as": "Logged in as {user_name}",
   "nexus_game_not_supported": "This game is not supported for mod search",
-  "nexus_browser_download_waiting": "Download in your browser...\nWaiting for the downloaded .zip to appear in your Downloads folder."
+  "nexus_browser_download_waiting": "Download in your browser...\nWaiting for the downloaded .zip to appear in your Downloads folder.",
+  "rename_mod_context_menu": "Rename",
+  "rename_mod_title": "Rename Mod",
+  "rename_mod_msg": "Enter new name:",
+  "mod_renamed_status": "Mod renamed successfully",
+  "mod_rename_failed_status": "Failed to rename mod: {error}"
 }
