@@ -84,8 +84,12 @@ class ModListHandler:
                 linked = gp.nexus_metadata.find_for_local_mod(
                     str(Path(mod_path).resolve())
                 )
-                if linked and linked.mod_name:
-                    display_name = linked.mod_name
+                if linked:
+                    if linked.custom_name:
+                        display_name = linked.custom_name
+                    elif linked.mod_name:
+                        display_name = linked.mod_name
+
                 if linked and linked.update_available and linked.update_latest_version:
                     update_available_version = linked.update_latest_version
             except Exception:
@@ -270,6 +274,7 @@ class ModListHandler:
         mod_widget.toggled.connect(gp.toggle_mod)
         if not is_nested:
             mod_widget.delete_requested.connect(gp.delete_mod)
+            mod_widget.rename_requested.connect(gp.rename_mod)
             mod_widget.clicked.connect(gp.on_local_mod_selected)
         mod_widget.edit_config_requested.connect(gp.open_config_editor)
         mod_widget.open_folder_requested.connect(gp.open_mod_folder)

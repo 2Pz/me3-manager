@@ -571,5 +571,10 @@
   "nexus_logout_button": "تسجيل الخروج",
   "nexus_logged_in_as": "مسجل دخول باسم {user_name}",
   "nexus_game_not_supported": "هذه اللعبة غير مدعومة للبحث عن المودات",
-  "nexus_browser_download_waiting": "جاري التحميل في المتصفح...\nفي انتظار ظهور ملف .zip في مجلد التحميلات."
+  "nexus_browser_download_waiting": "جاري التحميل في المتصفح...\nفي انتظار ظهور ملف .zip في مجلد التحميلات.",
+  "rename_mod_context_menu": "إعادة تسمية",
+  "rename_mod_title": "إعادة تسمية المود",
+  "rename_mod_msg": "أدخل الاسم الجديد:",
+  "mod_renamed_status": "تمت إعادة تسمية المود بنجاح",
+  "mod_rename_failed_status": "فشل في إعادة تسمية المود: {error}"
 }

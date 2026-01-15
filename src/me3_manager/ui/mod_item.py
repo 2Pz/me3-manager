@@ -11,6 +11,7 @@ class ModItem(QWidget):
 
     toggled = Signal(str, bool)
     delete_requested = Signal(str)
+    rename_requested = Signal(str)
     open_folder_requested = Signal(str)
     edit_config_requested = Signal(str)
     regulation_activate_requested = Signal(str)
@@ -538,3 +539,31 @@ class ModItem(QWidget):
         """Programmatically set expanded state"""
         self.is_expanded = expanded
         self._update_expand_button()
+
+    def contextMenuEvent(self, event):
+        """Show context menu on right-click"""
+        from PySide6.QtGui import QAction
+        from PySide6.QtWidgets import QMenu
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #2a2a2a;
+                color: #ffffff;
+                border: 1px solid #3d3d3d;
+            }
+            QMenu::item {
+                padding: 6px 24px;
+            }
+            QMenu::item:selected {
+                background-color: #0078d4;
+            }
+        """)
+
+        rename_action = QAction(tr("rename_mod_context_menu", default="Rename"), self)
+        rename_action.triggered.connect(
+            lambda: self.rename_requested.emit(self.mod_path)
+        )
+        menu.addAction(rename_action)
+
+        menu.exec_(event.globalPos())

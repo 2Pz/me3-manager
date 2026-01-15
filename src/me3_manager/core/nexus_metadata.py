@@ -28,6 +28,7 @@ class TrackedNexusMod:
     file_id: int | None = None
     # Cached display values (optional)
     mod_name: str | None = None
+    custom_name: str | None = None
     mod_version: str | None = None
     file_name: str | None = None
     file_version: str | None = None
@@ -245,6 +246,7 @@ class NexusMetadataManager:
                     update_latest_version=data.get("update_latest_version"),
                     update_checked_at=data.get("update_checked_at"),
                     update_error=data.get("update_error"),
+                    custom_name=data.get("custom_name"),
                 )
             except Exception:
                 continue
@@ -451,6 +453,7 @@ class NexusMetadataManager:
         file_category: str | None = None,
         file_uploaded_timestamp: int | None = None,
         nexus_url: str | None = None,
+        custom_name: str | None = None,
     ) -> None:
         """
         Update cached details for a mod.
@@ -503,6 +506,13 @@ class NexusMetadataManager:
 
         if nexus_url:
             tracked.nexus_url = nexus_url
+
+        # Preserve custom name if not explicitly cleared/set (it shouldn't be effectively cleared by update checks)
+        if custom_name is not None:
+            tracked.custom_name = custom_name
+        # If we are updating an existing record but didn't pass a custom name, keep the old one
+        elif existing and hasattr(existing, "custom_name"):
+            tracked.custom_name = existing.custom_name
 
         # Mod fields
         if mod_name is not None:
@@ -585,7 +595,13 @@ class NexusMetadataManager:
             tracked.mod_name = mod_name
         if not tracked.installed_at:
             tracked.installed_at = TrackedNexusMod.now_iso()
+
+        # Preserve custom name if re-linking
+        if existing and existing.custom_name:
+            tracked.custom_name = existing.custom_name
+
         # If we have enough info to display, treat this as cached too.
+
         if mod_name and not tracked.cached_at:
             tracked.cached_at = TrackedNexusMod.now_iso()
 
@@ -642,3 +658,24 @@ class NexusMetadataManager:
         """Get the user-specified folder path rule for a mod."""
         cached = self.get_cached_for_mod(game_domain, mod_id)
         return cached.mod_root_path if cached else None
+
+    def set_mod_custom_name(self, local_mod_path: str, name: str | None) -> None:
+        """Set a user-defined custom name for a mod."""
+        # Note: We use "unknown" or "local" game domain if not found, since we are working by local path
+        try:
+            items = self.load_game("unknown")
+            if local_mod_path in items:
+                items[local_mod_path].custom_name = name
+                self.save_game(items[local_mod_path].game_domain or "unknown", items)
+            else:
+                # Create a new local-only entry
+                items[local_mod_path] = TrackedNexusMod(
+                    local_mod_path=local_mod_path,
+                    game_domain="local",
+                    mod_id=0,
+                    custom_name=name,
+                    installed_at=TrackedNexusMod.now_iso(),
+                )
+                self.save_game("local", items)
+        except Exception as e:
+            log.warning("Failed to set custom name for %s: %s", local_mod_path, e)

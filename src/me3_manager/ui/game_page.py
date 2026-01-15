@@ -1247,6 +1247,52 @@ class GamePage(QWidget):
     def activate_regulation_mod(self, mod_path: str):
         self.mod_action_handler.activate_regulation_mod(mod_path)
 
+    def rename_mod(self, mod_path: str):
+        """Handle mod rename request."""
+        # Find current name
+        current_name = "Unknown"
+        if mod_path in self.mod_infos:
+            current_name = self.mod_infos[mod_path].name
+
+        # Check if it has a custom name already
+        try:
+            mod_path_resolved = str(Path(mod_path).resolve())
+            linked = self.nexus_metadata.find_for_local_mod(mod_path_resolved)
+            if linked and linked.custom_name:
+                current_name = linked.custom_name
+            elif linked and linked.mod_name:
+                # If we are using Nexus name but no custom name, we might want to start editing from that
+                current_name = linked.mod_name
+        except Exception:
+            pass
+
+        new_name, ok = QInputDialog.getText(
+            self,
+            tr("rename_mod_title", default="Rename Mod"),
+            tr("rename_mod_msg", default="Enter new name:"),
+            text=current_name,
+        )
+
+        if ok:
+            # If empty string, we treat it as "reset to default" -> pass None
+            final_name = new_name.strip() if new_name.strip() else None
+
+            try:
+                mod_path_resolved = str(Path(mod_path).resolve())
+                self.nexus_metadata.set_mod_custom_name(mod_path_resolved, final_name)
+                self.load_mods(reset_page=False)
+                self._update_status(
+                    tr("mod_renamed_status", default="Mod renamed successfully")
+                )
+            except Exception as e:
+                self._update_status(
+                    tr(
+                        "mod_rename_failed_status",
+                        default="Failed to rename mod: {error}",
+                        error=str(e),
+                    )
+                )
+
     # Delegated Installation Actions
 
     def install_mod(self, source: Path, **kwargs) -> list[str]:
