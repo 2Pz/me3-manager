@@ -132,6 +132,7 @@ name = "me3-manager"
 version = "1.3.0"
 source = { editable = "." }
 dependencies = [
+    { name = "patool" },
     { name = "pyside6-essentials" },
     { name = "requests" },
     { name = "tomli-w" },
@@ -148,6 +149,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "patool", specifier = ">=3.1.0" },
     { name = "pyside6-essentials", specifier = ">=6.9.2" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "tomli-w", specifier = ">=1.2.0" },
@@ -169,6 +171,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a1/d4/1fc4078c65507b51b96ca8f8c3ba19e6a61c8253c72794544580a7b6c24d/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f", size = 165727, upload-time = "2025-04-19T11:48:59.673Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484", size = 66469, upload-time = "2025-04-19T11:48:57.875Z" },
+]
+
+[[package]]
+name = "patool"
+version = "4.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/84/6a/d8cc4ee61e6cc066a0c8d4ef2118c5fbf4d8e3ad8ee94192cc097749ae8a/patool-4.0.3.tar.gz", hash = "sha256:d7e3d3b69857edd4441061e27254ff1761c9e7a0627562be9eb1fc90cc08770f", size = 2009846, upload-time = "2025-12-11T18:17:33.53Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cc/89/9db065f71e53910dc1de6694b817b226d113be33089e65bba6641939bc1b/patool-4.0.3-py2.py3-none-any.whl", hash = "sha256:b688801314a1deea00d60853418ab5892084a053a8cbf3a5730e1200a8ad65f7", size = 88393, upload-time = "2025-12-11T18:17:29.574Z" },
 ]
 
 [[package]]
