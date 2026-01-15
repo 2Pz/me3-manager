@@ -13,6 +13,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QInputDialog
 
+from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.translator import tr
 
@@ -139,7 +140,7 @@ class DragDropHandler:
                     result = self.game_page.mod_installer.install_mod(path.parent)
                     if result:
                         installed_any = True
-                elif path.suffix.lower() == ".zip":
+                elif path.suffix.lower() in ARCHIVE_EXTENSIONS:
                     # Archive dropped - extract and install
                     result = self.game_page.mod_installer.install_mod(path)
                     if result:

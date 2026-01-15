@@ -15,6 +15,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal
 
+from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
+
 log = logging.getLogger(__name__)
 
 
@@ -63,13 +65,17 @@ class DownloadWatcher(QThread):
         self,
         *,
         directory: Path,
-        allowed_exts: tuple[str, ...] = (".zip",),
+        allowed_exts: tuple[str, ...] | None = None,
         timeout_s: int = 600,
         parent=None,
     ):
         super().__init__(parent)
         self._dir = Path(directory)
-        self._allowed_exts = tuple(e.lower() for e in allowed_exts)
+        # Use ARCHIVE_EXTENSIONS if no specific extensions provided
+        if allowed_exts is None:
+            self._allowed_exts = tuple(e.lower() for e in ARCHIVE_EXTENSIONS)
+        else:
+            self._allowed_exts = tuple(e.lower() for e in allowed_exts)
         self._timeout_s = int(timeout_s)
 
     def run(self) -> None:

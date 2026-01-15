@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
+from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
 from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
@@ -70,11 +71,13 @@ class PageUtils:
             if not path.exists():
                 continue
             if path.is_file():
-                if path.suffix.lower() in [
-                    ".dll",
-                    ".me3",
-                    ".zip",
-                ] or path.name.lower() in ("regulation.bin", "regulation.bin.disabled"):
+                suffix = path.suffix.lower()
+                if (
+                    suffix in {".dll", ".me3"}
+                    or suffix in ARCHIVE_EXTENSIONS
+                    or path.name.lower()
+                    in ("regulation.bin", "regulation.bin.disabled")
+                ):
                     return True
             elif path.is_dir():
                 if path.name in self.game_page.acceptable_folders:

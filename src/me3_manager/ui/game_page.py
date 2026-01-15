@@ -33,6 +33,7 @@ from me3_manager.ui.game_page_components.pagination_handler import PaginationHan
 from me3_manager.ui.game_page_components.profile_handler import ProfileHandler
 from me3_manager.ui.game_page_components.style import GamePageStyle
 from me3_manager.ui.game_page_components.ui_builder import UiBuilder
+from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.translator import tr
 
@@ -52,9 +53,6 @@ class NexusDownloadWorker(QThread):
 
     def run(self):
         try:
-            if self.download_path.suffix.lower() != ".zip":
-                raise NexusError("Only .zip downloads are supported right now.")
-
             self.status_signal.emit(tr("nexus_downloading_status"))
 
             def on_progress(current, total):
@@ -542,7 +540,7 @@ class GamePage(QWidget):
 
                 downloads_dir = get_downloads_dir()
                 watcher = DownloadWatcher(
-                    directory=downloads_dir, allowed_exts=(".zip",)
+                    directory=downloads_dir, allowed_exts=tuple(ARCHIVE_EXTENSIONS)
                 )
 
                 progress = QProgressDialog(
@@ -639,7 +637,13 @@ class GamePage(QWidget):
 
             with TemporaryDirectory() as tmp:
                 tmp_dir = Path(tmp)
-                dl_path = tmp_dir / f"{mod.mod_id}-{chosen.file_id}.zip"
+                # Get actual extension from file name, default to .zip
+                file_ext = ".zip"
+                if chosen.name:
+                    ext = Path(chosen.name).suffix.lower()
+                    if ext in ARCHIVE_EXTENSIONS:
+                        file_ext = ext
+                dl_path = tmp_dir / f"{mod.mod_id}-{chosen.file_id}{file_ext}"
 
                 # Setup Progress Dialog
                 progress = QProgressDialog(

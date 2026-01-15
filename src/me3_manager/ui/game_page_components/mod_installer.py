@@ -12,7 +12,6 @@ All installations flow through a single entry point: install_mod()
 import logging
 import re
 import shutil
-import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Literal
@@ -32,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from me3_manager.core.profiles.profile_manager import ProfileManager
+from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS, extract_archive
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.translator import tr
 
@@ -248,7 +248,7 @@ class ModInstaller:
 
         try:
             # Handle archives
-            if source.is_file() and source.suffix.lower() == ".zip":
+            if source.is_file() and source.suffix.lower() in ARCHIVE_EXTENSIONS:
                 return self._install_from_archive(source, mod_name_hint, mod_root_path)
 
             if not source.is_dir():
@@ -452,10 +452,10 @@ class ModInstaller:
             extract_dir.mkdir(parents=True, exist_ok=True)
 
             try:
-                with zipfile.ZipFile(archive, "r") as z:
-                    z.extractall(extract_dir)
-            except Exception:
-                self._show_error(tr("download_file_not_vaild"))
+                extract_archive(archive, extract_dir)
+            except Exception as e:
+                self._log.exception("Archive extraction failed for %s", archive)
+                self._show_error(tr("download_file_not_vaild") + f"\n\n{e}")
                 return []
 
             installed = self.install_mod(
