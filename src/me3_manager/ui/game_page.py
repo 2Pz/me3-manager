@@ -718,6 +718,7 @@ class GamePage(QWidget):
                     dl_path,
                     mod_name_hint=mod_name_hint,
                     mod_root_path=mod_root_path,
+                    delete_archive=True,
                 )
 
                 # Capture interactively selected root path if one wasn't provided upfront

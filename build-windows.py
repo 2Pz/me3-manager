@@ -37,7 +37,7 @@ include_files = [
 build_exe_options = {
     # Packages are auto-detected from our imports, we shouldn't need to specify
     # "PyQt6" here.
-    "packages": [],
+    "packages": ["patoolib.programs"],
     # Force exclude packages if needed
     "excludes": [],
     "include_files": include_files,

@@ -230,6 +230,7 @@ class ModInstaller:
         nexus_mod_id: int | None = None,
         mod_name_hint: str | None = None,
         mod_root_path: str | None = None,
+        delete_archive: bool = False,
     ) -> list[str]:
         """
         Universal mod installation entry point.
@@ -239,6 +240,7 @@ class ModInstaller:
             nexus_mod_id: Optional Nexus mod ID (unused, for future tracking)
             mod_name_hint: Suggested name for the mod (e.g., from Nexus)
             mod_root_path: User-specified relative path to mod root within archive
+            delete_archive: Whether to delete the source archive after installation
 
         Returns:
             List of installed mod folder/file names
@@ -249,7 +251,9 @@ class ModInstaller:
         try:
             # Handle archives
             if source.is_file() and source.suffix.lower() in ARCHIVE_EXTENSIONS:
-                return self._install_from_archive(source, mod_name_hint, mod_root_path)
+                return self._install_from_archive(
+                    source, mod_name_hint, mod_root_path, delete_archive
+                )
 
             if not source.is_dir():
                 self._show_error(tr("mod_source_not_found"))
@@ -444,7 +448,11 @@ class ModInstaller:
     # =========================================================================
 
     def _install_from_archive(
-        self, archive: Path, mod_name_hint: str | None, mod_root_path: str | None = None
+        self,
+        archive: Path,
+        mod_name_hint: str | None,
+        mod_root_path: str | None = None,
+        delete_archive: bool = False,
     ) -> list[str]:
         """Extract archive and install contents."""
         with TemporaryDirectory() as tmp:
@@ -463,7 +471,7 @@ class ModInstaller:
                 mod_name_hint=mod_name_hint or archive.stem,
                 mod_root_path=mod_root_path,
             )
-            if installed:
+            if installed and delete_archive:
                 try:
                     archive.unlink()
                 except Exception as e:
