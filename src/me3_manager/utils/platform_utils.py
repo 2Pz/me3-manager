@@ -288,10 +288,18 @@ class PlatformUtils:
         """
         try:
             url = QUrl(url_str)
-            if QDesktopServices.openUrl(url):
-                return True
-            # Best-effort textual URL fallback
-            return PlatformUtils._fallback_open_textual(url_str)
+            # Prefer fallback in PyInstaller/Flatpak where Qt portal integration may fail
+            if sys.platform == "linux" and (
+                PlatformUtils._is_pyinstaller() or PlatformUtils.is_flatpak()
+            ):
+                if PlatformUtils._fallback_open_textual(url_str):
+                    return True
+                return QDesktopServices.openUrl(url)
+            else:
+                if QDesktopServices.openUrl(url):
+                    return True
+                # Best-effort textual URL fallback
+                return PlatformUtils._fallback_open_textual(url_str)
         except Exception:
             return False
 
