@@ -42,7 +42,24 @@ def setup_logging():
     log.debug("Running in %s", location)
 
 
+def setup_ssl_certificates():
+    """Setup SSL certificates for PyInstaller builds.
+
+    PyInstaller bundles its own Python environment which may not find
+    system SSL certificates. Use certifi's bundled certificates instead.
+    """
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        try:
+            import certifi
+
+            os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+            os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+        except ImportError:
+            pass  # certifi not available, rely on system certificates
+
+
 def main():
+    setup_ssl_certificates()
     setup_logging()
 
     if sys.platform == "linux":
