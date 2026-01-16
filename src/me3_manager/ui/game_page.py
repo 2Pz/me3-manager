@@ -3,10 +3,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from PySide6.QtCore import Qt, QThread, QTimer, QUrl, Signal
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtGui import (
     QAction,
-    QDesktopServices,
     QDragEnterEvent,
     QDropEvent,
     QPixmap,
@@ -35,6 +34,7 @@ from me3_manager.ui.game_page_components.style import GamePageStyle
 from me3_manager.ui.game_page_components.ui_builder import UiBuilder
 from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
+from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
 
@@ -534,9 +534,9 @@ class GamePage(QWidget):
                 # NOTE: Nexus often blocks direct access to internal widget endpoints like
                 # DownloadPopUp with an "Access Denied" page. Prefer full mod pages.
                 try:
-                    QDesktopServices.openUrl(QUrl(candidates[0]))
+                    PlatformUtils.open_url(candidates[0])
                 except Exception:
-                    QDesktopServices.openUrl(QUrl(base))
+                    PlatformUtils.open_url(base)
 
                 downloads_dir = get_downloads_dir()
                 watcher = DownloadWatcher(
@@ -811,10 +811,7 @@ class GamePage(QWidget):
         url = sidebar.current_url() if sidebar else None
         if not url:
             return
-        try:
-            QDesktopServices.openUrl(QUrl(url))
-        except Exception:
-            return
+        PlatformUtils.open_url(url)
 
     def check_update_selected_mod(self):
         """

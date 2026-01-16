@@ -15,10 +15,11 @@ import json
 import logging
 import threading
 import uuid
-import webbrowser
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, Signal
+
+from me3_manager.utils.platform_utils import PlatformUtils
 
 if TYPE_CHECKING:
     from websocket import WebSocketApp
@@ -185,7 +186,7 @@ class NexusSSOClient(QObject):
         url = f"{NEXUS_SSO_PAGE}?id={self._request_id}&application={APPLICATION_SLUG}"
         log.info("Opening SSO authorization page: %s", url)
         try:
-            webbrowser.open(url)
+            PlatformUtils.open_url(url)
             return True
         except Exception as e:
             log.exception("Failed to open browser")
