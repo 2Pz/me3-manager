@@ -15,6 +15,11 @@ Usage (from project root):
 Non-interactive / CI:
   python scripts/check-unused-translations.py --delete --yes
   python scripts/check-unused-translations.py --check-only
+
+Enhanced options:
+  python scripts/check-unused-translations.py --check-only --group    # Group unused keys by prefix
+  python scripts/check-unused-translations.py --check-only --verbose  # Show where used keys are found
+  python scripts/check-unused-translations.py --check-only --all      # Show all unused keys (no limit)
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ import ast
 import json
 import subprocess
 import sys
+from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -57,11 +63,16 @@ class _TrKeyCollector(ast.NodeVisitor):
     Also collects *any* string literal in code that exactly matches a known
     translation key. This avoids false "unused" reports for code that passes
     translation keys through helpers (e.g. add_stat_row("nexus_endorsements_label", ...)).
+
+    Tracks file path and line numbers for verbose output.
     """
 
-    def __init__(self, known_keys: set[str]) -> None:
+    def __init__(self, known_keys: set[str], file_path: Path) -> None:
         self._known_keys = known_keys
+        self._file_path = file_path
         self.keys: set[str] = set()
+        # Maps key -> list of (file, line) tuples
+        self.key_locations: dict[str, list[tuple[Path, int]]] = defaultdict(list)
 
     def visit_Call(self, node: ast.Call) -> None:  # noqa: N802 (ast API)
         func = node.func
@@ -73,19 +84,28 @@ class _TrKeyCollector(ast.NodeVisitor):
             first = node.args[0]
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
                 self.keys.add(first.value)
+                self.key_locations[first.value].append((self._file_path, first.lineno))
 
         self.generic_visit(node)
 
     def visit_Constant(self, node: ast.Constant) -> None:  # noqa: N802 (ast API)
         if isinstance(node.value, str) and node.value in self._known_keys:
             self.keys.add(node.value)
+            self.key_locations[node.value].append((self._file_path, node.lineno))
         self.generic_visit(node)
 
 
 def collect_used_translation_keys(
-    py_files: Iterable[Path], known_keys: set[str]
-) -> set[str]:
+    py_files: Iterable[Path], known_keys: set[str], verbose: bool = False
+) -> tuple[set[str], dict[str, list[tuple[Path, int]]]]:
+    """
+    Collect used translation keys and optionally their locations.
+
+    Returns:
+        Tuple of (used_keys set, key_locations dict mapping key -> [(file, line), ...])
+    """
     used: set[str] = set()
+    all_locations: dict[str, list[tuple[Path, int]]] = defaultdict(list)
 
     for path in py_files:
         try:
@@ -101,14 +121,17 @@ def collect_used_translation_keys(
             # If any file can't be parsed (unlikely), skip it rather than failing.
             continue
 
-        v = _TrKeyCollector(known_keys=known_keys)
+        v = _TrKeyCollector(known_keys=known_keys, file_path=path)
         v.visit(tree)
         used |= v.keys
+        if verbose:
+            for key, locs in v.key_locations.items():
+                all_locations[key].extend(locs)
 
     # Keys referenced directly in code without tr("...") calls.
     used.add("language_name")
 
-    return used
+    return used, all_locations
 
 
 def load_json(path: Path) -> dict[str, object]:
@@ -150,6 +173,38 @@ def run_sync_script(root: Path) -> int:
     return int(proc.returncode)
 
 
+def get_key_prefix(key: str) -> str:
+    """Extract prefix from a translation key (text before first underscore)."""
+    if "_" in key:
+        return key.split("_")[0]
+    return key
+
+
+def print_grouped_keys(keys: list[str], root: Path) -> None:
+    """Print keys grouped by their prefix for easier review."""
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for key in keys:
+        prefix = get_key_prefix(key)
+        grouped[prefix].append(key)
+
+    # Sort groups by size (largest first) for better visibility
+    sorted_groups = sorted(grouped.items(), key=lambda x: (-len(x[1]), x[0]))
+
+    for prefix, group_keys in sorted_groups:
+        print(f"\n  [{prefix}] ({len(group_keys)} keys)")
+        for k in sorted(group_keys):
+            print(f"    - {k}")
+
+
+def print_flat_keys(keys: list[str], limit: int | None = None) -> None:
+    """Print keys in a flat list."""
+    display_keys = keys if limit is None else keys[:limit]
+    for k in display_keys:
+        print(f"  - {k}")
+    if limit and len(keys) > limit:
+        print(f"  ... and {len(keys) - limit} more (use --all to show all)")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         description="Check for unused translation keys in resources/translations/*.json"
@@ -180,6 +235,21 @@ def main(argv: list[str]) -> int:
         default=["src", "scripts"],
         help="Paths (relative to repo root) to scan for tr('key') usages. Defaults to: src scripts",
     )
+    parser.add_argument(
+        "--group",
+        action="store_true",
+        help="Group unused keys by prefix (e.g., 'nexus_', 'import_') for easier review.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Show all unused keys instead of limiting to 50.",
+    )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show where each used key is referenced in the code.",
+    )
 
     args = parser.parse_args(argv)
 
@@ -203,7 +273,9 @@ def main(argv: list[str]) -> int:
     known_keys = set(load_json(master_en).keys())
 
     scan_paths = [root / p for p in args.paths]
-    used_keys = collect_used_translation_keys(iter_python_files(scan_paths), known_keys)
+    used_keys, key_locations = collect_used_translation_keys(
+        iter_python_files(scan_paths), known_keys, verbose=args.verbose
+    )
 
     all_keys: set[str] = set()
     per_file_keys: dict[Path, set[str]] = {}
@@ -221,11 +293,25 @@ def main(argv: list[str]) -> int:
     print(f"Unused keys found: {len(unused_keys)}")
 
     if unused_keys:
-        preview = unused_keys[:50]
-        for k in preview:
-            print(f"  - {k}")
-        if len(unused_keys) > len(preview):
-            print(f"  ... and {len(unused_keys) - len(preview)} more")
+        if args.group:
+            print_grouped_keys(unused_keys, root)
+        else:
+            limit = None if getattr(args, "all") else 50
+            print_flat_keys(unused_keys, limit)
+
+    # Verbose mode: show where used keys are found
+    if args.verbose and key_locations:
+        print(f"\n{'='*60}")
+        print("Used keys and their locations:")
+        print(f"{'='*60}")
+        for key in sorted(key_locations.keys()):
+            locs = key_locations[key]
+            print(f"\n  {key}")
+            for file_path, line in locs[:5]:  # Limit to 5 locations per key
+                rel_path = file_path.relative_to(root)
+                print(f"    └─ {rel_path}:{line}")
+            if len(locs) > 5:
+                print(f"    └─ ... and {len(locs) - 5} more locations")
 
     # Decide whether to delete
     do_delete = False
