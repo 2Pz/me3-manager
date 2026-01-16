@@ -246,7 +246,8 @@ def main(argv: list[str]) -> int:
         help="Show all unused keys instead of limiting to 50.",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Show where each used key is referenced in the code.",
     )
@@ -296,14 +297,14 @@ def main(argv: list[str]) -> int:
         if args.group:
             print_grouped_keys(unused_keys, root)
         else:
-            limit = None if getattr(args, "all") else 50
+            limit = None if args.all else 50
             print_flat_keys(unused_keys, limit)
 
     # Verbose mode: show where used keys are found
     if args.verbose and key_locations:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Used keys and their locations:")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         for key in sorted(key_locations.keys()):
             locs = key_locations[key]
             print(f"\n  {key}")
