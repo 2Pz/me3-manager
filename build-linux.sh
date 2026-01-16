@@ -29,6 +29,7 @@ pyinstaller --clean --noconfirm \
 	--name me3-manager \
 	--onefile \
 	--copy-metadata me3-manager \
+	--collect-all patoolib \
 	--add-data resources:resources \
 	--optimize 2 \
 	--strip \
