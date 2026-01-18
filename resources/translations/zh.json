@@ -363,6 +363,8 @@
   "check_for_mod_updates_checkbox": "启动时检查模组更新（Nexus）",
   "settings_tab_general": "常规",
   "settings_tab_updates": "更新",
+  "ui_scale_header": "UI 缩放",
+  "ui_scale_restart_note": "注意：更改 UI 缩放需要重启应用程序。",
   "terminal_title": "终端",
   "copy_button": "复制",
   "copied_feedback": "已复制！",

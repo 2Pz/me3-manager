@@ -256,6 +256,14 @@ class ConfigFacade:
         """Set check for Nexus mod updates on startup setting."""
         self.ui_settings.set_check_mod_updates_on_startup(enabled)
 
+    def get_ui_scale(self) -> float:
+        """Get UI scale factor."""
+        return self.ui_settings.get_ui_scale()
+
+    def set_ui_scale(self, value: float):
+        """Set UI scale factor."""
+        self.ui_settings.set_ui_scale(value)
+
     def get_auto_launch_steam(self) -> bool:
         """Get auto launch Steam setting."""
         return self.ui_settings.get_auto_launch_steam()
