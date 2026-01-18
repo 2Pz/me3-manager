@@ -32,6 +32,7 @@ class UISettings:
             "window_geometry": None,
             "splitter_state": None,
             "default_profile_version": "v1",
+            "ui_scale": 1.0,
         }
 
         # Add missing defaults
@@ -43,6 +44,33 @@ class UISettings:
 
         if updated:
             self.settings_manager.set("ui_settings", ui_settings)
+
+    def get_ui_scale(self) -> float:
+        """
+        Get the UI scale factor.
+
+        Returns:
+            UI scale factor (1.0 = 100%)
+        """
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        return ui_settings.get("ui_scale", 1.0)
+
+    def set_ui_scale(self, value: float) -> None:
+        """
+        Set the UI scale factor.
+
+        Args:
+            value: UI scale factor
+        """
+        # Clamp between decent values
+        if value < 0.5:
+            value = 0.5
+        elif value > 3.0:
+            value = 3.0
+
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        ui_settings["ui_scale"] = value
+        self.settings_manager.set("ui_settings", ui_settings)
 
     def get_mods_per_page(self) -> int:
         """

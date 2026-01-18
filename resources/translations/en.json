@@ -363,6 +363,8 @@
   "check_for_mod_updates_checkbox": "Check for mod updates on startup (Nexus)",
   "settings_tab_general": "General",
   "settings_tab_updates": "Updates",
+  "ui_scale_header": "UI Scale",
+  "ui_scale_restart_note": "Note: Changes to UI scale require an application restart.",
   "terminal_title": "Terminal",
   "copy_button": "Copy",
   "copied_feedback": "Copied!",

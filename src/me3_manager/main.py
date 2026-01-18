@@ -62,6 +62,26 @@ def main():
     setup_ssl_certificates()
     setup_logging()
 
+    # Apply UI Scaling from settings
+    # We must set this before creating the QApplication to ensure it takes effect.
+    try:
+        from me3_manager.core.paths.profile_paths import get_me3_profiles_root
+        from me3_manager.core.settings.settings_manager import SettingsManager
+
+        config_root = get_me3_profiles_root()
+        settings_file = config_root.parent / "manager_settings.json"
+
+        # Use SettingsManager to load configuration safely
+        if settings_file.exists():
+            settings = SettingsManager(settings_file)
+            ui_scale = settings.get("ui_settings", {}).get("ui_scale", 1.0)
+
+            if ui_scale != 1.0:
+                os.environ["QT_SCALE_FACTOR"] = str(ui_scale)
+                log.info("Applied UI Scale Factor from settings: %s", ui_scale)
+    except Exception as e:
+        log.warning("Failed to apply UI scale from settings: %s", e)
+
     if sys.platform == "linux":
         if "QT_QPA_PLATFORM" in os.environ:
             del os.environ["QT_QPA_PLATFORM"]

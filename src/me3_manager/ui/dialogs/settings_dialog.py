@@ -4,6 +4,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
+    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -59,6 +60,29 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(16, 20, 16, 16)
         layout.setSpacing(16)
+
+        # UI Scale Section
+        ui_scale_header = QLabel(tr("ui_scale_header"))
+        ui_scale_header.setObjectName("SectionHeader")
+        layout.addWidget(ui_scale_header)
+
+        scale_layout = QHBoxLayout()
+        scale_layout.setSpacing(10)
+
+        self.ui_scale_spin = QDoubleSpinBox()
+        self.ui_scale_spin.setRange(0.5, 3.0)
+        self.ui_scale_spin.setSingleStep(0.1)
+        self.ui_scale_spin.setValue(self.config_manager.get_ui_scale())
+        self.ui_scale_spin.valueChanged.connect(self.on_ui_scale_changed)
+        self.ui_scale_spin.setFixedWidth(100)
+        scale_layout.addWidget(self.ui_scale_spin)
+
+        scale_note = QLabel(tr("ui_scale_restart_note"))
+        scale_note.setObjectName("StatusInfo")
+        scale_layout.addWidget(scale_note)
+        scale_layout.addStretch()
+
+        layout.addLayout(scale_layout)
 
         # Steam Integration Section
         steam_header = QLabel(tr("steam_integration_header"))
@@ -234,7 +258,15 @@ class SettingsDialog(QDialog):
                 color: #ffffff;
                 font-size: 13px;
             }
-            QLineEdit:focus {
+            QDoubleSpinBox {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                border-radius: 6px;
+                padding: 4px 8px;
+                color: #ffffff;
+                font-size: 13px;
+            }
+            QLineEdit:focus, QDoubleSpinBox:focus {
                 border-color: #0078d4;
             }
             #SectionHeader {
@@ -260,6 +292,10 @@ class SettingsDialog(QDialog):
         """)
 
     # Event Handlers
+    def on_ui_scale_changed(self, value):
+        """Handle UI scale setting change"""
+        self.config_manager.set_ui_scale(value)
+
     def on_auto_launch_steam_toggled(self, checked):
         """Handle auto-launch Steam setting change"""
         self.config_manager.set_auto_launch_steam(checked)
