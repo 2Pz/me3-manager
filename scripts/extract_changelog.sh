@@ -23,12 +23,15 @@ if [ ! -f "$CHANGELOG_FILE" ]; then
     exit 1
 fi
 
-# Extract the section for this version (from "## 📦 Release X.Y.Z" to next "---")
-changelog=$(sed -n '/^## 📦 Release '"$VERSION"'/,/^---$/p' "$CHANGELOG_FILE" | head -n -1)
+# Normalize version (remove 'v' prefix if present)
+CLEAN_VERSION="${VERSION#v}"
+
+# Extract the section for this version (allow optional 'v' in header)
+changelog=$(sed -n '/^## 📦 Release v\?'"${CLEAN_VERSION}"'/,/^---$/p' "$CHANGELOG_FILE" | head -n -1)
 
 # Fallback: If extraction fails, try to get the first release section
 if [ -z "$changelog" ]; then
-    changelog=$(sed -n '/^## 📦 Release/,/^---$/p' "$CHANGELOG_FILE" | head -n -1 | head -100)
+    changelog=$(sed -n '/^## 📦 Release/,/^---$/p' "$CHANGELOG_FILE" | head -n -1)
 fi
 
 # Output to stdout
