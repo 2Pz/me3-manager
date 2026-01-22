@@ -3,6 +3,19 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.3.1
+**Released:** January 22, 2026
+
+
+### 🔧 Bug Fixes
+
+- UI text readability at low scale factors ([8fa6473](https://github.com/2Pz/me3-manager/commit/8fa6473dbabe1f5878ba6d85d40b16343faee251))
+
+- Fix(ci) resolve broken pipe in changelog extraction and partial version matching ([98c9218](https://github.com/2Pz/me3-manager/commit/98c9218669f40e9b9afcd6c068a0b5d098c8373a))
+
+
+
+---
 ## 📦 Release 1.3.0
 **Released:** January 18, 2026
 
@@ -633,6 +646,7 @@
 
 
 ---
+[1.3.1]: https://github.com/2Pz/me3-manager/compare/1.3.0..1.3.1
 [1.3.0]: https://github.com/2Pz/me3-manager/compare/1.2.3..1.3.0
 [1.2.3]: https://github.com/2Pz/me3-manager/compare/1.2.2..1.2.3
 [1.2.2]: https://github.com/2Pz/me3-manager/compare/1.2.1..1.2.2
