@@ -65,8 +65,17 @@ class ProfileConverter:
 
         # Natives
         for nat in data.get("natives", []) or []:
-            if isinstance(nat, dict) and nat.get("path"):
-                entry: dict[str, Any] = {"path": nat.get("path")}
+            # Check for path or nexus link
+            nexus_link = nat.get("nexus_link")
+
+            if isinstance(nat, dict) and (nat.get("path") or nexus_link):
+                entry: dict[str, Any] = {}
+                if nat.get("path"):
+                    entry["path"] = nat.get("path")
+
+                if nexus_link:
+                    entry["nexus_link"] = nexus_link
+
                 # Copy known optional fields
                 for k in (
                     "enabled",
@@ -89,22 +98,28 @@ class ProfileConverter:
                 pkg_id = pkg.get("id")
                 # Prefer path over legacy source
                 path = pkg.get("path") or pkg.get("source")
+                nexus_link = pkg.get("nexus_link")
 
-                # If no ID, derive from path
+                # If no ID, derive from path (if available)
                 if not pkg_id and path:
                     from pathlib import Path
 
                     pkg_id = Path(path).name
 
-                if pkg_id:
-                    entry: dict[str, Any] = {
-                        "id": str(pkg_id),
-                    }
+                # Allow packages with either: (id + path) OR nexus-link
+                if pkg_id or nexus_link:
+                    entry: dict[str, Any] = {}
+                    if pkg_id:
+                        entry["id"] = str(pkg_id)
                     if "enabled" in pkg:
                         entry["enabled"] = pkg.get("enabled")
 
                     if path:
                         entry["path"] = path
+
+                    if nexus_link:
+                        entry["nexus_link"] = nexus_link
+
                     for k in ("load_before", "load_after"):
                         if k in pkg and pkg[k] not in (None, []):
                             entry[k] = pkg[k]
@@ -120,20 +135,16 @@ class ProfileConverter:
             "packages": [],
         }
 
-        # [game] table → root globals (align names used in app)
+        # [game] table → root globals
         game_tbl = data.get("game", {}) if isinstance(data.get("game"), dict) else {}
-        # The v2 examples use: launch, savefile, disable_arxan, start_online
         if "savefile" in game_tbl:
             result["savefile"] = game_tbl.get("savefile")
         if "disable_arxan" in game_tbl:
             result["disable_arxan"] = bool(game_tbl.get("disable_arxan"))
         if "start_online" in game_tbl:
             result["start_online"] = bool(game_tbl.get("start_online"))
-        # We ignore "launch" here; launch/game selection logic is outside profile scope for now.
 
-        # [mods] table: keys are identifiers, values either
-        #  - simple dotted keys e.g., my_dll.path = "..." or
-        #  - inline tables with nested keys like initializer.delay.ms
+        # [mods] table: flat keys or inline tables
         deps = data.get("mods")
         if isinstance(deps, dict):
             # Build per-id accumulator of fields

@@ -145,7 +145,8 @@ class GamePage(QWidget):
             # Directly disconnect all slots from the signal
             # In PySide6, disconnect() with no args disconnects all slots
             signal.disconnect()
-        except (TypeError, RuntimeError):
+        except (TypeError, RuntimeError, AttributeError):
+            # AttributeError: signal may already be None or not have disconnect()
             # RuntimeError: signal may already be disconnected or has no slots
             pass
         except Exception:
@@ -481,12 +482,14 @@ class GamePage(QWidget):
         except Exception:
             pass
 
-    def download_selected_nexus_mod(self):
-        """Download and install the currently selected Nexus mod (zip only)."""
+    def download_selected_nexus_mod(self, mod=None, load_mods=True):
+        """Download and install a Nexus mod (zip only)."""
         import logging
 
         sidebar = getattr(self, "nexus_details_sidebar", None)
-        mod = sidebar.current_mod() if sidebar else None
+        if mod is None:
+            mod = sidebar.current_mod() if sidebar else None
+
         if not mod:
             return
 
@@ -584,6 +587,7 @@ class GamePage(QWidget):
                         or chosen.name
                         or f"nexus_{mod.mod_id}_{chosen.file_id}"
                     ),
+                    load_mods=load_mods,
                 )
                 if installed:
                     # Track metadata for update checking (match API install behavior).
@@ -633,7 +637,7 @@ class GamePage(QWidget):
                         sidebar.set_details(mod, chosen)
                         sidebar.set_cached_text(tr("nexus_cached_just_now"))
                         sidebar.set_status(tr("nexus_install_success_status"))
-                return
+                return installed
 
             with TemporaryDirectory() as tmp:
                 tmp_dir = Path(tmp)
@@ -719,6 +723,7 @@ class GamePage(QWidget):
                     mod_name_hint=mod_name_hint,
                     mod_root_path=mod_root_path,
                     delete_archive=True,
+                    load_mods=load_mods,
                 )
 
                 # Capture interactively selected root path if one wasn't provided upfront
@@ -795,16 +800,20 @@ class GamePage(QWidget):
                         sidebar.set_status(tr("nexus_install_success_status"))
                     # Refresh mod list so any cached "update available" badge disappears immediately
                     try:
-                        self.load_mods(reset_page=False)
+                        if load_mods:
+                            self.load_mods(reset_page=False)
                     except Exception:
                         pass
+                    return installed
                 else:
                     if sidebar:
                         sidebar.set_status(tr("nexus_install_cancelled_status"))
+                    return []
         except Exception as e:
             self._update_status(tr("nexus_download_failed_status", error=str(e)))
             if sidebar:
                 sidebar.set_status(tr("nexus_download_failed_status", error=str(e)))
+            return []
 
     def open_selected_nexus_page(self):
         sidebar = getattr(self, "nexus_details_sidebar", None)
