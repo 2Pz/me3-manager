@@ -231,6 +231,7 @@ class ModInstaller:
         mod_name_hint: str | None = None,
         mod_root_path: str | None = None,
         delete_archive: bool = False,
+        load_mods: bool = True,
     ) -> list[str]:
         """
         Universal mod installation entry point.
@@ -252,7 +253,7 @@ class ModInstaller:
             # Handle archives
             if source.is_file() and source.suffix.lower() in ARCHIVE_EXTENSIONS:
                 return self._install_from_archive(
-                    source, mod_name_hint, mod_root_path, delete_archive
+                    source, mod_name_hint, mod_root_path, delete_archive, load_mods
                 )
 
             if not source.is_dir():
@@ -331,11 +332,11 @@ class ModInstaller:
                 mod_type = self._detect_mod_type(mod_root)
 
             if mod_type == "me3":
-                return self._install_me3_mod(mod_root, mod_name_hint)
+                return self._install_me3_mod(mod_root, mod_name_hint, load_mods)
             elif mod_type == "native":
-                return self._install_native_mod(mod_root, mod_name_hint)
+                return self._install_native_mod(mod_root, mod_name_hint, load_mods)
             elif mod_type == "package":
-                return self._install_package_mod(mod_root, mod_name_hint)
+                return self._install_package_mod(mod_root, mod_name_hint, load_mods)
 
             self._show_error(tr("unknown_mod_structure_error"))
             return []
@@ -453,6 +454,7 @@ class ModInstaller:
         mod_name_hint: str | None,
         mod_root_path: str | None = None,
         delete_archive: bool = False,
+        load_mods: bool = True,
     ) -> list[str]:
         """Extract archive and install contents."""
         with TemporaryDirectory() as tmp:
@@ -484,7 +486,9 @@ class ModInstaller:
 
             return installed
 
-    def _install_me3_mod(self, mod_root: Path, mod_name_hint: str | None) -> list[str]:
+    def _install_me3_mod(
+        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
+    ) -> list[str]:
         """Install mod using its .me3 profile."""
         me3_files = list(mod_root.rglob("*.me3"))
 
@@ -507,10 +511,12 @@ class ModInstaller:
         else:
             profile_file = me3_files[0]
 
-        return self._handle_profile_import(mod_root, profile_file, mod_name_hint)
+        return self._handle_profile_import(
+            mod_root, profile_file, mod_name_hint, load_mods
+        )
 
     def _install_native_mod(
-        self, mod_root: Path, mod_name_hint: str | None
+        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
     ) -> list[str]:
         """Install native (DLL-only) mod."""
         mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
@@ -528,11 +534,12 @@ class ModInstaller:
         for dll in wrapper.rglob("*.dll"):
             self._register_native_mod(dll)
 
-        self.game_page.load_mods()
+        if load_mods:
+            self.game_page.load_mods()
         return [mod_name]
 
     def _install_package_mod(
-        self, mod_root: Path, mod_name_hint: str | None
+        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
     ) -> list[str]:
         """Install package mod (game assets)."""
         mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
@@ -548,7 +555,8 @@ class ModInstaller:
         # Register as package mod
         dest = mods_dir / mod_name
         self._register_folder_mod(mod_name, dest)
-        self.game_page.load_mods()
+        if load_mods:
+            self.game_page.load_mods()
         return [mod_name]
 
     def _handle_profile_import(
@@ -556,6 +564,7 @@ class ModInstaller:
         import_folder: Path,
         profile_file: Path,
         mod_name_override: str | None = None,
+        load_mods: bool = True,
     ) -> list[str]:
         """
         Import mod using .me3 profile.
@@ -608,6 +617,10 @@ class ModInstaller:
 
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return []
+
+            # Check for nexus_link dependencies and download if needed
+            # Done after confirmation so user knows what they are importing first
+            self._handle_nexus_dependencies(profile_data)
 
             # Apply profile-level options
             self._apply_profile_options(profile_data)
@@ -683,6 +696,33 @@ class ModInstaller:
             for folder_name in final_folder_names:
                 self._register_folder_mod(folder_name, mods_dir / folder_name)
 
+            # Register natives and apply settings (including load_early)
+            for native in profile_data.get("natives", []):
+                if isinstance(native, dict) and native.get("path"):
+                    mod_path_str = native["path"]
+                    # If relative, join with mods_dir
+                    if not Path(mod_path_str).is_absolute():
+                        full_path = mods_dir / mod_path_str
+                    else:
+                        full_path = Path(mod_path_str)
+
+                    if full_path.exists():
+                        # Enable it
+                        self.config_manager.set_mod_enabled(
+                            self.game_page.game_name, str(full_path), True
+                        )
+
+                        # Apply all settings (load_early, initializer, etc.)
+                        settings = {
+                            k: v
+                            for k, v in native.items()
+                            if k not in ("path", "enabled")
+                        }
+                        if settings:
+                            self.config_manager.enable_native_with_options(
+                                self.game_page.game_name, str(full_path), settings
+                            )
+
             # Show success dialog
             dialog = QDialog(self.game_page)
             dialog.setWindowTitle(tr("import_complete_title"))
@@ -701,6 +741,167 @@ class ModInstaller:
             self._log.exception("Profile import failed")
             self._show_error(tr("import_error_msg", error=str(e)))
             return []
+
+    # =========================================================================
+    # NEXUS DEPENDENCY HANDLING
+    # =========================================================================
+
+    def _parse_nexus_url(self, url: str) -> tuple[str, int] | None:
+        """Parse a Nexus Mods URL to extract game_domain and mod_id.
+
+        Supports URLs like:
+        - https://www.nexusmods.com/eldenring/mods/123
+        - https://nexusmods.com/eldenring/mods/123
+        """
+        import re
+
+        pattern = r"(?:https?://)?(?:www\.)?nexusmods\.com/([^/]+)/mods/(\d+)"
+        match = re.search(pattern, url)
+        if match:
+            game_domain = match.group(1)
+            mod_id = int(match.group(2))
+            return (game_domain, mod_id)
+        return None
+
+    def _is_mod_installed(self, mod_name_hint: str) -> bool:
+        """Check if a mod is already installed by checking the mods directory."""
+        mods_dir = self._get_mods_dir()
+        if not mods_dir.exists():
+            return False
+
+        # Check if any folder or DLL matches the mod name hint (case-insensitive)
+        mod_name_lower = mod_name_hint.lower()
+        for item in mods_dir.iterdir():
+            if item.name.lower() == mod_name_lower:
+                return True
+            # Also check DLLs
+            if item.suffix.lower() == ".dll" and item.stem.lower() == mod_name_lower:
+                return True
+        return False
+
+    def _handle_nexus_dependencies(self, profile_data: dict) -> None:
+        """Check for and download missing mods from nexus_link entries.
+
+        Args:
+            profile_data: Normalized profile data with natives and packages
+        """
+        # Collect all nexus_link entries from both natives and packages
+        nexus_deps = []
+
+        # Helper to process entries
+        def _process_entries(entries, type_label):
+            for entry in entries:
+                if isinstance(entry, dict) and entry.get("nexus_link"):
+                    nexus_url = entry["nexus_link"]
+                    parsed = self._parse_nexus_url(nexus_url)
+                    if parsed:
+                        game_domain, mod_id = parsed
+                        nexus_deps.append(
+                            {
+                                "type": type_label,
+                                "url": nexus_url,
+                                "game_domain": game_domain,
+                                "mod_id": mod_id,
+                                "settings": {
+                                    k: v
+                                    for k, v in entry.items()
+                                    if k not in ("nexus_link", "path")
+                                },
+                                "entry": entry,
+                            }
+                        )
+
+        _process_entries(profile_data.get("natives", []), "native")
+        _process_entries(profile_data.get("packages", []), "package")
+
+        if not nexus_deps:
+            return
+
+        # Check if we have nexus service available
+        nexus_service = getattr(self.game_page, "nexus_service", None)
+        if not nexus_service or not nexus_service.has_api_key:
+            reply = QMessageBox.warning(
+                self.game_page,
+                tr("nexus_api_key_missing_status"),
+                tr("nexus_dependencies_missing_api_key", count=len(nexus_deps)),
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            )
+            if reply == QMessageBox.StandardButton.Cancel:
+                raise Exception("Nexus API key required for downloading dependencies")
+            return
+
+        # Filter to only mods that aren't already installed
+        # For now, we'll just show all and let download_from_nexus handle duplicates
+        missing_deps = nexus_deps
+
+        # Show confirmation dialog
+        msg_lines = [tr("nexus_dependencies_found", count=len(missing_deps)), ""]
+        for i, dep in enumerate(missing_deps, 1):
+            msg_lines.append(f"{i}. {dep['url']}")
+        msg_lines.append("")
+        msg_lines.append(tr("nexus_dependencies_confirm"))
+
+        reply = QMessageBox.question(
+            self.game_page,
+            tr("nexus_dependencies_title"),
+            "\n".join(msg_lines),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            # Download each missing dependency
+            for dep in missing_deps:
+                try:
+                    mod = self.game_page.nexus_service.get_mod(
+                        dep["game_domain"], dep["mod_id"]
+                    )
+
+                    # Use GamePage's existing download method headlessly
+                    installed = self.game_page.download_selected_nexus_mod(
+                        mod, load_mods=False
+                    )
+
+                    if installed:
+                        mod_name = (
+                            installed[0]
+                            if isinstance(installed[0], str)
+                            else installed[0].name
+                        )
+
+                        # Resolve the path for the entry in the profile
+                        if dep["type"] == "native":
+                            # For natives, find the DLL inside the mod folder
+                            mods_dir = self._get_mods_dir()
+                            mod_path = mods_dir / mod_name
+                            dll_files = list(mod_path.rglob("*.dll"))
+                            if dll_files:
+                                try:
+                                    rel_dll = dll_files[0].relative_to(mods_dir)
+                                    dep["entry"]["path"] = str(rel_dll).replace(
+                                        "\\", "/"
+                                    )
+                                except Exception:
+                                    pass
+                        else:
+                            # For packages, the path is just the folder name
+                            dep["entry"]["path"] = mod_name
+
+                        # Apply settings immediately as well
+                        if dep["settings"]:
+                            pass
+
+                except Exception as e:
+                    self._log.error(f"Failed to download {dep['url']}: {e}")
+                    QMessageBox.warning(
+                        self.game_page,
+                        tr("ERROR"),
+                        tr("nexus_download_failed", url=dep["url"], error=str(e)),
+                    )
+        finally:
+            pass  # Sidebar is no longer touched during fetch
 
     # =========================================================================
     # HELPER METHODS

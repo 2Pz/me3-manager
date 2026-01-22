@@ -492,5 +492,10 @@
   "rename_mod_msg": "请输入新名称：",
   "mod_renamed_status": "模组重命名成功",
   "mod_rename_failed_status": "模组重命名失败：{error}",
-  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。"
+  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。",
+  "nexus_dependencies_title": "下载 Nexus 依赖项",
+  "nexus_dependencies_found": "此配置文件需要 {count} 个来自 Nexus Mods 的模组：",
+  "nexus_dependencies_confirm": "您想现在下载这些模组吗？",
+  "nexus_dependencies_missing_api_key": "此配置文件需要来自 Nexus 的 {count} 个模组，但您尚未登录 Nexus Mods。\n\n点击“确定”继续而不下载，或点击“取消”中止导入。",
+  "nexus_download_failed": "从 {url} 下载模组失败：\n\n{error}"
 }

@@ -492,5 +492,10 @@
   "rename_mod_msg": "أدخل الاسم الجديد:",
   "mod_renamed_status": "تمت إعادة تسمية المود بنجاح",
   "mod_rename_failed_status": "فشل في إعادة تسمية المود: {error}",
-  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}."
+  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}.",
+  "nexus_dependencies_title": "تنزيل تبعيات Nexus",
+  "nexus_dependencies_found": "يتطلب هذا الملف الشخصي {count} تعديل(ات) من Nexus Mods:",
+  "nexus_dependencies_confirm": "هل تود تنزيل هذه التعديلات الآن؟",
+  "nexus_dependencies_missing_api_key": "يتطلب هذا الملف الشخصي {count} تعديل(ات) من Nexus، ولكنك لم تقم بتسجيل الدخول إلى Nexus Mods بعد.\n\nانقر فوق موافق للمتابعة دون التنزيل، أو إلغاء لإحباط الاستيراد.",
+  "nexus_download_failed": "فشل تنزيل التعديل من {url}:\n\n{error}"
 }

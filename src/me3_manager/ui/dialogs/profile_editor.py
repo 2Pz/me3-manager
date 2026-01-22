@@ -63,6 +63,7 @@ class TomlHighlighter(QSyntaxHighlighter):
             "savefile",
             "disable_arxan",
             "start_online",
+            "nexus_link",
         ]
 
         self.highlighting_rules.extend(

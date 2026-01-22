@@ -491,5 +491,10 @@
   "rename_mod_title": "Rename Mod",
   "rename_mod_msg": "Enter new name:",
   "mod_renamed_status": "Mod renamed successfully",
-  "mod_rename_failed_status": "Failed to rename mod: {error}"
+  "mod_rename_failed_status": "Failed to rename mod: {error}",
+  "nexus_dependencies_title": "Download Nexus Dependencies",
+  "nexus_dependencies_found": "This profile requires {count} mod(s) from Nexus Mods:",
+  "nexus_dependencies_confirm": "Would you like to download these mods now?",
+  "nexus_dependencies_missing_api_key": "This profile requires {count} mod(s) from Nexus, but you haven't logged in to Nexus Mods yet.\n\nClick OK to continue without downloading, or Cancel to abort the import.",
+  "nexus_download_failed": "Failed to download mod from {url}:\n\n{error}"
 }
