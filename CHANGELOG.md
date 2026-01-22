@@ -3,13 +3,11 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
-## 📦 Release 1.3.0
-**Released:** January 18, 2026
+## 📦 Release 1.4.0
+**Released:** January 22, 2026
 
 
 ### ✨ New Features
-
-- Nexus API support, refactor mod installation, and improve UI ([1683359](https://github.com/2Pz/me3-manager/commit/168335937b4121632b585b86ffc8d361076a3eaf))
 
 - Nexus UI overhaul with SSO login, avatar display, and mod search ([e3d7eba](https://github.com/2Pz/me3-manager/commit/e3d7ebac7e28b1a1e4ee3aac128df9b704f1d638))
 
@@ -25,8 +23,6 @@
 
 ### 🔧 Bug Fixes
 
-- Ci.yml ([bf854db](https://github.com/2Pz/me3-manager/commit/bf854db71bfa98474eeb47a45f9eb949a29fb2f5))
-
 - Auto-launch steam silently on app startup ([28dcf3c](https://github.com/2Pz/me3-manager/commit/28dcf3c2cd136e84fb11cc12a369005bd88b6b71))
 
 - Permissive mod detection and validation ([d6d1d06](https://github.com/2Pz/me3-manager/commit/d6d1d067f369cbadc38282c909ca9ceed493ca41))
@@ -38,6 +34,10 @@
 - Fix check-unused-translations.py ([dfbefaa](https://github.com/2Pz/me3-manager/commit/dfbefaa4d1f8d639e559cc9886d529c355bf0502))
 
 - URL opening in AppImage ([f43b2a8](https://github.com/2Pz/me3-manager/commit/f43b2a87d2a93659040005754a08f4d3d0cf7d97))
+
+- UI text readability at low scale factors ([8fa6473](https://github.com/2Pz/me3-manager/commit/8fa6473dbabe1f5878ba6d85d40b16343faee251))
+
+- Fix(ci) resolve broken pipe in changelog extraction and partial version matching ([98c9218](https://github.com/2Pz/me3-manager/commit/98c9218669f40e9b9afcd6c068a0b5d098c8373a))
 
 
 
@@ -58,6 +58,23 @@
 - Documentation link to the new GitHub Pages URL. ([6ac2331](https://github.com/2Pz/me3-manager/commit/6ac23319611ea180731229e2f93b889af11e9234))
 
 - Add unused translation key checker ([272ee8a](https://github.com/2Pz/me3-manager/commit/272ee8a7fa274b0e1f6f335e259ce3a9e0dc6856))
+
+
+
+---
+## 📦 Release 1.3.0
+**Released:** December 30, 2025
+
+
+### ✨ New Features
+
+- Nexus API support, refactor mod installation, and improve UI ([1683359](https://github.com/2Pz/me3-manager/commit/168335937b4121632b585b86ffc8d361076a3eaf))
+
+
+
+### 🔧 Bug Fixes
+
+- Ci.yml ([bf854db](https://github.com/2Pz/me3-manager/commit/bf854db71bfa98474eeb47a45f9eb949a29fb2f5))
 
 
 
@@ -633,6 +650,7 @@
 
 
 ---
+[1.4.0]: https://github.com/2Pz/me3-manager/compare/1.3.0..1.4.0
 [1.3.0]: https://github.com/2Pz/me3-manager/compare/1.2.3..1.3.0
 [1.2.3]: https://github.com/2Pz/me3-manager/compare/1.2.2..1.2.3
 [1.2.2]: https://github.com/2Pz/me3-manager/compare/1.2.1..1.2.2
