@@ -65,7 +65,7 @@ class NexusUserWidget(QWidget):
                 border-radius: 4px;
                 color: #ffffff;
                 font-weight: bold;
-                font-size: 12px;
+
             }
             QPushButton:hover {
                 background-color: #e09840;
@@ -105,7 +105,7 @@ class NexusUserWidget(QWidget):
         self.username_label.setStyleSheet("""
             QLabel {
                 color: #ffffff;
-                font-size: 12px;
+
                 font-weight: bold;
             }
         """)

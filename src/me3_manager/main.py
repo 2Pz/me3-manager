@@ -3,6 +3,7 @@ import os
 import sys
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
 from me3_manager.ui.main_window import ModEngine3Manager
@@ -64,6 +65,7 @@ def main():
 
     # Apply UI Scaling from settings
     # We must set this before creating the QApplication to ensure it takes effect.
+    ui_scale = 1.0
     try:
         from me3_manager.core.paths.profile_paths import get_me3_profiles_root
         from me3_manager.core.settings.settings_manager import SettingsManager
@@ -106,6 +108,14 @@ def main():
     # Set application properties
     app.setApplicationName("Mod Engine 3 Manager")
     app.setOrganizationName("ME3 Tools")
+
+    base_font_size = 9
+    if ui_scale < 1.0:
+        new_size = int(base_font_size / ui_scale)
+        app.setFont(QFont("Segoe UI", new_size))
+        log.info("Applied compensated font size: %dpt for scale %s", new_size, ui_scale)
+    else:
+        app.setFont(QFont("Segoe UI", base_font_size))
 
     app.setStyle("Fusion")
 

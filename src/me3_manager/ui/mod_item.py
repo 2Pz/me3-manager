@@ -351,7 +351,7 @@ class ModItem(QWidget):
                 border: none;
                 border-radius: {radius}px;
                 color: #cccccc;
-                font-size: 12px;
+
                 font-weight: bold;
             }}
             QPushButton:hover {{
@@ -372,7 +372,6 @@ class ModItem(QWidget):
                 background-color: #4a4a4a;
                 border: none;
                 border-radius: {radius}px;
-                font-size: 12px;
             }}
             QPushButton:hover {{
                 background-color: #5a5a5a;
@@ -388,7 +387,6 @@ class ModItem(QWidget):
                 background-color: #ff8c00;
                 border: none;
                 border-radius: {radius}px;
-                font-size: 12px;
                 color: white;
             }}
             QPushButton:hover {{
@@ -405,7 +403,6 @@ class ModItem(QWidget):
                 background-color: #4a4a4a;
                 border: none;
                 border-radius: {radius}px;
-                font-size: 12px;
             }}
             QPushButton:hover {{
                 background-color: #dc3545;
@@ -421,7 +418,6 @@ class ModItem(QWidget):
                 background-color: #28a745;
                 border: none;
                 border-radius: {radius}px;
-                font-size: 12px;
                 color: white;
             }}
             QPushButton:disabled {{
@@ -492,7 +488,6 @@ class ModItem(QWidget):
                     background-color: #28a745;
                     border: none;
                     border-radius: {radius}px;
-                    font-size: 14px;
                     color: white;
                     font-weight: bold;
                 }}
@@ -508,7 +503,6 @@ class ModItem(QWidget):
                     background-color: #dc3545;
                     border: none;
                     border-radius: {radius}px;
-                    font-size: 14px;
                     color: white;
                     font-weight: bold;
                 }}

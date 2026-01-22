@@ -40,7 +40,7 @@ log = logging.getLogger(__name__)
 GAME_BUTTON_STYLE = """
     QPushButton {
         background-color: #2d2d2d; border: 1px solid #3d3d3d; border-radius: 8px;
-        padding: 8px 16px; text-align: left; font-size: 13px; font-weight: 500;
+        padding: 8px 16px; text-align: left; font-weight: 500;
     }
     QPushButton:hover { background-color: #3d3d3d; border-color: #4d4d4d; }
     QPushButton:checked { background-color: #0078d4; border-color: #0078d4; color: white; }

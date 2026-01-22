@@ -27,7 +27,7 @@ class GamePageStyle:
             QLabel {
                 background-color: #2c2c2c;
                 color: #ffffff;
-                font-size: 14px;
+
                 font-weight: 500;
                 padding: 12px 16px;
                 border: none;
@@ -46,7 +46,7 @@ class GamePageStyle:
                 color: #ffffff;
                 border-top-right-radius: 8px;
                 border-bottom-right-radius: 8px;
-                font-size: 14px;
+
                 font-weight: 500;
                 padding: 12px 16px;
                 text-align: center;
@@ -79,7 +79,7 @@ class GamePageStyle:
                 padding: 10px 16px;
                 border-radius: 4px;
                 margin: 1px;
-                font-size: 14px;
+
             }
             QMenu::item:selected {
                 background-color: #0078d4;
@@ -103,7 +103,7 @@ class GamePageStyle:
                 color: white;
                 border: none;
                 border-radius: 8px;
-                font-size: 14px;
+
                 font-weight: bold;
                 padding: 8px 16px;
             }
@@ -123,7 +123,7 @@ class GamePageStyle:
                 color: white;
                 border: none;
                 border-radius: 8px;
-                font-size: 16px;
+
             }
             QPushButton:hover {
                 background-color: #5d5d5d;
@@ -142,7 +142,7 @@ class GamePageStyle:
                 border: 2px solid #3d3d3d;
                 border-radius: 8px;
                 padding: 8px 12px;
-                font-size: 12px;
+
                 color: #ffffff;
             }
             QLineEdit:focus {
@@ -158,7 +158,7 @@ class GamePageStyle:
                 border: 2px dashed #3d3d3d;
                 border-radius: 12px;
                 padding: 20px;
-                font-size: 14px;
+
                 color: #888888;
                 margin: 8px 0px;
             }
@@ -186,7 +186,7 @@ class GamePageStyle:
                 border: none;
                 border-radius: 4px;
                 padding: 6px 12px;
-                font-size: 12px;
+
             }
             QPushButton:hover {
                 background-color: #4d4d4d;
