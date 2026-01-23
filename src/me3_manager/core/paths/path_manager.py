@@ -262,7 +262,22 @@ class PathManager:
             # Find and update or append
             native = self._find_native_entry(natives, search_path, mods_dir)
             if native:
-                native["config"] = norm_config
+                current_config = native.get("config")
+                if isinstance(current_config, list):
+                    # It's a list, we must preserve it and append if new
+                    # Normalize existing list to check
+                    # We don't want to change existing entries unless necessary, so just check existence
+                    existing_normalized = [
+                        self.normalize_path(str(c)) for c in current_config if c
+                    ]
+                    if norm_config not in existing_normalized:
+                        current_config.append(norm_config)
+                        # We modifed the list in place, but ensure it's set back just in case
+                        native["config"] = current_config
+                    # If it IS in the list, do nothing - we just "selected" it effectively
+                else:
+                    # Not a list, simple overwrite
+                    native["config"] = norm_config
             else:
                 natives.append({"path": search_path, "config": norm_config})
 
