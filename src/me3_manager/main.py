@@ -63,6 +63,13 @@ def main():
     setup_ssl_certificates()
     setup_logging()
 
+    # Check for forbidden executable names (e.g. "me3.exe")
+    # This prevents infinite recursion if the manager is renamed to "me3.exe"
+    # and tries to call the "me3" CLI tool.
+    exe_name = os.path.basename(sys.executable).lower()
+    if exe_name == "me3.exe":
+        sys.exit(1)
+
     # Apply UI Scaling from settings
     # We must set this before creating the QApplication to ensure it takes effect.
     ui_scale = 1.0
