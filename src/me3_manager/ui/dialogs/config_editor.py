@@ -8,9 +8,9 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
+    QTabBar,
     QTextEdit,
     QVBoxLayout,
 )
@@ -85,10 +85,14 @@ class IniSyntaxHighlighter(QSyntaxHighlighter):
 class ConfigEditorDialog(QDialog):
     """Dialog for editing mod INI configuration files."""
 
-    def __init__(self, mod_name: str, config_path: Path, parent=None):
+    def __init__(self, mod_name: str, config_paths: list[Path], parent=None):
         super().__init__(parent)
-        self.initial_path = config_path
-        self.current_path = config_path
+        self.all_paths = config_paths if config_paths else []
+        # Fallback if empty list passed (shouldn't happen with PathManager logic)
+        if not self.all_paths:
+            self.all_paths = [Path("config.ini")]
+
+        self.current_path = self.all_paths[0]
 
         self.setWindowTitle(tr("edit_config_title", mod_name=mod_name))
         self.setMinimumSize(800, 560)
@@ -98,17 +102,37 @@ class ConfigEditorDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
 
-        path_layout = QHBoxLayout()
-        self.path_edit = QLineEdit(str(self.current_path))
-        self.path_edit.setReadOnly(True)
-        self.path_edit.setStyleSheet(
-            "background-color: #2d2d2d; border: 1px solid #3d3d3d; padding: 4px;"
+        # Tab bar for switching between config files
+        tab_layout = QHBoxLayout()
+        self.tab_bar = QTabBar()
+        self.tab_bar.setStyleSheet(
+            """
+            QTabBar::tab {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                padding: 6px 12px;
+                margin-right: 2px;
+                color: #ffffff;
+            }
+            QTabBar::tab:selected {
+                background-color: #3d3d3d;
+                border-bottom-color: #3d3d3d;
+            }
+            QTabBar::tab:hover {
+                background-color: #383838;
+            }
+            """
         )
-        path_layout.addWidget(self.path_edit)
+        for p in self.all_paths:
+            self.tab_bar.addTab(p.name)
+
+        self.tab_bar.currentChanged.connect(self.on_tab_changed)
+        tab_layout.addWidget(self.tab_bar, 1)
+
         browse_btn = QPushButton(tr("browse_button"))
         browse_btn.clicked.connect(self.browse_for_config)
-        path_layout.addWidget(browse_btn)
-        layout.addLayout(path_layout)
+        tab_layout.addWidget(browse_btn)
+        layout.addLayout(tab_layout)
 
         self.editor = QTextEdit()
         self.editor.setFont(QFont("Consolas", 12))
@@ -140,17 +164,47 @@ class ConfigEditorDialog(QDialog):
                 tr("edit_config_placeholder", path=self.current_path)
             )
 
+    def on_tab_changed(self, index: int):
+        if index < 0 or index >= len(self.all_paths):
+            return
+        path = self.all_paths[index]
+        if path and path != self.current_path:
+            self.load_config(path)
+
     def load_config(self, path: Path):
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                self.editor.setText(f.read())
-            self.current_path = path
-            self.path_edit.setText(str(self.current_path))
-            self.status_label.setText(tr("config_loaded", path=path))
+            if path.exists() and path.is_file():
+                with open(path, "r", encoding="utf-8") as f:
+                    self.editor.setText(f.read())
+                self.current_path = path
+                self.status_label.setText(tr("config_loaded", path=path))
+            else:
+                self.editor.clear()
+                self.editor.setPlaceholderText(tr("edit_config_placeholder", path=path))
+                self.current_path = path
+                self.status_label.setText("")
+
+            self._sync_tabs(path)
         except Exception as e:
             QMessageBox.warning(
                 self, tr("load_error"), tr("load_error_msg", path=path, error=e)
             )
+
+    def _sync_tabs(self, path: Path):
+        """Ensure the tab for this path is selected."""
+        for i, p in enumerate(self.all_paths):
+            if str(p) == str(path):
+                self.tab_bar.blockSignals(True)
+                self.tab_bar.setCurrentIndex(i)
+                self.tab_bar.blockSignals(False)
+                return
+
+        # Not in list, add it
+        self.all_paths.append(path)
+        self.tab_bar.addTab(path.name)
+        self.tab_bar.blockSignals(True)
+        self.tab_bar.setCurrentIndex(len(self.all_paths) - 1)
+        self.tab_bar.blockSignals(False)
 
     def save_text_only(self):
         if not self.current_path:

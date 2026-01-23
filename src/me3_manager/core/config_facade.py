@@ -345,6 +345,10 @@ class ConfigFacade:
         """Get config path for a mod."""
         return self.path_manager.get_mod_config_path(game_name, mod_path_str)
 
+    def get_mod_config_paths(self, game_name: str, mod_path_str: str) -> list[Path]:
+        """Get all config paths for a mod."""
+        return self.path_manager.get_mod_config_paths(game_name, mod_path_str)
+
     def set_mod_config_path(self, game_name: str, mod_path_str: str, config_path: str):
         """Set custom config path for a mod."""
         self.path_manager.set_mod_config_path(game_name, mod_path_str, config_path)

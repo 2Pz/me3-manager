@@ -1057,16 +1057,23 @@ class ModInstaller:
 
         # 2. Handle associated config
         # Explicit config field
-        if native.get("config"):
-            cfg_rel = Path(native["config"])
+        configs = native.get("config", [])
+        if isinstance(configs, str):
+            configs = [configs]
+
+        for cfg_path_str in configs:
+            if not cfg_path_str:
+                continue
+
+            cfg_rel = Path(cfg_path_str)
             cfg_abs = self._safe_join(profile_base, cfg_rel)
 
             if cfg_abs and cfg_abs.is_file():
                 if not self._is_in_package(cfg_abs, package_source_map):
                     items_to_install.append((cfg_abs, cfg_rel))
 
-        # Implicit config dir (only if we have a native path)
-        elif nat_abs:
+        # Implicit config dir (only if we have a native path and no explicit configs)
+        if nat_abs and not configs:
             cfg_dir = nat_abs.parent / nat_abs.stem
             if cfg_dir.is_dir():
                 if not self._is_in_package(cfg_dir, package_source_map):

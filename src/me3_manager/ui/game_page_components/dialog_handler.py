@@ -47,13 +47,14 @@ class DialogHandler:
     def open_config_editor(self, mod_path: str):
         """Opens the config file editor for a specific mod."""
         mod_name = Path(mod_path).stem
-        initial_config_path = self.config_manager.get_mod_config_path(
+        initial_config_paths = self.config_manager.get_mod_config_paths(
             self.game_name, mod_path
         )
-        dialog = ConfigEditorDialog(mod_name, initial_config_path, self.game_page)
+        dialog = ConfigEditorDialog(mod_name, initial_config_paths, self.game_page)
         if dialog.exec():
+            # If user browsed to a new config file, save it to the profile
             final_path = dialog.current_path
-            if final_path:
+            if final_path and final_path not in initial_config_paths:
                 self.config_manager.set_mod_config_path(
                     self.game_name, mod_path, str(final_path)
                 )
