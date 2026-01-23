@@ -1218,6 +1218,29 @@ class ImprovedModManager:
 
         return True
 
+    @staticmethod
+    def _remove_readonly(func, path, exc_info):
+        """
+        Error handler for shutil.rmtree to handle read-only files on Windows.
+        If the error is due to access rights, it tries to change the file to writable and retry.
+        """
+        import errno
+        import os
+        import stat
+
+        # Check if the error is an access error
+        if (
+            func in (os.rmdir, os.remove, os.unlink)
+            and exc_info[1].errno == errno.EACCES
+        ):
+            # Change the file to be writable
+            os.chmod(path, stat.S_IWRITE)
+            # Retry the function
+            func(path)
+        else:
+            # Re-raise the exception if it's not a permission error
+            raise
+
     def remove_mod(self, game_name: str, mod_path: str) -> tuple[bool, str]:
         """
         Remove a mod completely with robust error handling.
@@ -1280,7 +1303,7 @@ class ImprovedModManager:
                 # Check if the DLL is in a "DLL-only wrapper folder"
                 if wrapper_folder and self._is_dll_only_wrapper_folder(wrapper_folder):
                     # Delete the entire wrapper folder
-                    shutil.rmtree(wrapper_folder)
+                    shutil.rmtree(wrapper_folder, onerror=self._remove_readonly)
                     _remove_meta(mod_path_obj)  # Remove metadata for the DLL
 
                     deleted_folder_name = wrapper_folder.name
@@ -1296,7 +1319,7 @@ class ImprovedModManager:
                             parent = parent.parent
                         elif self._folder_has_no_game_content(parent):
                             # Parent only has non-essential files (exe, txt, etc.)
-                            shutil.rmtree(parent)
+                            shutil.rmtree(parent, onerror=self._remove_readonly)
                             deleted_folder_name = parent.name
                             break
                         else:
@@ -1311,7 +1334,7 @@ class ImprovedModManager:
                 # Handle folder mod
                 if mod_path_obj.parent == mods_dir:
                     # Internal folder mod - delete from filesystem
-                    shutil.rmtree(mod_path_obj)
+                    shutil.rmtree(mod_path_obj, onerror=self._remove_readonly)
                     _remove_meta(mod_path_obj)  # Remove metadata for the folder
                     return True, f"Deleted folder mod: {mod_path_obj.name}"
                 else:
@@ -1323,13 +1346,22 @@ class ImprovedModManager:
                 # Handle DLL mod
                 if mod_path_obj.parent == mods_dir:
                     # Internal DLL mod - delete from filesystem
-                    mod_path_obj.unlink()
+                    try:
+                        mod_path_obj.unlink()
+                    except PermissionError:
+                        # Try to remove read-only attribute
+                        import os
+                        import stat
+
+                        os.chmod(mod_path_obj, stat.S_IWRITE)
+                        mod_path_obj.unlink()
+
                     _remove_meta(mod_path_obj)  # Remove metadata for the DLL
 
                     # Also remove config folder if it exists
                     config_folder = mod_path_obj.parent / mod_path_obj.stem
                     if config_folder.is_dir():
-                        shutil.rmtree(config_folder)
+                        shutil.rmtree(config_folder, onerror=self._remove_readonly)
 
                     return True, f"Deleted DLL mod: {mod_path_obj.name}"
                 else:

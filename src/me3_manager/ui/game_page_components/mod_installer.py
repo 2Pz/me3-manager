@@ -122,7 +122,9 @@ class InstallWorker(QThread):
     progress_update = Signal(str, int, int)  # status, current, total
     finished_signal = Signal(int, list)  # installed_count, errors
 
-    def __init__(self, items_to_install: list[Path], mods_dir: Path):
+    def __init__(
+        self, items_to_install: list[Path | tuple[Path, Path]], mods_dir: Path
+    ):
         super().__init__()
         self.items = items_to_install
         self.mods_dir = mods_dir
@@ -132,41 +134,51 @@ class InstallWorker(QThread):
         self.errors = []
         parent = self.mods_dir.resolve()
 
-        for i, item_path in enumerate(self.items):
+        for i, item_entry in enumerate(self.items):
             if self.isInterruptionRequested():
                 break
 
+            # Handle both legacy Path and new tuple inputs
+            if isinstance(item_entry, tuple):
+                source_path, dest_rel_path = item_entry
+            else:
+                source_path = item_entry
+                dest_rel_path = Path(item_entry.name)
+
             self.progress_update.emit(
-                tr("installing_status", name=item_path.name), i, len(self.items)
+                tr("installing_status", name=dest_rel_path.name), i, len(self.items)
             )
 
             try:
-                if _contains_symlink(item_path):
-                    msg = tr("symlink_rejected_msg", name=item_path.name)
+                if _contains_symlink(source_path):
+                    msg = tr("symlink_rejected_msg", name=dest_rel_path.name)
                     self.errors.append(msg)
                     continue
 
-                dest_path = self.mods_dir / item_path.name
+                dest_path = self.mods_dir / dest_rel_path
                 try:
                     dest_path.resolve().relative_to(parent)
                 except ValueError:
-                    msg = tr("invalid_destination_path_msg", name=item_path.name)
+                    msg = tr("invalid_destination_path_msg", name=dest_rel_path.name)
                     self.errors.append(msg)
                     continue
 
                 with TemporaryDirectory(dir=str(parent)) as tmp_root_str:
                     tmp_root = Path(tmp_root_str)
-                    tmp_dst = tmp_root / item_path.name
+                    tmp_dst = tmp_root / dest_rel_path.name
 
-                    if item_path.is_dir():
+                    if source_path.is_dir():
                         shutil.copytree(
-                            item_path,
+                            source_path,
                             tmp_dst,
                             symlinks=False,
                             ignore_dangling_symlinks=True,
                         )
                     else:
-                        shutil.copy2(item_path, tmp_dst, follow_symlinks=False)
+                        shutil.copy2(source_path, tmp_dst, follow_symlinks=False)
+
+                    # Ensure parent directory exists
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
 
                     # Atomic replace
                     try:
@@ -181,17 +193,10 @@ class InstallWorker(QThread):
                 self.installed_count += 1
             except Exception as e:
                 self.errors.append(
-                    tr("copy_failed_msg", name=item_path.name, error=str(e))
+                    tr("copy_failed_msg", name=dest_rel_path.name, error=str(e))
                 )
 
         self.finished_signal.emit(self.installed_count, self.errors)
-
-    # ... (skipping ModInstaller class and other methods) ...
-    # Wait, need to check where _copy_with_progress is relative to this.
-    # It's inside ModInstaller which is AFTER InstallWorker.
-    # So I need to perform TWO replacements or ONE large one if they are close.
-    # They are separated by ModInstaller __init__ and likely other methods.
-    # I will do InstallWorker first.
 
 
 class ModInstaller:
@@ -355,22 +360,22 @@ class ModInstaller:
         Recursively find the real mod root by unwrapping single-child folders.
         Stops if it hits a folder with multiple children or mod files.
         """
+        # Priority Check: If the current folder is already a valid mod package (especially me3),
+        # return it immediately. Do not unwrap single children if the parent is already a valid mod.
+        # This prevents drilling into the content of a me3 profile mod.
+        detected_type = self._detect_mod_type(folder)
+        if detected_type in ("me3", "native", "package"):
+            return folder
+
         children = _filter_children(folder)
 
         if not children:
             return folder
 
-        # Stop unwrapping if the current folder is already a valid mod package
-        if self._detect_mod_type(folder) in ("me3", "native", "package"):
-            return folder
-
         # If single child folder, check if it's the real mod
         if len(children) == 1 and children[0].is_dir():
             child = children[0]
-            child_type = self._detect_mod_type(child)
-            if child_type in ("me3", "native", "package"):
-                return child
-
+            # Recursively find root in the child
             return self._find_mod_root(child)
 
         return folder
@@ -384,6 +389,12 @@ class ModInstaller:
         # Use simple detection logic to avoid infinite recursion if _detect_mod_type calls this (it doesn't)
         if root_type in ("package", "native", "me3"):
             candidates.append((folder, root_type))
+
+            # If root is a .me3 profile, it defines the entire mod structure.
+            # We should NOT scan subfolders for other candidates, as they are likely
+            # parts of the profile mod (e.g. DLLs or game folders)
+            if root_type == "me3":
+                return candidates
 
         # Check immediate subfolders
         for child in _filter_children(folder):
@@ -416,6 +427,8 @@ class ModInstaller:
 
         # Priority 1: Has .me3 profile
         me3_files = list(folder.rglob("*.me3"))
+        if me3_files:
+            return "me3"
         if me3_files:
             return "me3"
 
@@ -526,7 +539,8 @@ class ModInstaller:
         mods_dir = self._get_mods_dir()
 
         # Stage and copy the mod
-        if not self._stage_and_copy_mod(mod_root, mod_name):
+        # We wrap contents in a new folder with mod_name by installing to Path(mod_name)
+        if not self._install_staged_items([(mod_root, Path(mod_name))]):
             return []
 
         # Register all DLLs (handles both root-level and nested)
@@ -549,7 +563,7 @@ class ModInstaller:
         mods_dir = self._get_mods_dir()
 
         # Stage and copy the mod
-        if not self._stage_and_copy_mod(mod_root, mod_name):
+        if not self._install_staged_items([(mod_root, Path(mod_name))]):
             return []
 
         # Register as package mod
@@ -558,6 +572,48 @@ class ModInstaller:
         if load_mods:
             self.game_page.load_mods()
         return [mod_name]
+
+    def _install_staged_items(self, items_to_install: list[tuple[Path, Path]]) -> bool:
+        """
+        Stage and install a list of items with robust path handling.
+
+        Args:
+            items_to_install: List of (source_absolute_path, destination_relative_path)
+
+        Returns:
+            bool: True if installation succeeded, False otherwise.
+        """
+        if not items_to_install:
+            return False
+
+        with TemporaryDirectory() as tmp_dir:
+            staged_items = []
+
+            for src, dest_rel in items_to_install:
+                # Ensure dest_rel is a Path
+                dest_rel = Path(dest_rel)
+
+                # Determine staged path
+                staged_path = Path(tmp_dir) / dest_rel
+
+                # Ensure parent directory exists in temp staging area
+                staged_path.parent.mkdir(parents=True, exist_ok=True)
+
+                if src.is_dir():
+                    shutil.copytree(
+                        src,
+                        staged_path,
+                        symlinks=False,
+                        ignore_dangling_symlinks=True,
+                        dirs_exist_ok=True,
+                    )
+                else:
+                    shutil.copy2(src, staged_path, follow_symlinks=False)
+
+                # Pass tuple to _copy_with_progress so InstallWorker uses relative path
+                staged_items.append((staged_path, dest_rel))
+
+            return self._copy_with_progress(staged_items)
 
     def _handle_profile_import(
         self,
@@ -645,50 +701,126 @@ class ModInstaller:
                             final_folder_names.append(dest_name)
 
             # Collect natives not in packages
-            pkg_names = [
-                Path(pkg.get("source") or pkg.get("path")).name
-                for pkg in profile_data.get("packages", [])
-                if isinstance(pkg, dict) and (pkg.get("source") or pkg.get("path"))
-            ]
+            # We need to map package source paths to their destination names (folder IDs)
+            # so we can redirect natives to point inside the installed package.
+            package_source_map = {}
+            for i, pkg in enumerate(profile_data.get("packages", [])):
+                if isinstance(pkg, dict) and (pkg.get("source") or pkg.get("path")):
+                    pkg_rel = Path(pkg.get("source") or pkg.get("path"))
+                    pkg_abs = self._safe_join(profile_base, pkg_rel)
+
+                    # Determine the destination name (same logic as above loop)
+                    dest_name = (
+                        mod_name_override
+                        if mod_name_override and i == 0
+                        else pkg_abs.name
+                    )
+                    # If ID is present and valid, it takes precedence in the loop above?
+                    # Wait, the loop above used `pkg_abs.name` as default dest_name unless overridden.
+                    # It didn't explicitly use pkg['id'] unless mod_name_override logic covers it.
+                    # Actually, `items_to_install.append((pkg_abs, dest_name))` uses `dest_name`.
+                    # Let's ensure we use the exact same `dest_name` logic.
+
+                    if pkg_abs and pkg_abs.is_dir():
+                        package_source_map[pkg_abs] = dest_name
 
             for native in profile_data.get("natives", []):
                 if not (isinstance(native, dict) and native.get("path")):
                     continue
                 nat_rel = Path(native["path"])
                 nat_abs = self._safe_join(profile_base, nat_rel)
+
                 if (
                     not nat_abs
                     or not nat_abs.is_file()
                     or nat_abs.suffix.lower() != ".dll"
                 ):
                     continue
-                # Skip if in a package
-                if any((profile_base / p / nat_abs.name).exists() for p in pkg_names):
+
+                # Check if this native is inside any of the packages we are installing
+                found_in_package = False
+                for pkg_src, pkg_dest_name in package_source_map.items():
+                    # Check if nat_abs is inside pkg_src
+                    try:
+                        if nat_abs == pkg_src or nat_abs.is_relative_to(pkg_src):
+                            # It is inside this package!
+                            # We don't need to copy it separately.
+                            found_in_package = True
+
+                            # However, we MUST update the native['path'] in the profile data
+                            # so that the registration loop below knows where to find it.
+                            # Current path: "mod/dll/foo.dll" (relative to profile base)
+                            # New path needs to be: "PackageDestName/path/inside/package/foo.dll"
+
+                            rel_inside_pkg = nat_abs.relative_to(pkg_src)
+                            new_dest_path = Path(pkg_dest_name) / rel_inside_pkg
+
+                            # Update the profile data in-place
+                            native["path"] = str(new_dest_path).replace("\\", "/")
+                            break
+                    except Exception:
+                        continue
+
+                if found_in_package:
                     continue
-                items_to_install.append((nat_abs, nat_abs.name))
+
+                # Use the relative path defined in the profile to preserve structure
+                # Instead of flattening to nat_abs.name, we use the full relative path
+                items_to_install.append((nat_abs, Path(native["path"])))
+
+                # Handle associated config dir if it exists (e.g., matching folder name)
                 cfg_dir = nat_abs.parent / nat_abs.stem
                 if cfg_dir.is_dir():
-                    items_to_install.append((cfg_dir, cfg_dir.name))
+                    # Check if config dir is also in package
+                    cfg_in_package = False
+                    for pkg_src, _ in package_source_map.items():
+                        try:
+                            if cfg_dir == pkg_src or cfg_dir.is_relative_to(pkg_src):
+                                cfg_in_package = True
+                                break
+                        except Exception:
+                            continue
+
+                    if not cfg_in_package:
+                        # For config dirs, current behavior assumes they are alongside the DLL
+                        # We should probably preserve their relative path too if possible
+                        # But traditionally they might just be next to the DLL
+                        # Let's try to keep them relative to the DLL's new location
+                        rel_parent = Path(native["path"]).parent
+                        items_to_install.append((cfg_dir, rel_parent / cfg_dir.name))
 
             if not items_to_install:
                 self.game_page.status_label.setText(tr("import_cancelled_status"))
                 return []
 
             # Stage and install
+            # Stage and install
             with TemporaryDirectory() as tmp_dir:
                 staged_items = []
                 for src, dest_name in items_to_install:
                     staged_path = Path(tmp_dir) / dest_name
+
+                    # Ensure parent directory exists in temp staging area
+                    staged_path.parent.mkdir(parents=True, exist_ok=True)
+
                     if src.is_dir():
                         shutil.copytree(
                             src,
                             staged_path,
                             symlinks=False,
                             ignore_dangling_symlinks=True,
+                            dirs_exist_ok=True,
                         )
                     else:
                         shutil.copy2(src, staged_path, follow_symlinks=False)
-                    staged_items.append(staged_path)
+
+                    # Pass tuple to _copy_with_progress so InstallWorker uses relative path
+                    # First element is absolute path to staged file
+                    # Second element is the relative path it should have in mods dir
+                    dest_rel = (
+                        dest_name if isinstance(dest_name, Path) else Path(dest_name)
+                    )
+                    staged_items.append((staged_path, dest_rel))
 
                 self._copy_with_progress(staged_items)
 
@@ -932,28 +1064,6 @@ class ModInstaller:
             return None
         return mod_name
 
-    def _stage_and_copy_mod(self, mod_root: Path, mod_name: str) -> bool:
-        """
-        Stage mod contents into a temp folder with correct name and copy to mods dir.
-
-        Handles both same-name and different-name scenarios.
-        Returns True on success, False on failure/cancellation.
-        """
-        with TemporaryDirectory() as tmp:
-            staged = Path(tmp) / mod_name
-            if mod_root.name == mod_name:
-                # Copy the folder directly (it already has the right name)
-                shutil.copytree(
-                    mod_root, staged, symlinks=False, ignore_dangling_symlinks=True
-                )
-            else:
-                # Wrap contents in a new folder with mod_name
-                staged.mkdir(parents=True, exist_ok=True)
-                for item in _filter_children(mod_root):
-                    _copy_item(item, staged / item.name)
-
-            return self._copy_with_progress([staged])
-
     def _get_mods_dir(self) -> Path:
         """Get the mods directory for the current game."""
         return self.config_manager.get_mods_dir(self.game_page.game_name)
@@ -1055,15 +1165,23 @@ class ModInstaller:
         except Exception:
             pass
 
-    def _copy_with_progress(self, items: list[Path]) -> bool:
+    def _copy_with_progress(self, items: list[Path | tuple[Path, Path]]) -> bool:
         """Copy items with progress dialog."""
         mods_dir = self._get_mods_dir()
 
+        # Helper to get destination name for conflict check
+        def get_dest_name(item: Path | tuple[Path, Path]) -> str:
+            if isinstance(item, tuple):
+                return str(item[1])
+            return item.name
+
         # Check for conflicts
-        conflicts = [p for p in items if (mods_dir / p.name).exists()]
+        conflicts = [
+            get_dest_name(p) for p in items if (mods_dir / get_dest_name(p)).exists()
+        ]
         if conflicts:
             msg = tr("overwrite_dll_confirm_text") + "\n".join(
-                f"- {p.name}" for p in conflicts
+                f"- {name}" for name in conflicts
             )
             reply = QMessageBox.question(
                 self.game_page,
@@ -1072,8 +1190,7 @@ class ModInstaller:
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
-                conflict_names = {p.name for p in conflicts}
-                items = [p for p in items if p.name not in conflict_names]
+                items = [p for p in items if get_dest_name(p) not in conflicts]
 
         if not items:
             return False

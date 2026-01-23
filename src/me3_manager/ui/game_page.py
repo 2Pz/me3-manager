@@ -599,14 +599,8 @@ class GamePage(QWidget):
                     )
                     folder_path = mods_dir / installed_name
 
-                    # Prefer a DLL inside the installed folder as local_mod_path when available.
                     if folder_path.exists() and folder_path.is_dir():
-                        dlls_inside = list(folder_path.rglob("*.dll"))
-                        local_path = (
-                            str(dlls_inside[0].resolve())
-                            if dlls_inside
-                            else str(folder_path.resolve())
-                        )
+                        local_path = self._determine_metadata_local_path(folder_path)
                     else:
                         local_path = str(folder_path.resolve())
 
@@ -757,15 +751,8 @@ class GamePage(QWidget):
                         folder_path,
                     )
 
-                    # Find the local path for metadata
-                    # Use rglob to find DLLs at any depth (e.g., mod/mod.dll)
                     if folder_path.exists() and folder_path.is_dir():
-                        dlls_inside = list(folder_path.rglob("*.dll"))
-                        log.debug("Found DLLs: %s", dlls_inside)
-                        if dlls_inside:
-                            local_path = str(dlls_inside[0].resolve())
-                        else:
-                            local_path = str(folder_path.resolve())
+                        local_path = self._determine_metadata_local_path(folder_path)
                     else:
                         local_path = str(folder_path.resolve())
                         log.debug("Folder doesn't exist: %s", folder_path)
@@ -798,6 +785,7 @@ class GamePage(QWidget):
                         sidebar.set_details(mod, chosen)
                         sidebar.set_cached_text(tr("nexus_cached_just_now"))
                         sidebar.set_status(tr("nexus_install_success_status"))
+
                     # Refresh mod list so any cached "update available" badge disappears immediately
                     try:
                         if load_mods:
@@ -814,6 +802,70 @@ class GamePage(QWidget):
             if sidebar:
                 sidebar.set_status(tr("nexus_download_failed_status", error=str(e)))
             return []
+
+    def _determine_metadata_local_path(self, folder_path: Path) -> str:
+        """
+        Determine the correct local path key for metadata.
+
+        Logic:
+        - If folder contains game assets or regulation.bin -> It's a Package Mod -> Use folder path.
+        - Otherwise -> It's a Native Mod wrapper -> Use the first DLL path found inside.
+        """
+        is_package_mod = False
+        try:
+            # Check recursively for any acceptable folder
+            # We check 2 levels deep to catch standard structures
+            def start_scan(p):
+                yield str(p), [d.name for d in p.iterdir() if d.is_dir()], []
+                for d in p.iterdir():
+                    if d.is_dir():
+                        yield (
+                            str(d),
+                            [sub.name for sub in d.iterdir() if sub.is_dir()],
+                            [],
+                        )
+
+            for _, dirs, _ in start_scan(folder_path):
+                if any(d in ACCEPTABLE_FOLDERS for d in dirs):
+                    is_package_mod = True
+                    break
+
+            if not is_package_mod:
+                if any(
+                    d.name in ACCEPTABLE_FOLDERS
+                    for d in folder_path.iterdir()
+                    if d.is_dir()
+                ):
+                    is_package_mod = True
+
+            # Check for regulation.bin
+            if not is_package_mod:
+                if (folder_path / "regulation.bin").exists() or (
+                    folder_path / "regulation.bin.disabled"
+                ).exists():
+                    is_package_mod = True
+        except Exception:
+            pass
+
+        if is_package_mod:
+            # For package mods, key metadata by the folder path
+            import logging
+
+            log = logging.getLogger(__name__)
+            local_path = str(folder_path.resolve())
+            log.debug("Identified as Package Mod. Keying by folder: %s", local_path)
+            return local_path
+        else:
+            # For native mods (DLL wrappers), prefer the DLL path
+            import logging
+
+            log = logging.getLogger(__name__)
+            dlls_inside = list(folder_path.rglob("*.dll"))
+            log.debug("Found DLLs: %s", dlls_inside)
+            if dlls_inside:
+                return str(dlls_inside[0].resolve())
+            else:
+                return str(folder_path.resolve())
 
     def open_selected_nexus_page(self):
         sidebar = getattr(self, "nexus_details_sidebar", None)
