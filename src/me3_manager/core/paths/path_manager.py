@@ -106,54 +106,120 @@ class PathManager:
         # Fallback
         return self.config_root / f"{game_name.lower()}-default.me3"
 
+    def _find_native_entry(
+        self, natives: list[dict], search_path: str, mods_root: Path
+    ) -> dict | None:
+        """Helper to find a native entry by path with robust matching."""
+        search_path_lower = search_path.lower()
+        search_path_obj_str = str(Path(search_path).resolve()).lower()
+
+        for native in natives:
+            if not isinstance(native, dict) or not native.get("path"):
+                continue
+
+            native_path = self.normalize_path(native["path"])
+
+            # 1. Direct match
+            if native_path.lower() == search_path_lower:
+                return native
+
+            # 2. Resolved match
+            try:
+                p_native = Path(native_path)
+                if p_native.is_absolute():
+                    res_native = p_native.resolve()
+                else:
+                    res_native = (mods_root / native_path).resolve()
+
+                if str(res_native).lower() == search_path_obj_str:
+                    return native
+            except Exception:
+                continue
+        return None
+
     def get_mod_config_path(self, game_name: str, mod_path_str: str) -> Path:
-        """
-        Get the config path for a mod.
-
-        Args:
-            game_name: Name of the game
-            mod_path_str: Path to the mod
-
-        Returns:
-            Path to mod config file
-        """
-        # Create a canonical key for lookups
+        """Get the config path for a mod."""
         mod_key = mod_path_str.replace("\\", "/").lower()
 
-        # Check for saved custom path
-        custom_paths = self.settings_manager.get("custom_config_paths", {})
-        game_custom_paths = custom_paths.get(game_name, {})
-        custom_path = game_custom_paths.get(mod_key)
-
-        if custom_path:
+        # Check legacy custom paths
+        custom_paths = self.settings_manager.get("custom_config_paths", {}).get(
+            game_name, {}
+        )
+        if custom_path := custom_paths.get(mod_key):
             return Path(custom_path)
 
-        # Default convention: mod_folder/config.ini
+        # Default convention
         mod_path = Path(mod_path_str)
-        config_dir = mod_path.parent / mod_path.stem
-        return config_dir / "config.ini"
+        default_path = mod_path.parent / mod_path.stem / "config.ini"
+
+        # Check active profile override
+        try:
+            profile_path = self.get_profile_path(game_name)
+            if profile_path.exists():
+                from me3_manager.core.profiles.profile_manager import ProfileManager
+
+                profile_data = ProfileManager.read_profile(profile_path)
+                search_path = self.normalize_path(mod_path_str)
+
+                if native := self._find_native_entry(
+                    profile_data.get("natives", []), search_path, profile_path.parent
+                ):
+                    if cfg_val := native.get("config"):
+                        cfg_path = Path(cfg_val)
+                        return (
+                            cfg_path
+                            if cfg_path.is_absolute()
+                            else profile_path.parent / cfg_path
+                        )
+        except Exception:
+            pass
+
+        return default_path
 
     def set_mod_config_path(
         self, game_name: str, mod_path_str: str, config_path: str
     ) -> None:
-        """
-        Set a custom config path for a mod.
+        """Set a custom config path for a mod."""
+        try:
+            profile_path = self.get_profile_path(game_name)
+            if profile_path.exists():
+                from me3_manager.core.profiles.profile_manager import ProfileManager
 
-        Args:
-            game_name: Name of the game
-            mod_path_str: Path to the mod
-            config_path: Custom config path
-        """
-        # Use canonical key
+                profile_data = ProfileManager.read_profile(profile_path)
+                natives = profile_data.setdefault("natives", [])
+
+                # Relativize config path if possible
+                norm_config = self.normalize_path(config_path)
+                try:
+                    mods_dir = self.get_mods_dir(game_name).resolve()
+                    config_obj = Path(config_path).resolve()
+                    if config_obj.is_relative_to(mods_dir):
+                        norm_config = self.normalize_path(
+                            str(config_obj.relative_to(mods_dir))
+                        )
+                except Exception:
+                    pass
+
+                search_path = self.normalize_path(mod_path_str)
+                native = self._find_native_entry(
+                    natives, search_path, profile_path.parent
+                )
+
+                if native:
+                    native["config"] = norm_config
+                else:
+                    natives.append({"path": search_path, "config": norm_config})
+
+                ProfileManager.write_profile(profile_path, profile_data, game_name)
+                return
+
+        except Exception:
+            pass
+
+        # Fallback to legacy settings
         mod_key = mod_path_str.replace("\\", "/").lower()
-
-        # Get or create custom paths structure
         custom_paths = self.settings_manager.get("custom_config_paths", {})
-        if game_name not in custom_paths:
-            custom_paths[game_name] = {}
-
-        # Save the custom path
-        custom_paths[game_name][mod_key] = config_path
+        custom_paths.setdefault(game_name, {})[mod_key] = config_path
         self.settings_manager.set("custom_config_paths", custom_paths)
 
     def get_me3_config_path(self, game_name: str) -> Path | None:

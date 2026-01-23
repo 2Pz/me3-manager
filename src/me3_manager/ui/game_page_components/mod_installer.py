@@ -71,6 +71,10 @@ NAME_RE = re.compile(r'^[^<>:"/\\|?*]{1,60}$')
 # Common junk files/folders to filter out
 _JUNK_NAMES = frozenset({"__MACOSX", ".DS_Store"})
 
+# Files that should be overwritten (Mod binaries/core files)
+# Everything else is considered user data/config and should be preserved if it exists
+_BINARY_EXTENSIONS = {".dll", ".exe", ".bin"}
+
 
 def _contains_symlink(path: Path) -> bool:
     """Check if a path or any of its contents are symlinks."""
@@ -165,6 +169,13 @@ class InstallWorker(QThread):
 
                 with TemporaryDirectory(dir=str(parent)) as tmp_root_str:
                     tmp_root = Path(tmp_root_str)
+
+                    # Prepare backup of existing config files
+                    backup_dir = tmp_root / "_config_backup"
+
+                    if dest_path.exists() and dest_path.is_dir():
+                        self._backup_configs(dest_path, backup_dir)
+
                     tmp_dst = tmp_root / dest_rel_path.name
 
                     if source_path.is_dir():
@@ -190,6 +201,10 @@ class InstallWorker(QThread):
                             dest_path.unlink()
                         tmp_dst.replace(dest_path)
 
+                    # Restore configs if they were backed up
+                    if backup_dir.exists():
+                        self._restore_configs(backup_dir, dest_path)
+
                 self.installed_count += 1
             except Exception as e:
                 self.errors.append(
@@ -197,6 +212,37 @@ class InstallWorker(QThread):
                 )
 
         self.finished_signal.emit(self.installed_count, self.errors)
+
+    def _backup_configs(self, source: Path, backup_root: Path):
+        """Recursively backup config files (everything except binaries)."""
+        try:
+            for path in source.rglob("*"):
+                if path.is_file() and path.suffix.lower() not in _BINARY_EXTENSIONS:
+                    try:
+                        rel_path = path.relative_to(source)
+                        backup_path = backup_root / rel_path
+                        backup_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(path, backup_path)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def _restore_configs(self, backup_root: Path, target: Path):
+        """Restore backed up config files, overwriting fresh ones."""
+        try:
+            for path in backup_root.rglob("*"):
+                if path.is_file():
+                    try:
+                        rel_path = path.relative_to(backup_root)
+                        target_path = target / rel_path
+                        # Ensure target dir exists (should, but safe check)
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(path, target_path)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
 
 class ModInstaller:
@@ -724,70 +770,14 @@ class ModInstaller:
                     if pkg_abs and pkg_abs.is_dir():
                         package_source_map[pkg_abs] = dest_name
 
+            # Stage and install
             for native in profile_data.get("natives", []):
-                if not (isinstance(native, dict) and native.get("path")):
-                    continue
-                nat_rel = Path(native["path"])
-                nat_abs = self._safe_join(profile_base, nat_rel)
-
-                if (
-                    not nat_abs
-                    or not nat_abs.is_file()
-                    or nat_abs.suffix.lower() != ".dll"
-                ):
+                if not isinstance(native, dict):
                     continue
 
-                # Check if this native is inside any of the packages we are installing
-                found_in_package = False
-                for pkg_src, pkg_dest_name in package_source_map.items():
-                    # Check if nat_abs is inside pkg_src
-                    try:
-                        if nat_abs == pkg_src or nat_abs.is_relative_to(pkg_src):
-                            # It is inside this package!
-                            # We don't need to copy it separately.
-                            found_in_package = True
-
-                            # However, we MUST update the native['path'] in the profile data
-                            # so that the registration loop below knows where to find it.
-                            # Current path: "mod/dll/foo.dll" (relative to profile base)
-                            # New path needs to be: "PackageDestName/path/inside/package/foo.dll"
-
-                            rel_inside_pkg = nat_abs.relative_to(pkg_src)
-                            new_dest_path = Path(pkg_dest_name) / rel_inside_pkg
-
-                            # Update the profile data in-place
-                            native["path"] = str(new_dest_path).replace("\\", "/")
-                            break
-                    except Exception:
-                        continue
-
-                if found_in_package:
-                    continue
-
-                # Use the relative path defined in the profile to preserve structure
-                # Instead of flattening to nat_abs.name, we use the full relative path
-                items_to_install.append((nat_abs, Path(native["path"])))
-
-                # Handle associated config dir if it exists (e.g., matching folder name)
-                cfg_dir = nat_abs.parent / nat_abs.stem
-                if cfg_dir.is_dir():
-                    # Check if config dir is also in package
-                    cfg_in_package = False
-                    for pkg_src, _ in package_source_map.items():
-                        try:
-                            if cfg_dir == pkg_src or cfg_dir.is_relative_to(pkg_src):
-                                cfg_in_package = True
-                                break
-                        except Exception:
-                            continue
-
-                    if not cfg_in_package:
-                        # For config dirs, current behavior assumes they are alongside the DLL
-                        # We should probably preserve their relative path too if possible
-                        # But traditionally they might just be next to the DLL
-                        # Let's try to keep them relative to the DLL's new location
-                        rel_parent = Path(native["path"]).parent
-                        items_to_install.append((cfg_dir, rel_parent / cfg_dir.name))
+                self._process_import_native_entry(
+                    native, profile_base, package_source_map, items_to_install
+                )
 
             if not items_to_install:
                 self.game_page.status_label.setText(tr("import_cancelled_status"))
@@ -1039,6 +1029,72 @@ class ModInstaller:
     # HELPER METHODS
     # =========================================================================
 
+    def _process_import_native_entry(
+        self,
+        native: dict,
+        profile_base: Path,
+        package_source_map: dict[Path, str],
+        items_to_install: list[tuple[Path, Path]],
+    ):
+        """Helper to process a single native entry during profile import."""
+        has_path = bool(native.get("path"))
+        if not has_path and not native.get("config"):
+            return
+
+        nat_abs = None
+        if has_path:
+            nat_rel = Path(native["path"])
+            nat_abs = self._safe_join(profile_base, nat_rel)
+
+        # 1. Process DLL installation if we have a valid source path
+        if nat_abs and nat_abs.is_file() and nat_abs.suffix.lower() == ".dll":
+            found_in_package = self._is_in_package(
+                nat_abs, package_source_map, native, is_config=False
+            )
+
+            if not found_in_package:
+                items_to_install.append((nat_abs, Path(native["path"])))
+
+        # 2. Handle associated config
+        # Explicit config field
+        if native.get("config"):
+            cfg_rel = Path(native["config"])
+            cfg_abs = self._safe_join(profile_base, cfg_rel)
+
+            if cfg_abs and cfg_abs.is_file():
+                if not self._is_in_package(cfg_abs, package_source_map):
+                    items_to_install.append((cfg_abs, cfg_rel))
+
+        # Implicit config dir (only if we have a native path)
+        elif nat_abs:
+            cfg_dir = nat_abs.parent / nat_abs.stem
+            if cfg_dir.is_dir():
+                if not self._is_in_package(cfg_dir, package_source_map):
+                    rel_parent = Path(native["path"]).parent
+                    items_to_install.append((cfg_dir, rel_parent / cfg_dir.name))
+
+    def _is_in_package(
+        self,
+        item_path: Path,
+        package_source_map: dict[Path, str],
+        native_entry: dict | None = None,
+        is_config: bool = True,
+    ) -> bool:
+        """Check if an item is inside any of the packages being installed."""
+        for pkg_src, pkg_dest_name in package_source_map.items():
+            try:
+                if item_path == pkg_src or item_path.is_relative_to(pkg_src):
+                    # It is inside this package!
+                    if not is_config and native_entry:
+                        # Update profile path for natives
+                        rel_inside_pkg = item_path.relative_to(pkg_src)
+                        new_dest_path = Path(pkg_dest_name) / rel_inside_pkg
+                        native_entry["path"] = str(new_dest_path).replace("\\", "/")
+                    return True
+            except Exception:
+                continue
+        return False
+
     def _resolve_mod_name(
         self, mod_name_hint: str | None, fallback_name: str
     ) -> str | None:
@@ -1176,21 +1232,52 @@ class ModInstaller:
             return item.name
 
         # Check for conflicts
-        conflicts = [
-            get_dest_name(p) for p in items if (mods_dir / get_dest_name(p)).exists()
-        ]
+        # Check for conflicts
+        conflicts = []
+        config_conflicts = []
+
+        for p in items:
+            name = get_dest_name(p)
+            target = mods_dir / name
+            if target.exists():
+                # Check if it's a specific config file
+                # If target is a file, and extension is NOT a binary -> Treat as config/user data
+                if target.is_file() and target.suffix.lower() not in _BINARY_EXTENSIONS:
+                    config_conflicts.append(name)
+                else:
+                    conflicts.append(name)
+
+        # Handle messages
+        msgs = []
         if conflicts:
-            msg = tr("overwrite_dll_confirm_text") + "\n".join(
-                f"- {name}" for name in conflicts
-            )
+            msgs.append(tr("overwrite_dll_confirm_text"))
+            msgs.extend(f"- {name}" for name in conflicts)
+            msgs.append("")
+
+        if config_conflicts:
+            msgs.append(tr("shipped_configs_found_header"))
+            for name in config_conflicts:
+                # Try to extract mod name if possible (first folder of path)
+                p = Path(name)
+                if len(p.parts) > 1:
+                    msgs.append(
+                        tr("shipped_config_entry_fmt", config=p.name, mod=p.parts[0])
+                    )
+                else:
+                    msgs.append(f"- {name}")
+            msgs.append(tr("use_shipped_config_question"))
+
+        if conflicts or config_conflicts:
             reply = QMessageBox.question(
                 self.game_page,
                 tr("confirm_overwrite_title"),
-                msg,
+                "\n".join(msgs),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
-                items = [p for p in items if get_dest_name(p) not in conflicts]
+                # Filter out ALL conflicts (both types)
+                all_conflicts = set(conflicts + config_conflicts)
+                items = [p for p in items if get_dest_name(p) not in all_conflicts]
 
         if not items:
             return False

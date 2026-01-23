@@ -496,5 +496,8 @@
   "nexus_dependencies_found": "This profile requires {count} mod(s) from Nexus Mods:",
   "nexus_dependencies_confirm": "Would you like to download these mods now?",
   "nexus_dependencies_missing_api_key": "This profile requires {count} mod(s) from Nexus, but you haven't logged in to Nexus Mods yet.\n\nClick OK to continue without downloading, or Cancel to abort the import.",
-  "nexus_download_failed": "Failed to download mod from {url}:\n\n{error}"
+  "nexus_download_failed": "Failed to download mod from {url}:\n\n{error}",
+  "shipped_configs_found_header": "Found shipped configuration files for the following mods:\n",
+  "shipped_config_entry_fmt": "- {mod} (found: {config})",
+  "use_shipped_config_question": "\n\nThese configurations are provided by the profile/modpack author.\nWould you like to use them (overwriting any existing configuration files)?"
 }

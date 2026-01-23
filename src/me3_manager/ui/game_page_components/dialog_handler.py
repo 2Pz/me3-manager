@@ -53,7 +53,7 @@ class DialogHandler:
         dialog = ConfigEditorDialog(mod_name, initial_config_path, self.game_page)
         if dialog.exec():
             final_path = dialog.current_path
-            if final_path and final_path != initial_config_path:
+            if final_path:
                 self.config_manager.set_mod_config_path(
                     self.game_name, mod_path, str(final_path)
                 )

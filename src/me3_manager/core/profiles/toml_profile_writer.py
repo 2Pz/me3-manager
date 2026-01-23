@@ -179,8 +179,12 @@ class TomlProfileWriter:
                         native_table["optional"] = True
                     if native.get("load_early") is True:
                         native_table["load_early"] = True
-                    if native.get("nexus_link"):
-                        native_table["nexus_link"] = native["nexus_link"]
+                    if native.get("load_early") is True:
+                        native_table["load_early"] = True
+                    # nexus_link is excluded from the saved file (runtime only)
+
+                    if "config" in native and native["config"]:
+                        native_table["config"] = native["config"]
 
                     if "load_before" in native:
                         dep_array = TomlProfileWriter._create_mods_array(
@@ -269,8 +273,7 @@ class TomlProfileWriter:
                         )
                         if dep_array:
                             package_table["load_after"] = dep_array
-                    if package.get("nexus_link"):
-                        package_table["nexus_link"] = package["nexus_link"]
+                    # nexus_link is excluded from the saved file (runtime only)
 
                     packages_aot.append(package_table)
 

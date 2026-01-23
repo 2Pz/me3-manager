@@ -64,6 +64,7 @@ class TomlHighlighter(QSyntaxHighlighter):
             "disable_arxan",
             "start_online",
             "nexus_link",
+            "config",
         ]
 
         self.highlighting_rules.extend(

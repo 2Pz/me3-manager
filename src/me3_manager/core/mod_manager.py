@@ -79,6 +79,11 @@ class ImprovedModManager:
 
         # Parse profile for enabled status and advanced options
         config_data = self.config_manager._parse_toml_config(profile_path)
+
+        # Reconcile pending mods using metadata
+        if self._reconcile_pending_mods(game_name, config_data):
+            self._write_improved_config(profile_path, config_data, game_name)
+
         enabled_status = self._parse_enabled_status(config_data, game_name)
         advanced_options = self._parse_advanced_options(config_data)
 
@@ -149,6 +154,75 @@ class ImprovedModManager:
                 if existing_path == normalized_search_key:
                     return native, i
         return None, -1
+
+    def _get_nexus_id_from_link(self, link: str) -> int | None:
+        """Extract mod ID from Nexus link."""
+        import re
+
+        try:
+            # Pattern: .../mods/123...
+            match = re.search(r"/mods/(\d+)", link)
+            if match:
+                return int(match.group(1))
+        except Exception:
+            pass
+        return None
+
+    def _reconcile_pending_mods(self, game_name: str, config_data: dict) -> bool:
+        """
+        Match pending profile entries to installed mods using Nexus metadata.
+        Returns True if changes were made.
+        """
+        pending_entries = []
+        natives = config_data.get("natives", [])
+
+        # Identify pending entries
+        for native in natives:
+            if (
+                isinstance(native, dict)
+                and not native.get("path")
+                and native.get("nexus_link")
+            ):
+                mod_id = self._get_nexus_id_from_link(native["nexus_link"])
+                if mod_id:
+                    pending_entries.append((mod_id, native))
+
+        if not pending_entries:
+            return False
+
+        try:
+            metadata_manager = NexusMetadataManager(
+                self.config_manager.config_root, game_name
+            )
+            updates = False
+            game_domain = (
+                self.config_manager.get_game_nexus_domain(game_name) or "eldenring"
+            )
+
+            for mod_id, native in pending_entries:
+                domain = game_domain
+                if "/nexusmods.com/" in native["nexus_link"]:
+                    try:
+                        parts = native["nexus_link"].split("/nexusmods.com/")
+                        if len(parts) > 1:
+                            domain = parts[1].split("/")[0]
+                    except IndexError:
+                        pass
+
+                cached = metadata_manager.get_cached_for_mod(domain, mod_id)
+                if cached and cached.local_mod_path:
+                    local_path = Path(cached.local_mod_path)
+                    if local_path.exists():
+                        config_key = self._get_config_key_for_mod(
+                            str(local_path), game_name
+                        )
+                        native["path"] = config_key
+                        updates = True
+
+        except Exception:
+            return False
+
+        return updates
 
     def _scan_internal_mods(
         self,
@@ -544,6 +618,15 @@ class ImprovedModManager:
         # Clean up natives using normalized path comparison
         valid_natives = []
         for native in config_data.get("natives", []):
+            # Keep if it has no path but has nexus_link (pending)
+            if (
+                isinstance(native, dict)
+                and not native.get("path")
+                and native.get("nexus_link")
+            ):
+                valid_natives.append(native)
+                continue
+
             if isinstance(native, dict) and "path" in native:
                 normalized_path = self._normalize_path(native["path"])
                 if (

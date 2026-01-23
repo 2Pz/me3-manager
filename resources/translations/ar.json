@@ -497,5 +497,8 @@
   "nexus_dependencies_found": "يتطلب هذا الملف الشخصي {count} تعديل(ات) من Nexus Mods:",
   "nexus_dependencies_confirm": "هل تود تنزيل هذه التعديلات الآن؟",
   "nexus_dependencies_missing_api_key": "يتطلب هذا الملف الشخصي {count} تعديل(ات) من Nexus، ولكنك لم تقم بتسجيل الدخول إلى Nexus Mods بعد.\n\nانقر فوق موافق للمتابعة دون التنزيل، أو إلغاء لإحباط الاستيراد.",
-  "nexus_download_failed": "فشل تنزيل التعديل من {url}:\n\n{error}"
+  "nexus_download_failed": "فشل تنزيل التعديل من {url}:\n\n{error}",
+  "shipped_configs_found_header": "تم العثور على ملفات تكوين مرفقة مع التعديلات التالية:\n",
+  "shipped_config_entry_fmt": "- {mod} (الملف: {config})",
+  "use_shipped_config_question": "\n\nهذه التكوينات مقدمة من مؤلف الحزمة/التعديل.\nهل تريد استخدامها (سيتم استبدال أي تكوينات حالية)؟"
 }
