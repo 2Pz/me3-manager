@@ -220,74 +220,52 @@ class PathManager:
         """Set a custom config path for a mod."""
         from me3_manager.core.profiles.profile_manager import ProfileManager
 
-        mods_dir = self.get_mods_dir(game_name)
-        search_path = self.normalize_path(mod_path_str)
-
-        # Prepare normalized config path
-        norm_config = self.normalize_path(config_path)
-        try:
-            mods_dir_resolved = mods_dir.resolve()
-            config_obj = Path(config_path).resolve()
-            if config_obj.is_relative_to(mods_dir_resolved):
-                norm_config = self.normalize_path(
-                    str(config_obj.relative_to(mods_dir_resolved))
-                )
-        except Exception:
-            pass
-
-        # Try active profile first
         try:
             profile_path = self.get_profile_path(game_name)
+            # Ensure profile directory exists
+            if not profile_path.parent.exists():
+                profile_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Read or initialize profile
             if profile_path.exists():
                 profile_data = ProfileManager.read_profile(profile_path)
-                natives = profile_data.setdefault("natives", [])
-                native = self._find_native_entry(natives, search_path, mods_dir)
-                if native:
-                    native["config"] = norm_config
-                    ProfileManager.write_profile(profile_path, profile_data, game_name)
-                    return
-        except Exception:
-            pass
+            else:
+                profile_data = {"profileVersion": "v1", "natives": []}
 
-        # Fallback: Search all .me3 files for this native entry
-        try:
-            search_dirs = [mods_dir, self.config_root]
-            for search_dir in search_dirs:
-                if not search_dir.exists():
-                    continue
-                for me3_file in search_dir.rglob("*.me3"):
-                    try:
-                        profile_data = ProfileManager.read_profile(me3_file)
-                        natives = profile_data.get("natives", [])
-                        native = self._find_native_entry(natives, search_path, mods_dir)
-                        if native:
-                            native["config"] = norm_config
-                            ProfileManager.write_profile(
-                                me3_file, profile_data, game_name
-                            )
-                            return
-                    except Exception:
-                        continue
-        except Exception:
-            pass
+            natives = profile_data.setdefault("natives", [])
+            mods_dir = self.get_mods_dir(game_name)
+            search_path = self.normalize_path(mod_path_str)
 
-        # Last resort: Add to active profile's natives or fallback to legacy settings
-        try:
-            profile_path = self.get_profile_path(game_name)
-            if profile_path.exists():
-                profile_data = ProfileManager.read_profile(profile_path)
-                natives = profile_data.setdefault("natives", [])
+            # Relativize config path if possible
+            norm_config = self.normalize_path(config_path)
+            try:
+                mods_dir_resolved = mods_dir.resolve()
+                config_obj = Path(config_path).resolve()
+                if config_obj.is_relative_to(mods_dir_resolved):
+                    norm_config = self.normalize_path(
+                        str(config_obj.relative_to(mods_dir_resolved))
+                    )
+            except Exception:
+                pass
+
+            # Find and update or append
+            native = self._find_native_entry(natives, search_path, mods_dir)
+            if native:
+                native["config"] = norm_config
+            else:
                 natives.append({"path": search_path, "config": norm_config})
-                ProfileManager.write_profile(profile_path, profile_data, game_name)
-                return
-        except Exception:
-            pass
 
-        # Ultimate fallback to legacy settings
-        mod_key = mod_path_str.replace("\\", "/").lower()
-        custom_paths = self.settings_manager.get("custom_config_paths", {})
-        custom_paths.setdefault(game_name, {})[mod_key] = config_path
-        self.settings_manager.set("custom_config_paths", custom_paths)
+            ProfileManager.write_profile(profile_path, profile_data, game_name)
+
+        except Exception:
+            # Fallback to legacy settings only if profile write fails completely
+            try:
+                mod_key = mod_path_str.replace("\\", "/").lower()
+                custom_paths = self.settings_manager.get("custom_config_paths", {})
+                custom_paths.setdefault(game_name, {})[mod_key] = config_path
+                self.settings_manager.set("custom_config_paths", custom_paths)
+            except Exception:
+                pass
 
     def get_me3_config_path(self, game_name: str) -> Path | None:
         """

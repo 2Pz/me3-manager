@@ -52,9 +52,10 @@ class DialogHandler:
         )
         dialog = ConfigEditorDialog(mod_name, initial_config_paths, self.game_page)
         if dialog.exec():
-            # If user browsed to a new config file, save it to the profile
+            # Always save the final path to ensure it's explicit in the profile
+            # This handles cases where we guessed the path but it wasn't saved yet
             final_path = dialog.current_path
-            if final_path and final_path not in initial_config_paths:
+            if final_path:
                 self.config_manager.set_mod_config_path(
                     self.game_name, mod_path, str(final_path)
                 )
