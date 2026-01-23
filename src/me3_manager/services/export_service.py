@@ -78,6 +78,20 @@ class ExportService:
                     entry["initializer"] = native["initializer"]
                 if native.get("finalizer"):
                     entry["finalizer"] = native["finalizer"]
+                if native.get("config"):
+                    # Relativize config path if under mods_dir, otherwise keep original
+                    raw_cfg = native["config"]
+                    rel_cfg = ExportService._rel_to_mods(
+                        raw_cfg, mods_dir, mods_dir_name
+                    )
+
+                    if (
+                        Path(raw_cfg).is_absolute()
+                        and rel_cfg.as_posix() != Path(raw_cfg).name
+                    ):
+                        entry["config"] = f"mods/{rel_cfg.as_posix()}"
+                    else:
+                        entry["config"] = raw_cfg
                 natives.append(entry)
             elif isinstance(native, str):
                 rel_path = ExportService._rel_to_mods(native, mods_dir, mods_dir_name)

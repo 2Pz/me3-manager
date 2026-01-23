@@ -170,7 +170,7 @@ class ConfigEditorDialog(QDialog):
             )
 
     def finalize_and_close(self):
-        if self.current_path != self.initial_path:
+        if self.current_path:
             self.accept()
         else:
             self.reject()

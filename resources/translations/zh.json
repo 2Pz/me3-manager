@@ -497,5 +497,8 @@
   "nexus_dependencies_found": "此配置文件需要 {count} 个来自 Nexus Mods 的模组：",
   "nexus_dependencies_confirm": "您想现在下载这些模组吗？",
   "nexus_dependencies_missing_api_key": "此配置文件需要来自 Nexus 的 {count} 个模组，但您尚未登录 Nexus Mods。\n\n点击“确定”继续而不下载，或点击“取消”中止导入。",
-  "nexus_download_failed": "从 {url} 下载模组失败：\n\n{error}"
+  "nexus_download_failed": "从 {url} 下载模组失败：\n\n{error}",
+  "shipped_configs_found_header": "发现以下模组附带的配置文件：\n",
+  "shipped_config_entry_fmt": "- {mod} (发现: {config})",
+  "use_shipped_config_question": "\n\n这些配置由模组/整合包作者提供。\n您是否要使用它们（将覆盖现有的配置文件）？"
 }

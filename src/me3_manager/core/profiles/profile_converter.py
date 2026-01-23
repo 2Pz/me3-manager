@@ -83,6 +83,7 @@ class ProfileConverter:
                     "load_early",
                     "initializer",
                     "finalizer",
+                    "config",
                     "load_before",
                     "load_after",
                 ):
@@ -195,6 +196,8 @@ class ProfileConverter:
                         table.get("finalizer"), str
                     ):
                         entry["finalizer"] = table.get("finalizer")
+                    if table.get("config"):
+                        entry["config"] = table.get("config")
                     # Map load order arrays if present
                     for k in ("load_before", "load_after"):
                         if k in table and table[k] not in (None, []):
@@ -291,6 +294,8 @@ class ProfileConverter:
                 inline["initializer"] = nat["initializer"]
             if nat.get("finalizer") is not None:
                 inline["finalizer"] = nat["finalizer"]
+            if nat.get("config"):
+                inline["config"] = nat["config"]
             # Load order arrays
             for k in ("load_before", "load_after"):
                 if k in nat and nat[k] not in (None, []):
