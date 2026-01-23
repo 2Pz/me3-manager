@@ -128,11 +128,22 @@ class PathManager:
                 p_native = Path(native_path)
                 if p_native.is_absolute():
                     res_native = p_native.resolve()
+                    if str(res_native).lower() == search_path_obj_str:
+                        return native
                 else:
+                    # Try relative to mods_root
                     res_native = (mods_root / native_path).resolve()
+                    if str(res_native).lower() == search_path_obj_str:
+                        return native
 
-                if str(res_native).lower() == search_path_obj_str:
-                    return native
+                    # Try relative to mods_root.parent (standard for default profiles)
+                    # This handles paths like "game-mods/mod.dll" where mods_root ends in "game-mods"
+                    try:
+                        res_native_parent = (mods_root.parent / native_path).resolve()
+                        if str(res_native_parent).lower() == search_path_obj_str:
+                            return native
+                    except Exception:
+                        pass
             except Exception:
                 continue
         return None
