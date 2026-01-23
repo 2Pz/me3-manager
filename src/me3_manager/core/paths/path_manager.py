@@ -191,19 +191,13 @@ class PathManager:
                 # Relativize config path if possible
                 norm_config = self.normalize_path(config_path)
                 try:
-                    mods_dir = self.get_mods_dir(game_name).resolve()
+                    profile_parent = profile_path.parent.resolve()
                     config_obj = Path(config_path).resolve()
 
-                    if config_obj.is_relative_to(mods_dir):
-                        rel_path = config_obj.relative_to(mods_dir)
-
-                        # Prepend mods dir name for standard sibling layout
-                        if mods_dir.parent == self.config_root:
-                            norm_config = self.normalize_path(
-                                f"{mods_dir.name}/{rel_path}"
-                            )
-                        else:
-                            norm_config = self.normalize_path(str(rel_path))
+                    if config_obj.is_relative_to(profile_parent):
+                        norm_config = self.normalize_path(
+                            str(config_obj.relative_to(profile_parent))
+                        )
                 except Exception:
                     pass
 
