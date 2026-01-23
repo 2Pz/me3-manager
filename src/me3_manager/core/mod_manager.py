@@ -127,17 +127,20 @@ class ImprovedModManager:
         )
 
         if is_custom_profile:
-            # For custom profiles, always use normalized absolute paths
-            return self._normalize_path(str(mod_path_obj.resolve()))
+            # Custom profiles are IN the mods directory, so relative paths are direct
+            prefix = ""
         else:
-            # For default profiles, use relative format
-            try:
-                # Try to get relative path from mods directory
-                relative_path = mod_path_obj.relative_to(mods_dir)
-                return self._normalize_path(f"{mods_dir_name}/{relative_path}")
-            except ValueError:
-                # External mod - use absolute path
-                return self._normalize_path(str(mod_path_obj.resolve()))
+            # Default profiles live in a parallel directory, so they need the mods folder name prefix
+            prefix = f"{mods_dir_name}/"
+
+        try:
+            # Try to get relative path from mods directory
+            relative_path = mod_path_obj.relative_to(mods_dir)
+            # Combine prefix + relative path (e.g. "eldenring-mods/Mod.dll" or just "Mod.dll")
+            return self._normalize_path(f"{prefix}{relative_path}")
+        except ValueError:
+            # External mod - use absolute path
+            return self._normalize_path(str(mod_path_obj.resolve()))
 
     def _find_native_entry(
         self, natives: list[dict], config_key: str
@@ -801,37 +804,12 @@ class ImprovedModManager:
         mod_path_obj = Path(mod_path)
         mod_name = mod_path_obj.name
 
-        mods_dir = self.config_manager.get_mods_dir(game_name)
-        mods_dir_name = self.config_manager.games[game_name]["mods_dir"]
-
-        resolved_mod_path = mod_path_obj.resolve()
-        resolved_mods_dir = mods_dir.resolve()
-        is_custom_profile = (
-            resolved_mods_dir
-            != (self.config_manager.config_root / mods_dir_name).resolve()
+        # Use the shared helper to generate the consistent config key/path
+        # This handles custom profiles (relative path) vs default profiles (prefix)
+        # and external mods (absolute path) automatically.
+        normalized_package_path = self._get_config_key_for_mod(
+            str(mod_path_obj.resolve()), game_name
         )
-
-        try:
-            relative_path = resolved_mod_path.relative_to(resolved_mods_dir)
-            is_internal = True
-        except ValueError:
-            relative_path = None
-            is_internal = False
-
-        if is_internal:
-            if is_custom_profile:
-                normalized_package_path = self._normalize_path(str(resolved_mod_path))
-            else:
-                # Preserve nested folders if present
-                if relative_path is None:
-                    relative_str = mod_name
-                else:
-                    relative_str = relative_path.as_posix()
-                normalized_package_path = self._normalize_path(
-                    f"{mods_dir_name}/{relative_str}"
-                )
-        else:
-            normalized_package_path = self._normalize_path(str(resolved_mod_path))
 
         package_entry = None
         for package in packages:
