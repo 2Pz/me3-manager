@@ -80,18 +80,32 @@ class ExportService:
                     entry["finalizer"] = native["finalizer"]
                 if native.get("config"):
                     # Relativize config path if under mods_dir, otherwise keep original
-                    raw_cfg = native["config"]
-                    rel_cfg = ExportService._rel_to_mods(
-                        raw_cfg, mods_dir, mods_dir_name
-                    )
+                    raw_cfgs = native["config"]
+                    if isinstance(raw_cfgs, str):
+                        raw_cfgs = [raw_cfgs]
 
-                    if (
-                        Path(raw_cfg).is_absolute()
-                        and rel_cfg.as_posix() != Path(raw_cfg).name
-                    ):
-                        entry["config"] = f"mods/{rel_cfg.as_posix()}"
+                    new_cfgs = []
+                    for raw_cfg in raw_cfgs:
+                        try:
+                            rel_cfg = ExportService._rel_to_mods(
+                                raw_cfg, mods_dir, mods_dir_name
+                            )
+
+                            if (
+                                Path(raw_cfg).is_absolute()
+                                and rel_cfg.as_posix() != Path(raw_cfg).name
+                            ):
+                                new_cfgs.append(f"mods/{rel_cfg.as_posix()}")
+                            else:
+                                new_cfgs.append(raw_cfg)
+                        except Exception:
+                            new_cfgs.append(raw_cfg)
+
+                    # Return single string if input was single string, else list
+                    if isinstance(native["config"], str) and len(new_cfgs) == 1:
+                        entry["config"] = new_cfgs[0]
                     else:
-                        entry["config"] = raw_cfg
+                        entry["config"] = new_cfgs
                 natives.append(entry)
             elif isinstance(native, str):
                 rel_path = ExportService._rel_to_mods(native, mods_dir, mods_dir_name)
