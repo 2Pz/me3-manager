@@ -553,7 +553,23 @@ class ME3VersionManager(QObject):
         self.refresh_callback()
 
         if status_code == Status.SUCCESS:
-            QMessageBox.information(self.parent, tr("installation_complete"), message)
+            # Check if ME3 is actually detected (PATH update might require restart)
+            me3_version = self.config_manager.get_me3_version()
+
+            if me3_version:
+                QMessageBox.information(
+                    self.parent, tr("installation_complete"), message
+                )
+            else:
+                # Installation successful but me3 command not found -> Restart required
+                QMessageBox.warning(
+                    self.parent,
+                    tr("installation_restart_required_title"),
+                    tr(
+                        "installation_restart_required_body",
+                        install_path=self.install_path,
+                    ),
+                )
         elif status_code == Status.CANCELLED:
             # Don't show error for cancelled installations
             pass
