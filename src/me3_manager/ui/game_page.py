@@ -10,7 +10,14 @@ from PySide6.QtGui import (
     QDropEvent,
     QPixmap,
 )
-from PySide6.QtWidgets import QInputDialog, QMenu, QMessageBox, QProgressDialog, QWidget
+from PySide6.QtWidgets import (
+    QInputDialog,
+    QMenu,
+    QMessageBox,
+    QProgressDialog,
+    QSizePolicy,
+    QWidget,
+)
 
 from me3_manager.core.mod_manager import ImprovedModManager
 from me3_manager.core.nexus_metadata import NexusMetadataManager
@@ -87,6 +94,7 @@ class GamePage(QWidget):
     def __init__(self, game_name: str, config_manager):
         super().__init__()
 
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.game_name = game_name
         self.style = GamePageStyle()
         self.config_manager = config_manager
