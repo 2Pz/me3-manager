@@ -1,6 +1,10 @@
 {
   "language_name": "العربية (سعودي)",
   "app_title": "مدير مودات Mod Engine 3",
+  "custom_script_detected_title": "تم اكتشاف سكربت تثبيت مخصص",
+  "custom_script_detected_desc": "يحتوي ملف تعريف هذا المود على سكربت تثبيت مخصص ({script_name}).\n\nهل تريد تشغيل هذا السكربت؟",
+  "script_execution_failed": "فشل تنفيذ سكربت التثبيت المخصص: {error}",
+  "script_executed_success": "تم تنفيذ سكربت التثبيت المخصص بنجاح.",
   "me3_required_title": "مطلوب تثبيت ME3",
   "me3_not_installed": "ME3 مو مثبت",
   "me3_not_installed_desc": "المدير يحتاج يكون Mod Engine 3 مثبت عشان يشتغل صح.",

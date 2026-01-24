@@ -370,11 +370,11 @@ class GamePage(QWidget):
 
                 QApplication.processEvents()
 
-                success = self.community_service.download_profile(profile, dl_path)
+                result_path = self.community_service.download_profile(profile, dl_path)
                 progress.close()
 
-                if success and dl_path.exists():
-                    self.handle_downloaded_profile(dl_path)
+                if result_path and result_path.exists():
+                    self.handle_downloaded_profile(result_path)
 
         except Exception as e:
             QMessageBox.critical(self, tr("error"), str(e))

@@ -66,6 +66,7 @@ class ProfileConverter:
             "disable_arxan",
             "supports",
             "description",
+            "metadata",
         ):
             if key in data:
                 result[key] = data.get(key)

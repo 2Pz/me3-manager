@@ -1,6 +1,10 @@
 {
   "language_name": "English",
   "app_title": "Mod Engine 3 Manager",
+  "custom_script_detected_title": "Custom Install Script Detected",
+  "custom_script_detected_desc": "This mod profile contains a custom installation script ({script_name}).\n\nDo you want to run this script?",
+  "script_execution_failed": "Failed to execute custom install script: {error}",
+  "script_executed_success": "Custom install script executed successfully.",
   "me3_required_title": "ME3 Installation Required",
   "me3_not_installed": "ME3 Not Installed",
   "me3_not_installed_desc": "The manager needs Mod Engine 3 installed to work properly.",
