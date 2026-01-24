@@ -743,8 +743,14 @@ class ModInstaller:
                             else pkg_abs.name
                         )
                         if _validate_mod_name(dest_name):
-                            items_to_install.append((pkg_abs, dest_name))
-                            final_folder_names.append(dest_name)
+                            if pkg_abs and pkg_abs.is_dir():
+                                items_to_install.append((pkg_abs, dest_name))
+                                final_folder_names.append(dest_name)
+                            else:
+                                # If the package source doesn't exist (e.g. community profile),
+                                # we just track the folder name so we can register it later.
+                                # The assumption is that it will be filled by Nexus downloads or exists already.
+                                final_folder_names.append(dest_name)
 
             # Collect natives not in packages
             # We need to map package source paths to their destination names (folder IDs)
@@ -779,40 +785,47 @@ class ModInstaller:
                     native, profile_base, package_source_map, items_to_install
                 )
 
-            if not items_to_install:
+            if (
+                not items_to_install
+                and not final_folder_names
+                and not profile_data.get("natives")
+            ):
+                # Only cancel if truly nothing is happening (no folders register, no settings apply)
                 self.game_page.status_label.setText(tr("import_cancelled_status"))
                 return []
 
             # Stage and install
-            # Stage and install
-            with TemporaryDirectory() as tmp_dir:
-                staged_items = []
-                for src, dest_name in items_to_install:
-                    staged_path = Path(tmp_dir) / dest_name
+            if items_to_install:
+                with TemporaryDirectory() as tmp_dir:
+                    staged_items = []
+                    for src, dest_name in items_to_install:
+                        staged_path = Path(tmp_dir) / dest_name
 
-                    # Ensure parent directory exists in temp staging area
-                    staged_path.parent.mkdir(parents=True, exist_ok=True)
+                        # Ensure parent directory exists in temp staging area
+                        staged_path.parent.mkdir(parents=True, exist_ok=True)
 
-                    if src.is_dir():
-                        shutil.copytree(
-                            src,
-                            staged_path,
-                            symlinks=False,
-                            ignore_dangling_symlinks=True,
-                            dirs_exist_ok=True,
+                        if src.is_dir():
+                            shutil.copytree(
+                                src,
+                                staged_path,
+                                symlinks=False,
+                                ignore_dangling_symlinks=True,
+                                dirs_exist_ok=True,
+                            )
+                        else:
+                            shutil.copy2(src, staged_path, follow_symlinks=False)
+
+                        # Pass tuple to _copy_with_progress so InstallWorker uses relative path
+                        # First element is absolute path to staged file
+                        # Second element is the relative path it should have in mods dir
+                        dest_rel = (
+                            dest_name
+                            if isinstance(dest_name, Path)
+                            else Path(dest_name)
                         )
-                    else:
-                        shutil.copy2(src, staged_path, follow_symlinks=False)
+                        staged_items.append((staged_path, dest_rel))
 
-                    # Pass tuple to _copy_with_progress so InstallWorker uses relative path
-                    # First element is absolute path to staged file
-                    # Second element is the relative path it should have in mods dir
-                    dest_rel = (
-                        dest_name if isinstance(dest_name, Path) else Path(dest_name)
-                    )
-                    staged_items.append((staged_path, dest_rel))
-
-                self._copy_with_progress(staged_items)
+                    self._copy_with_progress(staged_items)
 
             # Register packages
             for folder_name in final_folder_names:
@@ -982,8 +995,9 @@ class ModInstaller:
                     )
 
                     # Use GamePage's existing download method headlessly
+                    mod_folder = dep["entry"].get("mod_folder")
                     installed = self.game_page.download_selected_nexus_mod(
-                        mod, load_mods=False
+                        mod, load_mods=False, mod_root_path=mod_folder
                     )
 
                     if installed:

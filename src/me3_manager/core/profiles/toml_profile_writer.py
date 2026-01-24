@@ -198,6 +198,8 @@ class TomlProfileWriter:
                         )
                         if dep_array:
                             native_table["load_after"] = dep_array
+                    if "mod_folder" in native:
+                        native_table["mod_folder"] = native["mod_folder"]
 
                     if "initializer" in native and native["initializer"]:
                         # Use dotted key notation instead of nested tables
@@ -273,6 +275,8 @@ class TomlProfileWriter:
                         )
                         if dep_array:
                             package_table["load_after"] = dep_array
+                    if "mod_folder" in package:
+                        package_table["mod_folder"] = package["mod_folder"]
                     # nexus_link is excluded from the saved file (runtime only)
 
                     packages_aot.append(package_table)

@@ -34,6 +34,7 @@ class ProfileConverter:
                 "natives": [],
                 "packages": [],
                 "supports": [],
+                "description": "",
             }
 
         version = str(data.get("profileVersion", "v1")).lower()
@@ -59,7 +60,13 @@ class ProfileConverter:
         }
 
         # Pass through known globals
-        for key in ("savefile", "start_online", "disable_arxan", "supports"):
+        for key in (
+            "savefile",
+            "start_online",
+            "disable_arxan",
+            "supports",
+            "description",
+        ):
             if key in data:
                 result[key] = data.get(key)
 
@@ -86,6 +93,7 @@ class ProfileConverter:
                     "config",
                     "load_before",
                     "load_after",
+                    "mod_folder",
                 ):
                     if k in nat and nat[k] not in (None, []):
                         entry[k] = nat[k]
@@ -121,7 +129,7 @@ class ProfileConverter:
                     if nexus_link:
                         entry["nexus_link"] = nexus_link
 
-                    for k in ("load_before", "load_after"):
+                    for k in ("load_before", "load_after", "mod_folder"):
                         if k in pkg and pkg[k] not in (None, []):
                             entry[k] = pkg[k]
                     result["packages"].append(entry)
@@ -144,6 +152,8 @@ class ProfileConverter:
             result["disable_arxan"] = bool(game_tbl.get("disable_arxan"))
         if "start_online" in game_tbl:
             result["start_online"] = bool(game_tbl.get("start_online"))
+        if "description" in game_tbl:
+            result["description"] = game_tbl.get("description")
 
         # [mods] table: flat keys or inline tables
         deps = data.get("mods")
@@ -199,7 +209,7 @@ class ProfileConverter:
                     if table.get("config"):
                         entry["config"] = table.get("config")
                     # Map load order arrays if present
-                    for k in ("load_before", "load_after"):
+                    for k in ("load_before", "load_after", "mod_folder"):
                         if k in table and table[k] not in (None, []):
                             entry[k] = table[k]
                     result["natives"].append(entry)
@@ -212,7 +222,7 @@ class ProfileConverter:
                     if table.get("enabled") is False:
                         entry["enabled"] = False
                     # Disabled flag is v2-specific; we omit entirely if False to match current schema
-                    for k in ("load_before", "load_after"):
+                    for k in ("load_before", "load_after", "mod_folder"):
                         if k in table and table[k] not in (None, []):
                             entry[k] = table[k]
                     result["packages"].append(entry)
@@ -262,6 +272,8 @@ class ProfileConverter:
             game_tbl["disable_arxan"] = bool(data["disable_arxan"])
         if "start_online" in data:
             game_tbl["start_online"] = bool(data["start_online"])
+        if "description" in data and isinstance(data["description"], str):
+            game_tbl["description"] = data["description"]
         if game_name:
             # Optionally set launch to a slug if provided
             # Keep simple: remove spaces, lowercase
@@ -297,7 +309,7 @@ class ProfileConverter:
             if nat.get("config"):
                 inline["config"] = nat["config"]
             # Load order arrays
-            for k in ("load_before", "load_after"):
+            for k in ("load_before", "load_after", "mod_folder"):
                 if k in nat and nat[k] not in (None, []):
                     inline[k] = nat[k]
             # Store as whole inline table under key
@@ -311,7 +323,7 @@ class ProfileConverter:
             inline = {"path": pkg["path"]}
             if pkg.get("enabled") is False:
                 inline["enabled"] = False
-            for k in ("load_before", "load_after"):
+            for k in ("load_before", "load_after", "mod_folder"):
                 if k in pkg and pkg[k] not in (None, []):
                     inline[k] = pkg[k]
             deps[ident] = inline

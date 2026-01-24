@@ -429,6 +429,7 @@
   "nexus_sso_cancel": "إلغاء",
   "search_source_local": "محلي",
   "search_source_nexus": "Nexus",
+  "search_source_community": "المجتمع",
   "nexus_results_header": "نتائج Nexus",
   "nexus_results_empty": "ما فيه نتائج من Nexus للحين. أدخل معرف المود (ID) أو رابط المود واضغط زر الإدخال (Enter).",
   "nexus_results_found": "تم العثور على {count} نتيجة.",
@@ -503,5 +504,13 @@
   "nexus_download_failed": "فشل تنزيل التعديل من {url}:\n\n{error}",
   "shipped_configs_found_header": "تم العثور على ملفات تكوين مرفقة مع التعديلات التالية:\n",
   "shipped_config_entry_fmt": "- {mod} (الملف: {config})",
-  "use_shipped_config_question": "\n\nهذه التكوينات مقدمة من مؤلف الحزمة/التعديل.\nهل تريد استخدامها (سيتم استبدال أي تكوينات حالية)؟"
+  "use_shipped_config_question": "\n\nهذه التكوينات مقدمة من مؤلف الحزمة/التعديل.\nهل تريد استخدامها (سيتم استبدال أي تكوينات حالية)؟",
+  "community_results_header": "نتائج المجتمع",
+  "community_results_empty": "لا توجد نتائج من المجتمع. ابحث للعثور على بروفايلات.",
+  "community_results_found": "تم العثور على {count} بروفايل.",
+  "community_searching_status": "جاري البحث في بروفايلات المجتمع...",
+  "community_search_failed": "فشل بحث المجتمع: {error}",
+  "community_downloading_status": "جاري تحميل البروفايل: {profile}...",
+  "community_contribute_button": "إرسال بروفايل",
+  "no_description": "لا يوجد وصف."
 }

@@ -429,6 +429,7 @@
   "nexus_sso_cancel": "Cancel",
   "search_source_local": "Local",
   "search_source_nexus": "Nexus",
+  "search_source_community": "Community",
   "nexus_results_header": "Nexus Results",
   "nexus_results_empty": "No Nexus results yet. Enter a mod ID or mod link and press Enter.",
   "nexus_results_found": "Found {count} result(s).",
@@ -502,5 +503,13 @@
   "nexus_download_failed": "Failed to download mod from {url}:\n\n{error}",
   "shipped_configs_found_header": "Found shipped configuration files for the following mods:\n",
   "shipped_config_entry_fmt": "- {mod} (found: {config})",
-  "use_shipped_config_question": "\n\nThese configurations are provided by the profile/modpack author.\nWould you like to use them (overwriting any existing configuration files)?"
+  "use_shipped_config_question": "\n\nThese configurations are provided by the profile/modpack author.\nWould you like to use them (overwriting any existing configuration files)?",
+  "community_results_header": "Community Results",
+  "community_results_empty": "No community results yet. Search to find profiles.",
+  "community_results_found": "Found {count} profile(s).",
+  "community_searching_status": "Searching community profiles...",
+  "community_search_failed": "Community search failed: {error}",
+  "community_downloading_status": "Downloading profile: {profile}...",
+  "community_contribute_button": "Submit a Profile",
+  "no_description": "No description available."
 }
