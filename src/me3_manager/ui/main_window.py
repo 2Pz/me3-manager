@@ -88,7 +88,7 @@ class ModEngine3Manager(QMainWindow):
 
         page = GamePage(game_name, self.config_manager)
         page.setVisible(False)
-        self.content_layout.insertWidget(-1, page)
+        self.content_layout.insertWidget(-1, page, 1)
         self.game_pages[game_name] = page
 
     def remove_game(self, game_name: str):
@@ -146,7 +146,7 @@ class ModEngine3Manager(QMainWindow):
                 page = GamePage(game_name, self.config_manager)
                 page.setVisible(False)
                 self.content_layout.addWidget(
-                    page
+                    page, 1
                 )  # Add to the end of the (now empty) layout
                 self.game_pages[game_name] = page
 
@@ -345,7 +345,7 @@ class ModEngine3Manager(QMainWindow):
         for game_name in self.config_manager.games.keys():
             page = GamePage(game_name, self.config_manager)
             page.setVisible(False)
-            self.content_layout.addWidget(page)
+            self.content_layout.addWidget(page, 1)
             self.game_pages[game_name] = page
 
         game_order = self.config_manager.get_game_order()

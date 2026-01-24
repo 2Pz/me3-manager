@@ -549,7 +549,14 @@ class ModInstaller:
         self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
     ) -> list[str]:
         """Install mod using its .me3 profile."""
-        me3_files = list(mod_root.rglob("*.me3"))
+        # Ensure we only pick up actual files, not directories
+        me3_files = [p for p in mod_root.rglob("*.me3") if p.is_file()]
+
+        if not me3_files:
+            self._log.error(
+                "Identified as 'me3' type but no .me3 files found in %s", mod_root
+            )
+            return []
 
         # Select profile if multiple
         if len(me3_files) > 1:
@@ -569,6 +576,8 @@ class ModInstaller:
             )
         else:
             profile_file = me3_files[0]
+
+        self._log.info("Using profile file: %s", profile_file)
 
         return self._handle_profile_import(
             mod_root, profile_file, mod_name_hint, load_mods
@@ -724,6 +733,28 @@ class ModInstaller:
             # Done after confirmation so user knows what they are importing first
             self._handle_nexus_dependencies(profile_data)
 
+            # Check for custom install script in profile metadata
+            # Support both metadata.install_script (new standard) and older top-level if any
+            install_script = profile_data.get("metadata", {}).get("install_script")
+            script_approved = False
+
+            if install_script:
+                script_path = profile_base / install_script
+                if script_path.exists():
+                    # SECURITY: Ask user for permission
+                    reply = QMessageBox.question(
+                        self.game_page,
+                        tr("custom_script_detected_title"),
+                        tr("custom_script_detected_desc", script_name=install_script),
+                        QMessageBox.Yes | QMessageBox.No,
+                    )
+
+                    if reply == QMessageBox.Yes:
+                        script_approved = True
+                        self._run_install_script(
+                            script_path, profile_base, profile_data
+                        )
+
             # Apply profile-level options
             self._apply_profile_options(profile_data)
 
@@ -743,8 +774,14 @@ class ModInstaller:
                             else pkg_abs.name
                         )
                         if _validate_mod_name(dest_name):
-                            items_to_install.append((pkg_abs, dest_name))
-                            final_folder_names.append(dest_name)
+                            if pkg_abs and pkg_abs.is_dir():
+                                items_to_install.append((pkg_abs, dest_name))
+                                final_folder_names.append(dest_name)
+                            else:
+                                # If the package source doesn't exist (e.g. community profile),
+                                # we just track the folder name so we can register it later.
+                                # The assumption is that it will be filled by Nexus downloads or exists already.
+                                final_folder_names.append(dest_name)
 
             # Collect natives not in packages
             # We need to map package source paths to their destination names (folder IDs)
@@ -779,40 +816,48 @@ class ModInstaller:
                     native, profile_base, package_source_map, items_to_install
                 )
 
-            if not items_to_install:
+            if (
+                not items_to_install
+                and not final_folder_names
+                and not profile_data.get("natives")
+                and not (script_approved and install_script)
+            ):
+                # Only cancel if truly nothing is happening (no folders register, no settings apply)
                 self.game_page.status_label.setText(tr("import_cancelled_status"))
                 return []
 
             # Stage and install
-            # Stage and install
-            with TemporaryDirectory() as tmp_dir:
-                staged_items = []
-                for src, dest_name in items_to_install:
-                    staged_path = Path(tmp_dir) / dest_name
+            if items_to_install:
+                with TemporaryDirectory() as tmp_dir:
+                    staged_items = []
+                    for src, dest_name in items_to_install:
+                        staged_path = Path(tmp_dir) / dest_name
 
-                    # Ensure parent directory exists in temp staging area
-                    staged_path.parent.mkdir(parents=True, exist_ok=True)
+                        # Ensure parent directory exists in temp staging area
+                        staged_path.parent.mkdir(parents=True, exist_ok=True)
 
-                    if src.is_dir():
-                        shutil.copytree(
-                            src,
-                            staged_path,
-                            symlinks=False,
-                            ignore_dangling_symlinks=True,
-                            dirs_exist_ok=True,
+                        if src.is_dir():
+                            shutil.copytree(
+                                src,
+                                staged_path,
+                                symlinks=False,
+                                ignore_dangling_symlinks=True,
+                                dirs_exist_ok=True,
+                            )
+                        else:
+                            shutil.copy2(src, staged_path, follow_symlinks=False)
+
+                        # Pass tuple to _copy_with_progress so InstallWorker uses relative path
+                        # First element is absolute path to staged file
+                        # Second element is the relative path it should have in mods dir
+                        dest_rel = (
+                            dest_name
+                            if isinstance(dest_name, Path)
+                            else Path(dest_name)
                         )
-                    else:
-                        shutil.copy2(src, staged_path, follow_symlinks=False)
+                        staged_items.append((staged_path, dest_rel))
 
-                    # Pass tuple to _copy_with_progress so InstallWorker uses relative path
-                    # First element is absolute path to staged file
-                    # Second element is the relative path it should have in mods dir
-                    dest_rel = (
-                        dest_name if isinstance(dest_name, Path) else Path(dest_name)
-                    )
-                    staged_items.append((staged_path, dest_rel))
-
-                self._copy_with_progress(staged_items)
+                    self._copy_with_progress(staged_items)
 
             # Register packages
             for folder_name in final_folder_names:
@@ -844,6 +889,13 @@ class ModInstaller:
                             self.config_manager.enable_native_with_options(
                                 self.game_page.game_name, str(full_path), settings
                             )
+
+            # Run post-install script if approved
+            if script_approved and install_script:
+                script_path = profile_base / install_script
+                self._run_post_install_script(
+                    script_path, final_folder_names, profile_data
+                )
 
             # Show success dialog
             dialog = QDialog(self.game_page)
@@ -982,8 +1034,9 @@ class ModInstaller:
                     )
 
                     # Use GamePage's existing download method headlessly
+                    mod_folder = dep["entry"].get("mod_folder")
                     installed = self.game_page.download_selected_nexus_mod(
-                        mod, load_mods=False
+                        mod, load_mods=False, mod_root_path=mod_folder
                     )
 
                     if installed:
@@ -1325,3 +1378,107 @@ class ModInstaller:
             )
 
         return worker.installed_count > 0
+
+    def _run_install_script(
+        self, script_path: Path, root_path: Path, profile_data: dict | None = None
+    ) -> bool:
+        """
+        Run a custom installation script from the profile.
+
+        The script should define:
+        def on_prepare_install(context): ...
+
+        context provides:
+        - root_path: Path (temp dir containing extracted files)
+        - mods_dir: Path (game mods directory)
+        - game_name: str
+        - profile_data: dict (mutable profile data)
+        """
+        import importlib.util
+
+        try:
+            self._log.info("Running custom install script: %s", script_path)
+
+            # Load module dynamically
+            spec = importlib.util.spec_from_file_location(
+                "mod_install_hook", script_path
+            )
+            if not spec or not spec.loader:
+                raise ImportError(f"Could not load script from {script_path}")
+
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            # Check for hook
+            if hasattr(module, "on_prepare_install"):
+                context = {
+                    "root_path": root_path,
+                    "mods_dir": self._get_mods_dir(),
+                    "game_name": self.game_page.game_name,
+                    "profile_data": profile_data,
+                    # Helper for moving/renaming
+                    "shutil": shutil,
+                    "Path": Path,
+                }
+                module.on_prepare_install(context)
+                self._log.info("Custom install script executed successfully")
+                return True
+            else:
+                self._log.warning(
+                    "Script %s has no on_prepare_install function", script_path.name
+                )
+                return False
+
+        except Exception as e:
+            self._log.exception("Error running install script")
+            self._show_error(tr("script_execution_failed", error=str(e)))
+            return False
+
+    def _run_post_install_script(
+        self,
+        script_path: Path,
+        installed_list: list[str],
+        profile_data: dict | None = None,
+    ) -> bool:
+        """
+        Run a custom post-installation script.
+
+        The script should define:
+        def on_post_install(context): ...
+
+        context provides:
+        - installed: list[str] (names of installed mods, mutable)
+        - mods_dir: Path
+        - game_name: str
+        - profile_data: dict
+        """
+        import importlib.util
+
+        try:
+            self._log.info("Running post-install script: %s", script_path)
+
+            spec = importlib.util.spec_from_file_location(
+                "mod_post_install_hook", script_path
+            )
+            if not spec or not spec.loader:
+                return False
+
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            if hasattr(module, "on_post_install"):
+                context = {
+                    "installed": installed_list,
+                    "mods_dir": self._get_mods_dir(),
+                    "game_name": self.game_page.game_name,
+                    "profile_data": profile_data,
+                    "shutil": shutil,
+                    "Path": Path,
+                }
+                module.on_post_install(context)
+                self._log.info("Post-install script executed successfully")
+                return True
+            return False
+        except Exception:
+            self._log.exception("Error running post-install script")
+            return False

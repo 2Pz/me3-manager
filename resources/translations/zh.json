@@ -1,6 +1,10 @@
 {
   "language_name": "简体中文",
   "app_title": "Mod Engine 3 管理器",
+  "custom_script_detected_title": "检测到自定义安装脚本",
+  "custom_script_detected_desc": "此模组配置文件包含自定义安装脚本 ({script_name})。\n\n您是否要运行此脚本？",
+  "script_execution_failed": "执行自定义安装脚本失败: {error}",
+  "script_executed_success": "自定义安装脚本执行成功。",
   "me3_required_title": "需要安装 ME3",
   "me3_not_installed": "ME3 未安装",
   "me3_not_installed_desc": "管理器需要安装 Mod Engine 3 (ME3) 才能正常工作。",
@@ -429,6 +433,7 @@
   "nexus_sso_cancel": "取消",
   "search_source_local": "本地",
   "search_source_nexus": "Nexus",
+  "search_source_community": "社区",
   "nexus_results_header": "Nexus 结果",
   "nexus_results_empty": "暂无 Nexus 结果。输入模组 ID 或模组链接并按回车键。",
   "nexus_results_found": "找到 {count} 个结果。",
@@ -503,5 +508,13 @@
   "nexus_download_failed": "从 {url} 下载模组失败：\n\n{error}",
   "shipped_configs_found_header": "发现以下模组附带的配置文件：\n",
   "shipped_config_entry_fmt": "- {mod} (发现: {config})",
-  "use_shipped_config_question": "\n\n这些配置由模组/整合包作者提供。\n您是否要使用它们（将覆盖现有的配置文件）？"
+  "use_shipped_config_question": "\n\n这些配置由模组/整合包作者提供。\n您是否要使用它们（将覆盖现有的配置文件）？",
+  "community_results_header": "社区结果",
+  "community_results_empty": "暂无社区结果。请通过搜索查找配置文件。",
+  "community_results_found": "找到 {count} 个配置文件。",
+  "community_searching_status": "正在搜索社区配置文件...",
+  "community_search_failed": "社区搜索失败: {error}",
+  "community_downloading_status": "正在下载配置文件: {profile}...",
+  "community_contribute_button": "提交配置文件",
+  "no_description": "无可用说明。"
 }

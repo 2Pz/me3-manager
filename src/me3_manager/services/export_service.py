@@ -11,20 +11,11 @@ from me3_manager.core.profiles.toml_profile_writer import TomlProfileWriter
 
 
 class ExportService:
-    """
-    Create a portable archive of the current profile and its referenced mods.
-    - Copies only the mods referenced by the profile (packages and natives)
-    - Sanitizes profile to use relative paths (no absolute paths)
-    - Writes a single .zip ready for sharing
-    """
+    """Create a portable archive of the current profile and its referenced mods."""
 
     @staticmethod
     def _rel_to_mods(path_str: str, mods_dir: Path, mods_dir_name: str | None) -> Path:
-        """Return a relative path under mods_dir if possible; avoid resolving relative paths.
-        - Absolute: attempt relative_to(mods_dir)
-        - Relative: if starts with mods_dir_name, strip it; else use as-is
-        - If not under mods_dir, return filename only
-        """
+        """Return path relative to mods_dir. Handles absolute paths and mods_dir_name stripping."""
         p = Path(path_str)
         if p.is_absolute():
             try:
@@ -124,15 +115,11 @@ class ExportService:
             # Prefer 'path', fallback to legacy 'source'
             raw_path = package.get("path") or package.get("source")
             if raw_path:
-                raw = Path(raw_path)
-                try:
-                    rel = raw.resolve().relative_to(mods_dir.resolve())
-                    # Use top-level folder within mods_dir
-                    top = rel.parts[0] if rel.parts else rel.as_posix()
-                    pkg["path"] = f"mods/{top}"
-                except Exception:
-                    # Outside mods_dir: use folder name only under mods/
-                    pkg["path"] = f"mods/{raw.name}"
+                # Use shared logic to find relative path; taking the top-level folder
+                rel = ExportService._rel_to_mods(raw_path, mods_dir, mods_dir_name)
+                top = rel.parts[0] if rel.parts else rel.as_posix()
+                pkg["path"] = f"mods/{top}"
+
             if package.get("load_before"):
                 pkg["load_before"] = package["load_before"]
             if package.get("load_after"):
@@ -187,65 +174,53 @@ class ExportService:
             external_packages: list[
                 tuple[str, str]
             ] = []  # (expected_mods_path, original)
+
             for pkg in profile_data.get("packages", []):
                 if not isinstance(pkg, dict):
                     continue
                 raw_path = pkg.get("path") or pkg.get("source")
                 if not raw_path:
                     continue
-                raw = Path(raw_path)
-                if raw.is_absolute():
+
+                # Check for external paths (absolute and outside mods_dir)
+                p = Path(raw_path)
+                if p.is_absolute():
                     try:
-                        rel = raw.resolve().relative_to(mods_dir.resolve())
-                        root_name = rel.parts[0] if rel.parts else rel.as_posix()
-                        src_folder = (mods_dir / root_name).resolve()
-                        dest_name = root_name
+                        p.resolve().relative_to(mods_dir.resolve())
                     except Exception:
-                        # Outside mods_dir
-                        external_packages.append((f"mods/{raw.name}", str(raw)))
+                        external_packages.append((f"mods/{p.name}", str(p)))
                         continue
-                else:
-                    # Relative paths are treated relative to mods_dir
-                    parts = raw.parts
-                    if not parts:
-                        continue
-                    if mods_dir_name and parts[0] == mods_dir_name:
-                        if len(parts) < 2:
-                            continue
-                        dest_name = parts[1]
-                    else:
-                        dest_name = parts[0]
-                    src_folder = (mods_dir / dest_name).resolve()
-                package_sources.append((src_folder, dest_name))
+
+                # Resolved relative path inside mods directory
+                rel = ExportService._rel_to_mods(raw_path, mods_dir, mods_dir_name)
+                if not rel.parts or str(rel) == ".":
+                    continue
+
+                root_name = rel.parts[0]
+                src_folder = (mods_dir / root_name).resolve()
+                package_sources.append((src_folder, root_name))
 
             native_sources: list[tuple[Path, Path]] = []  # (src_file, dest_rel)
             external_natives: list[
                 tuple[str, str]
             ] = []  # (expected_mods_path, original)
+
             for nat in profile_data.get("natives", []):
                 raw_path = nat.get("path") if isinstance(nat, dict) else nat
                 if not raw_path:
                     continue
-                raw = Path(raw_path)
-                if raw.is_absolute():
+
+                p = Path(raw_path)
+                if p.is_absolute():
                     try:
-                        rel = raw.resolve().relative_to(mods_dir.resolve())
-                        src_file = (mods_dir / rel).resolve()
-                        dest_rel = rel
+                        p.resolve().relative_to(mods_dir.resolve())
                     except Exception:
-                        # Outside mods_dir
-                        external_natives.append((f"mods/{raw.name}", str(raw)))
+                        external_natives.append((f"mods/{p.name}", str(p)))
                         continue
-                else:
-                    # Relative path, treat under mods_dir
-                    parts = raw.parts
-                    if mods_dir_name and parts and parts[0] == mods_dir_name:
-                        rel = Path(*parts[1:]) if len(parts) > 1 else Path("")
-                    else:
-                        rel = raw
-                    src_file = (mods_dir / rel).resolve()
-                    dest_rel = rel
-                native_sources.append((src_file, dest_rel))
+
+                rel = ExportService._rel_to_mods(raw_path, mods_dir, mods_dir_name)
+                src_file = (mods_dir / rel).resolve()
+                native_sources.append((src_file, rel))
 
             # Create build tree and zip
             with TemporaryDirectory() as tmp_dir:

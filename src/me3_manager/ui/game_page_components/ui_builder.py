@@ -22,6 +22,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager.ui.game_page_components.community_search_panel import (
+    CommunitySearchPanel,
+)
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
 
@@ -241,6 +244,9 @@ class UiBuilder:
         self.game_page.search_mode_combo = QComboBox()
         self.game_page.search_mode_combo.addItem(tr("search_source_local"), "local")
         self.game_page.search_mode_combo.addItem(tr("search_source_nexus"), "nexus")
+        self.game_page.search_mode_combo.addItem(
+            tr("search_source_community"), "community"
+        )
         self.game_page.search_mode_combo.setFixedWidth(110)
         self.game_page.search_mode_combo.setStyleSheet(
             """
@@ -321,7 +327,10 @@ class UiBuilder:
 
     def _create_pagination_section(self):
         """Create the pagination controls."""
-        pagination_layout = QHBoxLayout()
+        # Wrap in a widget to allow easy visibility toggling
+        self.game_page.pagination_widget = QWidget()
+        pagination_layout = QHBoxLayout(self.game_page.pagination_widget)
+        pagination_layout.setContentsMargins(0, 0, 0, 0)
 
         items_per_page_layout = self._create_items_per_page_controls()
         pagination_layout.addLayout(items_per_page_layout)
@@ -331,7 +340,7 @@ class UiBuilder:
         for widget in nav_buttons:
             pagination_layout.addWidget(widget)
 
-        self.game_page.main_layout.addLayout(pagination_layout)
+        self.game_page.main_layout.addWidget(self.game_page.pagination_widget)
 
     def _create_items_per_page_controls(self):
         """Create the items per page selector."""
@@ -382,6 +391,14 @@ class UiBuilder:
         self.game_page.mods_widget.setStyleSheet(self.style.mods_widget_style)
 
         self.game_page.main_layout.addWidget(self.game_page.mods_widget)
+
+        # Community Search Panel (hidden by default)
+        self.game_page.community_search_panel = CommunitySearchPanel()
+        self.game_page.community_search_panel.setVisible(False)
+        self.game_page.community_search_panel.install_requested.connect(
+            self.game_page.on_community_install_requested
+        )
+        self.game_page.main_layout.addWidget(self.game_page.community_search_panel, 1)
 
         # Sidebar as a floating overlay (not part of layout)
         try:

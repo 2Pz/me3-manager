@@ -10,10 +10,18 @@ from PySide6.QtGui import (
     QDropEvent,
     QPixmap,
 )
-from PySide6.QtWidgets import QInputDialog, QMenu, QMessageBox, QProgressDialog, QWidget
+from PySide6.QtWidgets import (
+    QInputDialog,
+    QMenu,
+    QMessageBox,
+    QProgressDialog,
+    QSizePolicy,
+    QWidget,
+)
 
 from me3_manager.core.mod_manager import ImprovedModManager
 from me3_manager.core.nexus_metadata import NexusMetadataManager
+from me3_manager.services.community_service import CommunityService
 from me3_manager.services.export_service import ExportService
 from me3_manager.services.nexus_service import (
     NexusError,
@@ -86,6 +94,7 @@ class GamePage(QWidget):
     def __init__(self, game_name: str, config_manager):
         super().__init__()
 
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.game_name = game_name
         self.style = GamePageStyle()
         self.config_manager = config_manager
@@ -120,6 +129,7 @@ class GamePage(QWidget):
 
         # Nexus integration
         self.nexus_service = NexusService(self.config_manager.get_nexus_api_key())
+        self.community_service = CommunityService()
         self._thumb_cache: dict[str, QPixmap] = {}
         self.nexus_metadata = NexusMetadataManager(
             self.config_manager.config_root,
@@ -137,6 +147,7 @@ class GamePage(QWidget):
         self.builder.init_ui()
         self._setup_file_watcher()
         self.load_mods()
+        self.on_search_mode_changed()  # Ensure correct initial state
 
     @staticmethod
     def _safe_disconnect(signal) -> None:
@@ -179,12 +190,37 @@ class GamePage(QWidget):
 
         # UX: clear previous results when switching modes (actual panels added later)
         if self.search_mode == "local":
+            self.mods_widget.setVisible(True)
+            if hasattr(self, "pagination_widget"):
+                self.pagination_widget.setVisible(True)
+            if hasattr(self, "community_search_panel"):
+                self.community_search_panel.setVisible(False)
             self.apply_filters(reset_page=True)
+
+        elif self.search_mode == "community":
+            self.mods_widget.setVisible(False)
+            if hasattr(self, "pagination_widget"):
+                self.pagination_widget.setVisible(False)
+            if hasattr(self, "community_search_panel"):
+                self.community_search_panel.setVisible(True)
+            self.perform_community_search()
+        else:
+            # Nexus mode (overlay dropdown), show local mods in background?
+            # Or hide everything?
+            # Existing behavior was likely just showing local mods + dropdown.
+            # Let's keep local mods visible for Nexus mode.
+            self.mods_widget.setVisible(True)
+            if hasattr(self, "pagination_widget"):
+                self.pagination_widget.setVisible(True)
+            if hasattr(self, "community_search_panel"):
+                self.community_search_panel.setVisible(False)
 
     def on_search_text_changed(self):
         # In local mode, keep existing live filtering.
         if self.search_mode == "local":
             self.apply_filters(reset_page=True)
+        elif self.search_mode == "community":
+            self.perform_community_search()
         else:
             # Hide any open dropdown when editing query
             try:
@@ -202,6 +238,8 @@ class GamePage(QWidget):
                 self.perform_nexus_search()
             except Exception:
                 pass
+        elif self.search_mode == "community":
+            self.perform_community_search()
 
     def perform_nexus_search(self):
         query = (self.search_bar.text() or "").strip()
@@ -274,6 +312,87 @@ class GamePage(QWidget):
         self._nexus_last_results = mods
         self._show_nexus_dropdown(results=mods)
         self._update_status(tr("nexus_results_loaded_status", count=len(mods)))
+
+    def perform_community_search(self):
+        """Fetch all community profiles and filter locally."""
+        panel = getattr(self, "community_search_panel", None)
+        if not panel:
+            return
+
+        panel.set_status(tr("community_searching_status"))
+
+        try:
+            # fetch_profiles handles caching, so this is fast if already fetched
+            profiles = self.community_service.fetch_profiles(self.game_name)
+
+            query = (self.search_bar.text() or "").strip().lower()
+            if query:
+                filtered = [
+                    p
+                    for p in profiles
+                    if query in p.name.lower() or query in p.description.lower()
+                ]
+            else:
+                filtered = profiles
+
+            panel.set_results(filtered)
+
+        except Exception as e:
+            panel.set_status(tr("community_search_failed", error=str(e)))
+
+    def on_community_install_requested(self, profile):
+        """Handle install request from community panel."""
+        try:
+            with TemporaryDirectory() as tmp:
+                tmp_dir = Path(tmp)
+                dl_path = tmp_dir / profile.filename
+
+                # Show indeterminate progress
+                progress = QProgressDialog(
+                    tr("community_downloading_status", profile=profile.name),
+                    tr("cancel_button"),
+                    0,
+                    0,  # Indeterminate
+                    self,
+                )
+                progress.setWindowModality(Qt.WindowModality.WindowModal)
+                progress.setMinimumDuration(0)
+
+                # We can't cancel the requests.get easily without thread,
+                # but let's just do blocking download for MVP as per existing patterns
+                # or better, use a simple loop.
+                # Actually CommunityService.download_profile uses stream, so we can support cancel/progress later.
+                # For now blocking download with spinner.
+
+                progress.show()
+                # Force UI update
+                from PySide6.QtWidgets import QApplication
+
+                QApplication.processEvents()
+
+                result_path = self.community_service.download_profile(profile, dl_path)
+                progress.close()
+
+                if result_path and result_path.exists():
+                    self.handle_downloaded_profile(result_path)
+
+        except Exception as e:
+            QMessageBox.critical(self, tr("error"), str(e))
+
+    def handle_downloaded_profile(self, path: Path):
+        """Invoke the mod installer to handle the downloaded profile."""
+        if not path.exists():
+            return
+
+        # We use the parent folder (temp dir) as the base context.
+        # This works fine for profiles that rely on Nexus links.
+        # For profiles relying on local files, those files won't be present,
+        # but _handle_profile_import should gracefully handle or warn about missing local files
+        # (or just skip them and install what it can).
+
+        # We access the internal method _handle_profile_import because it isn't exposed publicly yet
+        # but it is the correct reuse of logic.
+        self.mod_installer._handle_profile_import(path.parent, path)
 
     def _show_nexus_dropdown(self, *, results=None, error_text: str | None = None):
         """Show a dropdown under the search bar like the desired UX screenshot."""
@@ -482,7 +601,9 @@ class GamePage(QWidget):
         except Exception:
             pass
 
-    def download_selected_nexus_mod(self, mod=None, load_mods=True):
+    def download_selected_nexus_mod(
+        self, mod=None, load_mods=True, mod_root_path: str | None = None
+    ):
         """Download and install a Nexus mod (zip only)."""
         import logging
 
@@ -588,6 +709,7 @@ class GamePage(QWidget):
                         or f"nexus_{mod.mod_id}_{chosen.file_id}"
                     ),
                     load_mods=load_mods,
+                    mod_root_path=mod_root_path,
                 )
                 if installed:
                     # Track metadata for update checking (match API install behavior).
@@ -701,7 +823,9 @@ class GamePage(QWidget):
                     mod.name or chosen.name or f"nexus_{mod.mod_id}_{chosen.file_id}"
                 ).strip()
 
-                mod_root_path = sidebar.get_mod_root_path() if sidebar else None
+                mod_root_path = mod_root_path or (
+                    sidebar.get_mod_root_path() if sidebar else None
+                )
 
                 # Save the folder rule for future updates if specified
                 if mod_root_path:
