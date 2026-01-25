@@ -1581,27 +1581,45 @@ class GamePage(QWidget):
             if isinstance(game_section, dict):
                 savefile_value = game_section.get("savefile")
 
-        # If Seamless Co-op is enabled (ersc.dll or nrsc.dll), do not show the banner
+        # List of DLLs that provide alternative save mechanisms.
+        # Format: just the filename. We automatically check for the stem (name without extension) as well.
+        alt_save_dlls = [
+            "ersc.dll",
+            "nrsc.dll",
+            "ds3sc.dll",
+            "nightreign_alt_saves.dll",
+            "eldenring_alt_saves.dll",
+            "armoredcore6_alt_saves.dll",
+        ]
+
+        # If Seamless Co-op or other alt-save mod is enabled, do not show the banner
         try:
             mods_data = getattr(self, "all_mods_data", {}) or {}
             seamless_enabled = False
+
             for mod_path, info in mods_data.items():
                 if not info.get("enabled", False):
                     continue
                 path_lower = str(mod_path).lower()
                 name_lower = str(info.get("name", "")).lower()
-                if path_lower.endswith(("/ersc.dll", "\\ersc.dll")):
-                    seamless_enabled = True
-                    break
-                if path_lower.endswith(("/nrsc.dll", "\\nrsc.dll")):
-                    seamless_enabled = True
-                    break
-                # Also check by stem/name for safety (e.g., external path missing extension in name)
-                if name_lower.endswith(("/ersc", "/nrsc")) or name_lower in (
-                    "ersc",
-                    "nrsc",
-                ):
-                    seamless_enabled = True
+
+                for dll in alt_save_dlls:
+                    # 1. Check if file path ends with the dll name
+                    if path_lower.endswith((f"/{dll}", f"\\{dll}")):
+                        seamless_enabled = True
+                        break
+
+                    # 2. Check if mod name matches the stem (e.g. "ersc" for "ersc.dll")
+                    stem = dll.rsplit(".", 1)[0]
+                    # Original logic compatibility: ends with /stem OR equals stem
+                    if (
+                        name_lower.endswith((f"/{stem}", f"\\{stem}"))
+                        or name_lower == stem
+                    ):
+                        seamless_enabled = True
+                        break
+
+                if seamless_enabled:
                     break
         except Exception:
             seamless_enabled = False
