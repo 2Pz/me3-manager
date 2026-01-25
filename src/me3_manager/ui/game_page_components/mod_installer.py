@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from me3_manager.core.config_applicator import ConfigApplicator
 from me3_manager.core.profiles.profile_manager import ProfileManager
 from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS, extract_archive
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
@@ -895,6 +896,34 @@ class ModInstaller:
             dialog.setLayout(layout)
             dialog.exec()
 
+            # Apply configuration overrides
+            mods_dir = self._get_mods_dir()
+
+            def _apply_configs(entries):
+                for entry in entries:
+                    if (
+                        isinstance(entry, dict)
+                        and entry.get("config")
+                        and entry.get("config_overrides")
+                    ):
+                        # path is relative to mods_dir
+                        config_rel = entry["config"]
+                        config_path = mods_dir / config_rel
+                        # Simple security check to prevent escaping mods_dir
+                        try:
+                            config_path.resolve().relative_to(mods_dir.resolve())
+                            ConfigApplicator.apply_ini_overrides(
+                                config_path, entry["config_overrides"]
+                            )
+                        except Exception:
+                            self._log.warning(
+                                "Invalid config override path (security check failed): %s",
+                                config_rel,
+                            )
+
+            _apply_configs(profile_data.get("natives", []))
+            _apply_configs(profile_data.get("packages", []))
+
             self.game_page.load_mods()
             return final_folder_names
 
@@ -1022,8 +1051,12 @@ class ModInstaller:
 
                     # Use GamePage's existing download method headlessly
                     mod_folder = dep["entry"].get("mod_folder")
+                    file_category = dep["settings"].get("nexus_category")
                     installed = self.game_page.download_selected_nexus_mod(
-                        mod, load_mods=False, mod_root_path=mod_folder
+                        mod,
+                        load_mods=False,
+                        mod_root_path=mod_folder,
+                        file_category=file_category,
                     )
 
                     if installed:
@@ -1054,6 +1087,18 @@ class ModInstaller:
                         # Apply settings immediately as well
                         if dep["settings"]:
                             pass
+
+                        # Save mod_root_path to metadata if provided in the profile
+                        m_folder = dep["entry"].get("mod_folder") or dep["entry"].get(
+                            "mod_root_path"
+                        )
+                        if m_folder:
+                            try:
+                                self.game_page.nexus_metadata.set_mod_root_path(
+                                    dep["game_domain"], dep["mod_id"], m_folder
+                                )
+                            except Exception:
+                                pass
 
                 except Exception as e:
                     self._log.error(f"Failed to download {dep['url']}: {e}")
@@ -1322,7 +1367,7 @@ class ModInstaller:
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
-                # Filter out ALL conflicts (both types)
+                # Filter out all conflicts
                 all_conflicts = set(conflicts + config_conflicts)
                 items = [p for p in items if get_dest_name(p) not in all_conflicts]
 
@@ -1403,7 +1448,6 @@ class ModInstaller:
                     "mods_dir": self._get_mods_dir(),
                     "game_name": self.game_page.game_name,
                     "profile_data": profile_data,
-                    # Helper for moving/renaming
                     "shutil": shutil,
                     "Path": Path,
                 }

@@ -51,6 +51,8 @@ class NexusModDetailsSidebar(QWidget):
     check_update_clicked = Signal()
     install_clicked = Signal()
     link_clicked = Signal()
+    file_selected = Signal(int)
+    mod_root_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -58,16 +60,59 @@ class NexusModDetailsSidebar(QWidget):
         self._file: NexusModFile | None = None
         self._nexus_url: str | None = None
         self._target_width = 360
-        self._min_height = 550  # Minimum height to ensure content is always visible
+        self._min_height = 550
         self._animation: QPropertyAnimation | None = None
+
         self._build()
-        # Set fixed width for the overlay
-        self.setFixedWidth(self._target_width)
-        # Raise to top so it appears above other widgets
-        self.raise_()
-        # Install event filter on parent to handle resizes
+
+        # Install event filter to track parent resizes
         if parent:
             parent.installEventFilter(self)
+
+    def populate_files(self, files: list[NexusModFile], selected_id: int | None = None):
+        """Populate the file selection combobox."""
+        self.file_combo.blockSignals(True)
+        self.file_combo.clear()
+
+        if not files:
+            self.file_combo.addItem(tr("nexus_no_files_found"), None)
+            self.file_combo.setEnabled(False)
+            self.file_combo.blockSignals(False)
+            return
+
+        self.file_combo.setEnabled(True)
+
+        # Sort files by Category ID (Main=1 first), then File ID descending
+        def sort_key(f):
+            return (f.category_id or 99, -(f.file_id or 0))
+
+        sorted_files = sorted(files, key=sort_key)
+
+        selected_index = 0
+        for i, f in enumerate(sorted_files):
+            cat_name = f.category_name or "Unknown"
+            display_text = f"[{cat_name}] {f.name}"
+            if f.version:
+                display_text += f" ({f.version})"
+
+            self.file_combo.addItem(display_text, f.file_id)
+
+            if selected_id is not None and f.file_id == selected_id:
+                selected_index = i
+
+        self.file_combo.setCurrentIndex(selected_index)
+        self.file_combo.blockSignals(False)
+
+    def current_selected_file_id(self) -> int | None:
+        return self.file_combo.currentData()
+
+    def _on_file_combo_changed(self):
+        fid = self.current_selected_file_id()
+        if fid is not None:
+            self.file_selected.emit(fid)
+
+    def _on_folder_input_changed(self):
+        self.mod_root_changed.emit(self.folder_input.text().strip())
 
     def eventFilter(self, watched, event):
         """Handle parent resize events to reposition the sidebar."""
@@ -400,10 +445,11 @@ class NexusModDetailsSidebar(QWidget):
         folder_label.setStyleSheet("color: #888888; font-size: 10px;")
         folder_layout.addWidget(folder_label)
 
-        from PySide6.QtWidgets import QLineEdit
+        from PySide6.QtWidgets import QComboBox, QLineEdit
 
         self.folder_input = QLineEdit()
         self.folder_input.setPlaceholderText(tr("nexus_mod_folder_placeholder"))
+        self.folder_input.textChanged.connect(self._on_folder_input_changed)
         self.folder_input.setStyleSheet("""
             QLineEdit {
                 background-color: #2d2d2d;
@@ -423,6 +469,44 @@ class NexusModDetailsSidebar(QWidget):
         folder_hint.setWordWrap(True)
         folder_hint.setStyleSheet("color: #666666; font-size: 9px;")
         folder_layout.addWidget(folder_hint)
+
+        # File Selection Combo
+        file_label = QLabel(tr("nexus_file_label"))
+        file_label.setStyleSheet("color: #888888; font-size: 10px; margin-top: 8px;")
+        folder_layout.addWidget(file_label)
+
+        self.file_combo = QComboBox()
+        self.file_combo.setToolTip(tr("nexus_file_tooltip"))
+        self.file_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                border-radius: 6px;
+                padding: 4px 8px;
+                color: #ffffff;
+                font-size: 11px;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 2px solid #888888;
+                border-bottom: 2px solid #888888;
+                width: 6px;
+                height: 6px;
+                margin-right: 8px;
+                transform: rotate(-45deg);
+            }
+            QComboBox QAbstractItemView {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                selection-background-color: #0078d4;
+                color: #ffffff;
+            }
+        """)
+        self.file_combo.currentIndexChanged.connect(self._on_file_combo_changed)
+        folder_layout.addWidget(self.file_combo)
 
         content_layout.addWidget(self.folder_container)
 
@@ -540,6 +624,25 @@ class NexusModDetailsSidebar(QWidget):
 
     def current_file(self) -> NexusModFile | None:
         return self._file
+
+    def current_category(self) -> str:
+        """Get the currently selected file category preference."""
+        return self.category_combo.currentText()
+
+    def set_category(self, category: str | None):
+        """Set the selected file category."""
+        if not category:
+            self.category_combo.setCurrentText("MAIN")
+            return
+
+        # Try to find case-insensitive match
+        for i in range(self.category_combo.count()):
+            if self.category_combo.itemText(i).upper() == category.upper():
+                self.category_combo.setCurrentIndex(i)
+                return
+
+        # If standard category, set it
+        self.category_combo.setCurrentText(category.upper())
 
     def get_mod_root_path(self) -> str | None:
         """Get the user-specified folder path (empty string = auto-detect)."""

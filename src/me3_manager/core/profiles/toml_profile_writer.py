@@ -198,8 +198,19 @@ class TomlProfileWriter:
                         )
                         if dep_array:
                             native_table["load_after"] = dep_array
-                    if "mod_folder" in native:
-                        native_table["mod_folder"] = native["mod_folder"]
+                        if dep_array:
+                            native_table["load_after"] = dep_array
+
+                    # New nexus metadata fields
+                    for k in (
+                        "nexus_id",
+                        "nexus_file_id",
+                        "nexus_category",
+                        "nexus_name",
+                        "version",
+                    ):
+                        if k in native and native[k] not in (None, []):
+                            native_table[k] = native[k]
 
                     if "initializer" in native and native["initializer"]:
                         # Use dotted key notation instead of nested tables
@@ -247,10 +258,37 @@ class TomlProfileWriter:
         # Add packages section (v1)
         packages = config_data.get("packages", [])
         if packages:
+            # Build set of "implicit" packages from natives
+            implicit_package_roots = set()
+            for native in natives:
+                path_str = (
+                    native.get("path", "") if isinstance(native, dict) else native
+                )
+                if path_str:
+                    parts = Path(path_str).parts
+                    if len(parts) > 1:
+                        implicit_package_roots.add(parts[0])
+
             packages_aot = tomlkit.aot()
 
             for package in packages:
                 if isinstance(package, dict):
+                    # Check if this package is redundant
+                    # Criteria:
+                    # 1. It matches an implicit root from natives
+                    # 2. It has no "special" settings (load_before, load_after, enabled=False)
+                    # Use 'source' or 'path' for the name check
+                    pkg_path = package.get("path") or package.get("source")
+
+                    if (
+                        pkg_path
+                        and pkg_path in implicit_package_roots
+                        and package.get("enabled", True) is not False
+                        and not package.get("load_before")
+                        and not package.get("load_after")
+                    ):
+                        continue
+
                     package_table = tomlkit.table()
 
                     if "id" in package:
@@ -275,9 +313,17 @@ class TomlProfileWriter:
                         )
                         if dep_array:
                             package_table["load_after"] = dep_array
-                    if "mod_folder" in package:
-                        package_table["mod_folder"] = package["mod_folder"]
-                    # nexus_link is excluded from the saved file (runtime only)
+
+                    # New nexus metadata fields
+                    for k in (
+                        "nexus_id",
+                        "nexus_file_id",
+                        "nexus_category",
+                        "nexus_name",
+                        "version",
+                    ):
+                        if k in package and package[k] not in (None, []):
+                            package_table[k] = package[k]
 
                     packages_aot.append(package_table)
 

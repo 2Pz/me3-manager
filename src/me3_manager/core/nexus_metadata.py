@@ -469,6 +469,7 @@ class NexusMetadataManager:
         file_uploaded_timestamp: int | None = None,
         nexus_url: str | None = None,
         custom_name: str | None = None,
+        mod_root_path: str | None = None,
     ) -> None:
         """
         Update cached details for a mod.
@@ -560,6 +561,8 @@ class NexusMetadataManager:
             tracked.file_category = file_category
         if file_uploaded_timestamp is not None:
             tracked.file_uploaded_timestamp = int(file_uploaded_timestamp)
+        if mod_root_path is not None:
+            tracked.mod_root_path = mod_root_path
 
         # If we just installed/updated a file (file_id written), any previously cached
         # "update available" state should be cleared so the UI badge disappears.
