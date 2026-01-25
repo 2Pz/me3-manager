@@ -166,20 +166,17 @@ class PathManager:
         search_path = self.normalize_path(mod_path_str)
 
         # Check active profile override
+        # Check active profile override
         try:
             profile_path = self.get_profile_path(game_name)
             if profile_path.exists():
                 from me3_manager.core.profiles.profile_manager import ProfileManager
 
                 profile_data = ProfileManager.read_profile(profile_path)
-
-                if native := self._find_native_entry(
-                    profile_data.get("natives", []), search_path, mods_dir
+                if paths := self._extract_config_paths_from_profile(
+                    profile_data, search_path, mods_dir
                 ):
-                    if cfg_val := native.get("config"):
-                        paths = self._resolve_config_paths(cfg_val, mods_dir)
-                        if paths:
-                            return paths
+                    return paths
         except Exception:
             pass
 
@@ -194,19 +191,29 @@ class PathManager:
                 for me3_file in search_dir.rglob("*.me3"):
                     try:
                         profile_data = ProfileManager.read_profile(me3_file)
-                        if native := self._find_native_entry(
-                            profile_data.get("natives", []), search_path, mods_dir
+                        if paths := self._extract_config_paths_from_profile(
+                            profile_data, search_path, mods_dir
                         ):
-                            if cfg_val := native.get("config"):
-                                paths = self._resolve_config_paths(cfg_val, mods_dir)
-                                if paths:
-                                    return paths
+                            return paths
                     except Exception:
                         continue
         except Exception:
             pass
 
         return [default_path]
+
+    def _extract_config_paths_from_profile(
+        self, profile_data: dict, search_path: str, mods_dir: Path
+    ) -> list[Path] | None:
+        """Helper to extract config paths from profile data if match found."""
+        if native := self._find_native_entry(
+            profile_data.get("natives", []), search_path, mods_dir
+        ):
+            if cfg_val := native.get("config"):
+                paths = self._resolve_config_paths(cfg_val, mods_dir)
+                if paths:
+                    return paths
+        return None
 
     def _resolve_config_paths(self, cfg_val, mods_dir: Path) -> list[Path]:
         """Resolve config value (str or list) to absolute paths."""

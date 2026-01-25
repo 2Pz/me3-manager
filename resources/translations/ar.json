@@ -4,7 +4,6 @@
   "custom_script_detected_title": "تم اكتشاف سكربت تثبيت مخصص",
   "custom_script_detected_desc": "يحتوي ملف تعريف هذا المود على سكربت تثبيت مخصص ({script_name}).\n\nهل تريد تشغيل هذا السكربت؟",
   "script_execution_failed": "فشل تنفيذ سكربت التثبيت المخصص: {error}",
-  "script_executed_success": "تم تنفيذ سكربت التثبيت المخصص بنجاح.",
   "me3_required_title": "مطلوب تثبيت ME3",
   "me3_not_installed": "ME3 مو مثبت",
   "me3_not_installed_desc": "المدير يحتاج يكون Mod Engine 3 مثبت عشان يشتغل صح.",
@@ -116,7 +115,6 @@
   "install_add_path": "تم تثبيت ME3 بنجاح في:\n{install_path}\n\nمجلد التثبيت انضاف لمسار المستخدم PATH.",
   "installation_restart_required_title": "اكتمل التثبيت - مطلوب إعادة التشغيل",
   "installation_restart_required_body": "تم تثبيت ME3 بنجاح في:\n{install_path}\n\nلكن، الأمر 'me3' ما تم اكتشافه فوراً.\nهذا شي طبيعي في ويندوز.\n\nلو سمحت أعد تشغيل الجهاز عشان يتحدث مسار النظام (PATH).\n\nبعد إعادة التشغيل، افتح المدير مرة ثانية.",
-  "installation_success_but_not_detected": "اكتمل التثبيت لكن الأمر 'me3' لم يتم اكتشافه. غالباً تحتاج إعادة تشغيل الجهاز.",
   "add_dependency": "+ إضافة اعتمادية",
   "advanced_options": "خيارات متقدمة - {mod_name}",
   "mod_type": "النوع: {mod_type}",
@@ -500,7 +498,6 @@
   "rename_mod_msg": "أدخل الاسم الجديد:",
   "mod_renamed_status": "تمت إعادة تسمية المود بنجاح",
   "mod_rename_failed_status": "فشل في إعادة تسمية المود: {error}",
-  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}.",
   "nexus_dependencies_title": "تنزيل تبعيات Nexus",
   "nexus_dependencies_found": "يتطلب هذا الملف الشخصي {count} تعديل(ات) من Nexus Mods:",
   "nexus_dependencies_confirm": "هل تود تنزيل هذه التعديلات الآن؟",
@@ -516,5 +513,6 @@
   "community_search_failed": "فشل بحث المجتمع: {error}",
   "community_downloading_status": "جاري تحميل البروفايل: {profile}...",
   "community_contribute_button": "إرسال بروفايل",
-  "no_description": "لا يوجد وصف."
+  "no_description": "لا يوجد وصف.",
+  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}."
 }
