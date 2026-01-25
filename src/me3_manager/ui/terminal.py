@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
@@ -47,6 +48,29 @@ class EmbeddedTerminal(QWidget):
         header.addWidget(icon_label)
         header.addWidget(title)
         header.addStretch()
+
+        # Start Shell button
+        self.shell_btn = QPushButton(tr("start_shell_button"))
+        self.shell_btn.setFixedSize(80, 25)
+        self.shell_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0078d4;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1084d9;
+            }
+            QPushButton:disabled {
+                background-color: #3d3d3d;
+                color: #888888;
+            }
+        """)
+        self.shell_btn.clicked.connect(self.toggle_shell)
+        header.addWidget(self.shell_btn)
 
         # Copy button
         copy_btn = QPushButton(tr("copy_button"))
@@ -101,6 +125,26 @@ class EmbeddedTerminal(QWidget):
         """)
         self.output.setMaximumHeight(200)
         layout.addWidget(self.output)
+
+        # Input field
+        self.input_field = QLineEdit()
+        self.input_field.setPlaceholderText(tr("terminal_input_placeholder"))
+        self.input_field.setFont(QFont("Consolas", 9))
+        self.input_field.setStyleSheet("""
+            QLineEdit {
+                background-color: #1e1e1e;
+                color: #ffffff;
+                border: 1px solid #3d3d3d;
+                border-radius: 4px;
+                padding: 4px 8px;
+            }
+            QLineEdit:focus {
+                border-color: #0078d4;
+            }
+        """)
+        self.input_field.returnPressed.connect(self.send_input)
+        self.input_field.setEnabled(False)  # Disabled by default until shell starts
+        layout.addWidget(self.input_field)
 
         self.setLayout(layout)
 
@@ -206,8 +250,7 @@ class EmbeddedTerminal(QWidget):
             self.output.append(f"$ {display_command}")
 
         if self.process is not None:
-            self.process.kill()
-            self.process.waitForFinished(1000)
+            self._kill_process()
 
         self.process = QProcess(self)
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
@@ -226,6 +269,9 @@ class EmbeddedTerminal(QWidget):
             # Handle new argument list format (use centralized list prep)
             program, args = PlatformUtils.prepare_list_command_for_qprocess(command)
             self.process.start(program, args)
+
+        # When running a specific command (like game launch), we disable interactive input
+        self.set_interactive_mode(False)
 
     def handle_stdout(self):
         cursor = self.output.textCursor()
@@ -250,5 +296,73 @@ class EmbeddedTerminal(QWidget):
                 tr("process_finished_with_code_status", exit_code=exit_code)
             )
 
+        # Reset UI state when process ends
+        self.set_interactive_mode(False)
+
     def clear_output(self):
         self.output.clear()
+
+    def closeEvent(self, event):
+        """Ensure subprocess is killed when the widget is closed."""
+        self._kill_process()
+        super().closeEvent(event)
+
+    def toggle_shell(self):
+        """Toggle the interactive system shell."""
+        if self.process and self.process.state() == QProcess.ProcessState.Running:
+            self._kill_process()
+            self.output.append(tr("shell_stopped_status"))
+            self.shell_btn.setText(tr("start_shell_button"))
+            self.set_interactive_mode(False)
+        else:
+            self.start_interactive_shell()
+
+    def start_interactive_shell(self):
+        """Start an interactive system shell."""
+        import sys
+
+        self._kill_process()
+        self.output.clear()
+
+        shell_cmd = "powershell.exe" if sys.platform == "win32" else "/bin/bash"
+        self.output.append(tr("starting_shell_status", shell=shell_cmd))
+
+        self.process = QProcess(self)
+        self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process.setProcessEnvironment(PlatformUtils.build_qprocess_environment())
+
+        self.process.readyReadStandardOutput.connect(self.handle_stdout)
+        self.process.finished.connect(self.process_finished)
+
+        self.process.start(shell_cmd)
+
+        self.shell_btn.setText(tr("stop_shell_button"))
+        self.set_interactive_mode(True)
+        self.input_field.setFocus()
+
+    def send_input(self):
+        """Send text from input field to the running process."""
+        if not self.process or self.process.state() != QProcess.ProcessState.Running:
+            return
+
+        text = self.input_field.text()
+
+        # Write to process stdin
+        self.process.write(f"{text}\n".encode())
+        self.input_field.clear()
+
+    def set_interactive_mode(self, enabled: bool):
+        """Enable or disable interactive input controls."""
+        self.input_field.setEnabled(enabled)
+        if enabled:
+            self.shell_btn.setText(tr("stop_shell_button"))
+        else:
+            self.shell_btn.setText(tr("start_shell_button"))
+
+    def _kill_process(self):
+        """Helper to kill the current process if running."""
+        if self.process is not None:
+            if self.process.state() == QProcess.ProcessState.Running:
+                self.process.kill()
+                self.process.waitForFinished(1000)
+            self.process = None
