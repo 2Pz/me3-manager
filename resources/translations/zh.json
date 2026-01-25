@@ -4,7 +4,6 @@
   "custom_script_detected_title": "检测到自定义安装脚本",
   "custom_script_detected_desc": "此模组配置文件包含自定义安装脚本 ({script_name})。\n\n您是否要运行此脚本？",
   "script_execution_failed": "执行自定义安装脚本失败: {error}",
-  "script_executed_success": "自定义安装脚本执行成功。",
   "me3_required_title": "需要安装 ME3",
   "me3_not_installed": "ME3 未安装",
   "me3_not_installed_desc": "管理器需要安装 Mod Engine 3 (ME3) 才能正常工作。",
@@ -116,7 +115,6 @@
   "install_add_path": "ME3 已成功安装到：\n{install_path}\n\n安装目录已添加到您的用户 PATH 中。",
   "installation_restart_required_title": "Installation Complete - Restart Required",
   "installation_restart_required_body": "ME3 installed successfully to:\n{install_path}\n\nHowever, the 'me3' command was not detected immediately.\nThis is common on Windows.\n\nPlease RESTART your computer to refresh the system PATH environment variable.\n\nAfter restarting, open this manager again.",
-  "installation_success_but_not_detected": "Installation completed but 'me3' command not detected. A system restart is likely required.",
   "add_dependency": "+ 添加依赖",
   "advanced_options": "高级选项 - {mod_name}",
   "mod_type": "类型: {mod_type}",
@@ -500,7 +498,6 @@
   "rename_mod_msg": "请输入新名称：",
   "mod_renamed_status": "模组重命名成功",
   "mod_rename_failed_status": "模组重命名失败：{error}",
-  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。",
   "nexus_dependencies_title": "下载 Nexus 依赖项",
   "nexus_dependencies_found": "此配置文件需要 {count} 个来自 Nexus Mods 的模组：",
   "nexus_dependencies_confirm": "您想现在下载这些模组吗？",
@@ -516,5 +513,6 @@
   "community_search_failed": "社区搜索失败: {error}",
   "community_downloading_status": "正在下载配置文件: {profile}...",
   "community_contribute_button": "提交配置文件",
-  "no_description": "无可用说明。"
+  "no_description": "无可用说明。",
+  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。"
 }
