@@ -389,6 +389,21 @@ class NexusMetadataManager:
             items = self.load_game("unknown")
             if local_mod_path in items:
                 return items[local_mod_path]
+
+            # Fallback: Check if any tracked item is a child of the requested path
+            # This handles container mods where metadata is attached to a nested file
+            local_path_obj = Path(local_mod_path)
+            for key, item in items.items():
+                if key.startswith("__cache__:"):
+                    continue
+                try:
+                    # check if 'key' (the file path in metadata) is relative to 'local_mod_path' (the container)
+                    # strict=False allows matching the path itself too, but we handled exact match above
+                    Path(key).relative_to(local_path_obj)
+                    return item
+                except ValueError:
+                    continue
+
         except Exception:
             return None
         return None

@@ -938,36 +938,28 @@ class GamePage(QWidget):
         is_package_mod = False
         try:
             # Check recursively for any acceptable folder
-            # We check 2 levels deep to catch standard structures
-            def start_scan(p):
-                yield str(p), [d.name for d in p.iterdir() if d.is_dir()], []
-                for d in p.iterdir():
-                    if d.is_dir():
-                        yield (
-                            str(d),
-                            [sub.name for sub in d.iterdir() if sub.is_dir()],
-                            [],
-                        )
-
-            for _, dirs, _ in start_scan(folder_path):
-                if any(d in ACCEPTABLE_FOLDERS for d in dirs):
+            # If we find any standard mod folder anywhere inside, treat it as a Package Mod (Folder)
+            # This covers standard mods, nested mods, and containers.
+            for path in folder_path.rglob("*"):
+                if path.is_dir() and path.name in ACCEPTABLE_FOLDERS:
                     is_package_mod = True
                     break
 
-            if not is_package_mod:
-                if any(
-                    d.name in ACCEPTABLE_FOLDERS
-                    for d in folder_path.iterdir()
-                    if d.is_dir()
-                ):
-                    is_package_mod = True
-
-            # Check for regulation.bin
+            # Check for regulation.bin (also recursive to be safe, though usually near root)
             if not is_package_mod:
                 if (folder_path / "regulation.bin").exists() or (
                     folder_path / "regulation.bin.disabled"
                 ).exists():
                     is_package_mod = True
+                # Fallback check for nested regulation.bin if root check failed
+                if not is_package_mod:
+                    for bin_file in folder_path.rglob("regulation.bin*"):
+                        if bin_file.name in (
+                            "regulation.bin",
+                            "regulation.bin.disabled",
+                        ):
+                            is_package_mod = True
+                            break
         except Exception:
             pass
 

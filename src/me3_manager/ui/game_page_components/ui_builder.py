@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMenu,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -349,7 +350,7 @@ class UiBuilder:
         layout.addWidget(label)
 
         self.game_page.items_per_page_spinbox = QSpinBox()
-        self.game_page.items_per_page_spinbox.setRange(1, 50)
+        self.game_page.items_per_page_spinbox.setRange(1, 200)
         self.game_page.items_per_page_spinbox.setValue(self.game_page.mods_per_page)
         self.game_page.items_per_page_spinbox.setStyleSheet(self.style.spinbox_style)
         self.game_page.items_per_page_spinbox.valueChanged.connect(
@@ -383,16 +384,28 @@ class UiBuilder:
         return widgets
 
     def _create_mods_section(self):
-        """Create the main mods display area."""
+        """Create the main mods display area with scrolling."""
         self.game_page.mods_widget = QWidget()
         self.game_page.mods_layout = QVBoxLayout(self.game_page.mods_widget)
         self.game_page.mods_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.game_page.mods_layout.setSpacing(4)
         self.game_page.mods_widget.setStyleSheet(self.style.mods_widget_style)
 
-        self.game_page.main_layout.addWidget(self.game_page.mods_widget)
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(self.game_page.mods_widget)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll_area.setStyleSheet("""
+            QScrollArea { background: transparent; border: none; }
+            QScrollBar:vertical { background: #2d2d2d; width: 12px; border-radius: 6px; }
+            QScrollBar::handle:vertical { background: #4d4d4d; border-radius: 6px; min-height: 20px; }
+            QScrollBar::handle:vertical:hover { background: #5d5d5d; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+        """)
 
-        # Community Search Panel (hidden by default)
+        self.game_page.main_layout.addWidget(scroll_area)
+        self.game_page.mods_scroll_area = scroll_area
+
         self.game_page.community_search_panel = CommunitySearchPanel()
         self.game_page.community_search_panel.setVisible(False)
         self.game_page.community_search_panel.install_requested.connect(
@@ -400,13 +413,11 @@ class UiBuilder:
         )
         self.game_page.main_layout.addWidget(self.game_page.community_search_panel, 1)
 
-        # Sidebar as a floating overlay (not part of layout)
         try:
             from me3_manager.ui.game_page_components.nexus_mod_details_sidebar import (
                 NexusModDetailsSidebar,
             )
 
-            # Parent to game_page directly, not in any layout
             sidebar = NexusModDetailsSidebar(parent=self.game_page)
             sidebar.setVisible(False)
             self.game_page.nexus_details_sidebar = sidebar

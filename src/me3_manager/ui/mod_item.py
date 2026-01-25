@@ -36,6 +36,7 @@ class ModItem(QWidget):
         is_nested: bool = False,
         has_children: bool = False,
         is_expanded: bool = False,
+        is_container: bool = False,
         update_available_version: str | None = None,
     ):
         super().__init__()
@@ -51,6 +52,7 @@ class ModItem(QWidget):
         self.is_nested = is_nested
         self.has_children = has_children
         self.is_expanded = is_expanded
+        self.is_container = is_container
         self.update_available_version = update_available_version
 
         self._setup_styling(item_bg_color, is_nested)
@@ -264,7 +266,7 @@ class ModItem(QWidget):
         layout.addWidget(self.toggle_btn)
 
         # Config button (only for DLL mods)
-        if not self.is_folder_mod and not self.is_regulation:
+        if not self.is_folder_mod and not self.is_regulation and not self.is_container:
             config_btn = QPushButton()
             config_btn.setIcon(QIcon(resource_path("resources/icon/settings.svg")))
             config_btn.setFixedSize(button_size, button_size)
@@ -276,7 +278,7 @@ class ModItem(QWidget):
             layout.addWidget(config_btn)
 
         # Open folder button for external mods
-        if self.is_external:
+        if self.is_external and not self.is_container:
             open_btn = QPushButton()
             open_btn.setIcon(QIcon(resource_path("resources/icon/folder.svg")))
             open_btn.setToolTip(tr("open_containing_folder_tooltip"))
@@ -286,24 +288,25 @@ class ModItem(QWidget):
             )
             layout.addWidget(open_btn)
 
-        # Advanced options button
-        advanced_btn = QPushButton()
-        advanced_btn.setIcon(
-            QIcon(resource_path("resources/icon/advanced_options.svg"))
-        )
-        advanced_btn.setToolTip(tr("advanced_options_tooltip"))
+        # Advanced options button (skip for parent containers)
+        if not self.is_container:
+            advanced_btn = QPushButton()
+            advanced_btn.setIcon(
+                QIcon(resource_path("resources/icon/advanced_options.svg"))
+            )
+            advanced_btn.setToolTip(tr("advanced_options_tooltip"))
 
-        if has_advanced_options:
-            advanced_btn.setStyleSheet(self._get_active_advanced_button_style())
-        else:
-            advanced_btn.setStyleSheet(self._get_action_button_style())
+            if has_advanced_options:
+                advanced_btn.setStyleSheet(self._get_active_advanced_button_style())
+            else:
+                advanced_btn.setStyleSheet(self._get_action_button_style())
 
-        advanced_btn.clicked.connect(
-            lambda: self.advanced_options_requested.emit(self.mod_path)
-        )
-        layout.addWidget(advanced_btn)
+            advanced_btn.clicked.connect(
+                lambda: self.advanced_options_requested.emit(self.mod_path)
+            )
+            layout.addWidget(advanced_btn)
 
-        # Delete button (hidden for nested mods)
+        # Delete button (skip only for nested mods)
         if not self.is_nested:
             delete_btn = QPushButton()
             delete_btn.setIcon(QIcon(resource_path("resources/icon/delete.svg")))
@@ -315,8 +318,8 @@ class ModItem(QWidget):
             )
             layout.addWidget(delete_btn)
 
-        # Regulation activation button
-        if self.is_regulation and not self.is_nested:
+        # Regulation button (show for any folder with regulation)
+        if self.is_regulation:
             self.activate_regulation_btn = QPushButton()
             self.activate_regulation_btn.setIcon(
                 QIcon(resource_path("resources/icon/regulation.svg"))
@@ -324,7 +327,6 @@ class ModItem(QWidget):
             self.activate_regulation_btn.setFixedSize(button_size, button_size)
 
             if self.is_regulation_active:
-                # Allow disabling regulation when this mod is the active one
                 self.activate_regulation_btn.setToolTip(tr("click_to_disable_tooltip"))
                 self.activate_regulation_btn.setStyleSheet(
                     self._get_active_regulation_button_style()
@@ -479,6 +481,9 @@ class ModItem(QWidget):
 
     def update_toggle_button_ui(self):
         """Update toggle button appearance based on enabled state"""
+        if not hasattr(self, "toggle_btn"):
+            return
+
         radius = 12 if not self.is_nested else 10
 
         if self.is_enabled:

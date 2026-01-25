@@ -384,10 +384,9 @@ class ModInstaller:
 
             if mod_type == "me3":
                 return self._install_me3_mod(mod_root, mod_name_hint, load_mods)
-            elif mod_type == "native":
-                return self._install_native_mod(mod_root, mod_name_hint, load_mods)
-            elif mod_type == "package":
-                return self._install_package_mod(mod_root, mod_name_hint, load_mods)
+            elif mod_type in ("native", "package"):
+                # Simplified: both native and package mods are just folders
+                return self._install_folder_mod(mod_root, mod_name_hint, load_mods)
 
             self._show_error(tr("unknown_mod_structure_error"))
             return []
@@ -583,47 +582,35 @@ class ModInstaller:
             mod_root, profile_file, mod_name_hint, load_mods
         )
 
-    def _install_native_mod(
+    def _install_folder_mod(
         self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
     ) -> list[str]:
-        """Install native (DLL-only) mod."""
+        """Install mod as folder (unified installation for all mod types).
+
+        Simplified logic:
+        - All mods are installed as folders
+        - Folder can contain DLLs, game assets, configs, or any combination
+        - DLLs within folder are auto-registered as natives
+        - Folder is registered for enable/disable
+        """
         mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
         if not mod_name:
             return []
 
         mods_dir = self._get_mods_dir()
 
-        # Stage and copy the mod
-        # We wrap contents in a new folder with mod_name by installing to Path(mod_name)
+        # Stage and copy the mod folder
         if not self._install_staged_items([(mod_root, Path(mod_name))]):
             return []
 
-        # Register all DLLs (handles both root-level and nested)
-        wrapper = mods_dir / mod_name
-        for dll in wrapper.rglob("*.dll"):
-            self._register_native_mod(dll)
-
-        if load_mods:
-            self.game_page.load_mods()
-        return [mod_name]
-
-    def _install_package_mod(
-        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
-    ) -> list[str]:
-        """Install package mod (game assets)."""
-        mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
-        if not mod_name:
-            return []
-
-        mods_dir = self._get_mods_dir()
-
-        # Stage and copy the mod
-        if not self._install_staged_items([(mod_root, Path(mod_name))]):
-            return []
-
-        # Register as package mod
+        # Register the folder mod
         dest = mods_dir / mod_name
         self._register_folder_mod(mod_name, dest)
+
+        # Auto-register all DLLs within the folder
+        for dll in dest.rglob("*.dll"):
+            self._register_native_mod(dll)
+
         if load_mods:
             self.game_page.load_mods()
         return [mod_name]

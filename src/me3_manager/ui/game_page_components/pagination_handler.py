@@ -45,8 +45,16 @@ class PaginationHandler:
         This is the core method for redrawing the mod widgets.
         """
         gp = self.game_page  # Create a shorter alias for readability
-        total_mods = len(gp.filtered_mods)
-        gp.total_pages = max(1, math.ceil(total_mods / gp.mods_per_page))
+        # Group mods for tree display (calls back to a method on GamePage)
+        grouped_mods_all = gp._group_mods_for_tree_display(
+            list(gp.filtered_mods.items())
+        )
+
+        # Calculate pages based on visible ROOT groups (collapsed children don't count)
+        group_keys = list(grouped_mods_all.keys())
+        total_groups = len(group_keys)
+
+        gp.total_pages = max(1, math.ceil(total_groups / gp.mods_per_page))
         if gp.current_page > gp.total_pages:
             gp.current_page = gp.total_pages
 
@@ -66,15 +74,19 @@ class PaginationHandler:
             if child.widget():
                 child.widget().deleteLater()
 
+        # Initialize map to track widgets for scrolling
+        gp.mod_widgets_map = {}
+
+        # Slice the GROUPS for the current page
         start_idx = (gp.current_page - 1) * gp.mods_per_page
         end_idx = start_idx + gp.mods_per_page
-        mod_items = list(gp.filtered_mods.items())[start_idx:end_idx]
 
-        # Group mods for tree display (calls back to a method on GamePage)
-        grouped_mods = gp._group_mods_for_tree_display(mod_items)
+        current_page_keys = group_keys[start_idx:end_idx]
 
-        # Create widgets with tree structure
-        for group_key, group_data in grouped_mods.items():
+        # Create widgets for visible groups
+        for group_key in current_page_keys:
+            group_data = grouped_mods_all[group_key]
+
             if group_data["type"] == "parent_with_children":
                 parent_info = group_data["parent"]
                 # Create parent mod widget (calls back to a method on GamePage)
@@ -86,6 +98,7 @@ class PaginationHandler:
                 )
                 parent_widget.expand_requested.connect(gp._on_mod_expand_requested)
                 gp.mods_layout.addWidget(parent_widget)
+                gp.mod_widgets_map[group_key] = parent_widget
 
                 if group_data.get("expanded", False):
                     for child_path, child_info in group_data["children"].items():
@@ -93,10 +106,12 @@ class PaginationHandler:
                             child_path, child_info, is_nested=True
                         )
                         gp.mods_layout.addWidget(child_widget)
+                        gp.mod_widgets_map[child_path] = child_widget
             else:
                 # Regular standalone mod
                 mod_widget = gp._create_mod_widget(group_key, group_data["info"])
                 gp.mods_layout.addWidget(mod_widget)
+                gp.mod_widgets_map[group_key] = mod_widget
 
         # Update status label
         total_mods_filtered = len(gp.filtered_mods)

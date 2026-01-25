@@ -98,7 +98,7 @@ class ModListHandler:
                 "name": display_name,
                 "enabled": mod_info.status == ModStatus.ENABLED,
                 "external": mod_info.is_external,
-                "is_folder_mod": mod_info.mod_type == ModType.PACKAGE,
+                "is_folder_mod": mod_info.mod_type == ModType.FOLDER,
                 "has_regulation": mod_info.has_regulation,
                 "regulation_active": mod_info.regulation_active,
                 "advanced_options": mod_info.advanced_options,
@@ -162,15 +162,24 @@ class ModListHandler:
         for mod_path, info in mod_items:
             if mod_path in gp.mod_infos:
                 mod_info = gp.mod_infos[mod_path]
-                if mod_info.mod_type.value == "nested" and mod_info.parent_package:
+
+                if mod_info.parent_package:
                     parent_name = mod_info.parent_package
                     if parent_name not in nested_mods:
                         nested_mods[parent_name] = []
                     clean_info = info.copy()
-                    clean_info["name"] = Path(mod_path).name
-                    # Store both clean_info (for children display) and original info (for standalone)
+
+                    if mod_info.mod_type == ModType.DLL:
+                        clean_info["name"] = Path(mod_path).stem
+                    else:
+                        clean_info["name"] = (
+                            mod_info.name.split("/", 1)[1]
+                            if "/" in mod_info.name
+                            else Path(mod_path).name
+                        )
+
                     nested_mods[parent_name].append((mod_path, clean_info, info))
-                elif mod_info.mod_type.value == "package":
+                elif mod_info.mod_type == ModType.FOLDER:
                     parent_packages[mod_info.name] = (mod_path, info)
                 else:
                     grouped[mod_path] = {"type": "standalone", "info": info}
@@ -180,19 +189,29 @@ class ModListHandler:
         for parent_name, children_list in nested_mods.items():
             if parent_name in parent_packages:
                 parent_path, parent_info = parent_packages[parent_name]
-                grouped[parent_path] = {
-                    "type": "parent_with_children",
-                    "parent": parent_info,
-                    "children": {
-                        child_path: child_info
-                        for child_path, child_info, _ in children_list
-                    },
-                    "expanded": gp.expanded_states.get(parent_path, False),
-                }
+                parent_mod_info = gp.mod_infos.get(parent_path)
+
+                # Auto-flatten ONLY if parent is a container (no mod content) and has 1 child
+                if (
+                    len(children_list) == 1
+                    and parent_mod_info
+                    and parent_mod_info.is_container
+                ):
+                    child_path, _, original_info = children_list[0]
+                    grouped[child_path] = {"type": "standalone", "info": original_info}
+                else:
+                    # Show as tree: parent has mod content OR multiple children
+                    grouped[parent_path] = {
+                        "type": "parent_with_children",
+                        "parent": parent_info,
+                        "children": {
+                            child_path: child_info
+                            for child_path, child_info, _ in children_list
+                        },
+                        "expanded": gp.expanded_states.get(parent_path, False),
+                    }
                 parent_packages.pop(parent_name, None)
             else:
-                # Orphaned nested mods (parent is DLL-only folder, not a package)
-                # Display them as standalone mods with original info (includes Nexus name)
                 for child_path, _, original_info in children_list:
                     grouped[child_path] = {"type": "standalone", "info": original_info}
 
@@ -220,13 +239,8 @@ class ModListHandler:
             text_color = "#FFD700"
 
         mod_info = gp.mod_infos.get(mod_path)
-        # Determine mod type and icon based on conditions
-        if mod_info and mod_info.mod_type.value == "nested":
-            mod_type, type_icon = (
-                tr("mod_type_nested_dll"),
-                QIcon(resource_path("resources/icon/dll.svg")),
-            )
-        elif regulation_active:
+
+        if regulation_active:
             mod_type, type_icon = (
                 tr("mod_type_active_regulation"),
                 QIcon(resource_path("resources/icon/regulation_active.svg")),
@@ -235,6 +249,11 @@ class ModListHandler:
             mod_type, type_icon = (
                 tr("mod_type_package_with_regulation"),
                 QIcon(resource_path("resources/icon/folder.svg")),
+            )
+        elif mod_info and mod_info.mod_type == ModType.DLL and mod_info.parent_package:
+            mod_type, type_icon = (
+                tr("mod_type_nested_dll"),
+                QIcon(resource_path("resources/icon/dll.svg")),
             )
         elif is_folder_mod:
             mod_type, type_icon = (
@@ -267,18 +286,26 @@ class ModListHandler:
             is_nested=is_nested,
             has_children=has_children,
             is_expanded=is_expanded,
+            is_container=mod_info.is_container if mod_info else False,
             update_available_version=info.get("update_available_version"),
         )
 
         # Connect signals to the GamePage's delegating methods
         mod_widget.toggled.connect(gp.toggle_mod)
-        if not is_nested:
+
+        # Nested FOLDERS (subfolders with mod content) should have full functionality
+        # Only nested DLLs should be restricted
+        is_nested_dll = is_nested and mod_info and mod_info.mod_type == ModType.DLL
+
+        if not is_nested_dll:
             mod_widget.delete_requested.connect(gp.delete_mod)
             mod_widget.rename_requested.connect(gp.rename_mod)
             mod_widget.clicked.connect(gp.on_local_mod_selected)
+
         mod_widget.edit_config_requested.connect(gp.open_config_editor)
         mod_widget.open_folder_requested.connect(gp.open_mod_folder)
         mod_widget.advanced_options_requested.connect(gp.open_advanced_options)
+
         if has_regulation:
             mod_widget.regulation_activate_requested.connect(gp.activate_regulation_mod)
         return mod_widget
@@ -290,3 +317,19 @@ class ModListHandler:
             gp.expanded_states = {}
         gp.expanded_states[mod_path] = expanded
         gp.update_pagination()
+
+        # Scroll to the expanded/collapsed item to keep context
+        if (
+            expanded
+            and hasattr(gp, "mods_scroll_area")
+            and hasattr(gp, "mod_widgets_map")
+        ):
+            # Process events to ensure layout is updated before scrolling
+            from PySide6.QtWidgets import QApplication
+
+            QApplication.processEvents()
+
+            widget = gp.mod_widgets_map.get(mod_path)
+            if widget:
+                # Scroll to the parent widget
+                gp.mods_scroll_area.ensureWidgetVisible(widget)

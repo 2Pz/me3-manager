@@ -119,10 +119,6 @@ class NexusModDetailsSidebar(QWidget):
                         self._target_width + 36,  # sidebar width + gap
                         margins.bottom(),
                     )
-                    # Set minimum height on mods_widget to prevent clipping the sidebar
-                    if hasattr(parent, "mods_widget"):
-                        # Calculate minimum height based on sidebar needs
-                        parent.mods_widget.setMinimumHeight(self._min_height - 80)
                 else:
                     # Restore original right margin
                     parent.main_layout.setContentsMargins(
@@ -131,9 +127,6 @@ class NexusModDetailsSidebar(QWidget):
                         24,  # Original right margin
                         margins.bottom(),
                     )
-                    # Remove minimum height constraint
-                    if hasattr(parent, "mods_widget"):
-                        parent.mods_widget.setMinimumHeight(0)
         except Exception:
             pass
 
