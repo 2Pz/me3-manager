@@ -3,6 +3,49 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.0
+**Released:** January 25, 2026
+
+
+### ✨ New Features
+
+- Add Nexus Mods dependency support via profile imports `[profiles]` ([28e544c](https://github.com/2Pz/me3-manager/commit/28e544cea3b0e89c07aac6b4160eac762b89d3fa))
+
+- Preserve shipped configs and support uninstalled Nexus mods ([47d5a7c](https://github.com/2Pz/me3-manager/commit/47d5a7c41370e2326f5dbec9fe3d49dd5dc7306f))
+
+- Notify user if restart is required after ME3 installation ([1bb8c03](https://github.com/2Pz/me3-manager/commit/1bb8c033983989f579110c1868df72601f5a250d))
+
+- Add support for multiple config files in native mods `[confing editor]` ([0824866](https://github.com/2Pz/me3-manager/commit/0824866732269cbf37a3a555995b9cbd7f4554d2))
+
+- Add Community Profiles ([e9da1e5](https://github.com/2Pz/me3-manager/commit/e9da1e5acbc7ec2019e892b3e0492a55793a2500))
+
+- Python scripting to help with installing complex mods ([9cf2c77](https://github.com/2Pz/me3-manager/commit/9cf2c77190850f7e4fd906255e148c6fe2508cb7))
+
+
+
+### 🔧 Bug Fixes
+
+- UI text readability at low scale factors ([8fa6473](https://github.com/2Pz/me3-manager/commit/8fa6473dbabe1f5878ba6d85d40b16343faee251))
+
+- Fix(ci) resolve broken pipe in changelog extraction and partial version matching ([98c9218](https://github.com/2Pz/me3-manager/commit/98c9218669f40e9b9afcd6c068a0b5d098c8373a))
+
+- Nested mod duplication and nexus metadata ([1371af7](https://github.com/2Pz/me3-manager/commit/1371af70c800c79f037d4ac87258eed6f1e727da))
+
+- Prevent silent recursion loop if app is renamed to 'me3.exe' ([be6cb7c](https://github.com/2Pz/me3-manager/commit/be6cb7cdb5ad639c6a91cf1bafcc03ae9a46975e))
+
+- Standardize profile path generation and deduplicate package logic ([4ab97b3](https://github.com/2Pz/me3-manager/commit/4ab97b316924973baf48a07fa54d78697d8cc0e7))
+
+- Fix Correctly prefix config paths for default profile layouts ([9aa36c5](https://github.com/2Pz/me3-manager/commit/9aa36c5f64f0d150c7d94430b53092e6fe325280))
+
+
+
+### UI
+
+- Improve alt save detection logic ([08d93e9](https://github.com/2Pz/me3-manager/commit/08d93e925145d73f8e9d2b385068f6b46bf09097))
+
+
+
+---
 ## 📦 Release 1.3.0
 **Released:** January 18, 2026
 
@@ -633,6 +676,7 @@
 
 
 ---
+[1.4.0]: https://github.com/2Pz/me3-manager/compare/1.3.0..1.4.0
 [1.3.0]: https://github.com/2Pz/me3-manager/compare/1.2.3..1.3.0
 [1.2.3]: https://github.com/2Pz/me3-manager/compare/1.2.2..1.2.3
 [1.2.2]: https://github.com/2Pz/me3-manager/compare/1.2.1..1.2.2
