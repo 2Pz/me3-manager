@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from me3_manager.core.config_applicator import ConfigApplicator
 from me3_manager.core.profiles.profile_manager import ProfileManager
 from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS, extract_archive
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
@@ -384,10 +385,9 @@ class ModInstaller:
 
             if mod_type == "me3":
                 return self._install_me3_mod(mod_root, mod_name_hint, load_mods)
-            elif mod_type == "native":
-                return self._install_native_mod(mod_root, mod_name_hint, load_mods)
-            elif mod_type == "package":
-                return self._install_package_mod(mod_root, mod_name_hint, load_mods)
+            elif mod_type in ("native", "package"):
+                # Simplified: both native and package mods are just folders
+                return self._install_folder_mod(mod_root, mod_name_hint, load_mods)
 
             self._show_error(tr("unknown_mod_structure_error"))
             return []
@@ -583,47 +583,35 @@ class ModInstaller:
             mod_root, profile_file, mod_name_hint, load_mods
         )
 
-    def _install_native_mod(
+    def _install_folder_mod(
         self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
     ) -> list[str]:
-        """Install native (DLL-only) mod."""
+        """Install mod as folder (unified installation for all mod types).
+
+        Simplified logic:
+        - All mods are installed as folders
+        - Folder can contain DLLs, game assets, configs, or any combination
+        - DLLs within folder are auto-registered as natives
+        - Folder is registered for enable/disable
+        """
         mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
         if not mod_name:
             return []
 
         mods_dir = self._get_mods_dir()
 
-        # Stage and copy the mod
-        # We wrap contents in a new folder with mod_name by installing to Path(mod_name)
+        # Stage and copy the mod folder
         if not self._install_staged_items([(mod_root, Path(mod_name))]):
             return []
 
-        # Register all DLLs (handles both root-level and nested)
-        wrapper = mods_dir / mod_name
-        for dll in wrapper.rglob("*.dll"):
-            self._register_native_mod(dll)
-
-        if load_mods:
-            self.game_page.load_mods()
-        return [mod_name]
-
-    def _install_package_mod(
-        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
-    ) -> list[str]:
-        """Install package mod (game assets)."""
-        mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
-        if not mod_name:
-            return []
-
-        mods_dir = self._get_mods_dir()
-
-        # Stage and copy the mod
-        if not self._install_staged_items([(mod_root, Path(mod_name))]):
-            return []
-
-        # Register as package mod
+        # Register the folder mod
         dest = mods_dir / mod_name
         self._register_folder_mod(mod_name, dest)
+
+        # Auto-register all DLLs within the folder
+        for dll in dest.rglob("*.dll"):
+            self._register_native_mod(dll)
+
         if load_mods:
             self.game_page.load_mods()
         return [mod_name]
@@ -908,6 +896,34 @@ class ModInstaller:
             dialog.setLayout(layout)
             dialog.exec()
 
+            # Apply configuration overrides
+            mods_dir = self._get_mods_dir()
+
+            def _apply_configs(entries):
+                for entry in entries:
+                    if (
+                        isinstance(entry, dict)
+                        and entry.get("config")
+                        and entry.get("config_overrides")
+                    ):
+                        # path is relative to mods_dir
+                        config_rel = entry["config"]
+                        config_path = mods_dir / config_rel
+                        # Simple security check to prevent escaping mods_dir
+                        try:
+                            config_path.resolve().relative_to(mods_dir.resolve())
+                            ConfigApplicator.apply_ini_overrides(
+                                config_path, entry["config_overrides"]
+                            )
+                        except Exception:
+                            self._log.warning(
+                                "Invalid config override path (security check failed): %s",
+                                config_rel,
+                            )
+
+            _apply_configs(profile_data.get("natives", []))
+            _apply_configs(profile_data.get("packages", []))
+
             self.game_page.load_mods()
             return final_folder_names
 
@@ -1035,8 +1051,12 @@ class ModInstaller:
 
                     # Use GamePage's existing download method headlessly
                     mod_folder = dep["entry"].get("mod_folder")
+                    file_category = dep["settings"].get("nexus_category")
                     installed = self.game_page.download_selected_nexus_mod(
-                        mod, load_mods=False, mod_root_path=mod_folder
+                        mod,
+                        load_mods=False,
+                        mod_root_path=mod_folder,
+                        file_category=file_category,
                     )
 
                     if installed:
@@ -1067,6 +1087,18 @@ class ModInstaller:
                         # Apply settings immediately as well
                         if dep["settings"]:
                             pass
+
+                        # Save mod_root_path to metadata if provided in the profile
+                        m_folder = dep["entry"].get("mod_folder") or dep["entry"].get(
+                            "mod_root_path"
+                        )
+                        if m_folder:
+                            try:
+                                self.game_page.nexus_metadata.set_mod_root_path(
+                                    dep["game_domain"], dep["mod_id"], m_folder
+                                )
+                            except Exception:
+                                pass
 
                 except Exception as e:
                     self._log.error(f"Failed to download {dep['url']}: {e}")
@@ -1335,7 +1367,7 @@ class ModInstaller:
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
-                # Filter out ALL conflicts (both types)
+                # Filter out all conflicts
                 all_conflicts = set(conflicts + config_conflicts)
                 items = [p for p in items if get_dest_name(p) not in all_conflicts]
 
@@ -1416,7 +1448,6 @@ class ModInstaller:
                     "mods_dir": self._get_mods_dir(),
                     "game_name": self.game_page.game_name,
                     "profile_data": profile_data,
-                    # Helper for moving/renaming
                     "shutil": shutil,
                     "Path": Path,
                 }

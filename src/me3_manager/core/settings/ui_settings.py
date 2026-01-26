@@ -24,7 +24,7 @@ class UISettings:
         ui_settings = self.settings_manager.get("ui_settings", {})
 
         defaults = {
-            "mods_per_page": 5,
+            "mods_per_page": 50,
             "check_for_updates": True,
             "check_mod_updates_on_startup": True,
             "auto_launch_steam": False,
@@ -80,7 +80,7 @@ class UISettings:
             Number of mods per page
         """
         ui_settings = self.settings_manager.get("ui_settings", {})
-        return ui_settings.get("mods_per_page", 5)
+        return ui_settings.get("mods_per_page", 50)
 
     def set_mods_per_page(self, value: int) -> None:
         """
@@ -91,8 +91,8 @@ class UISettings:
         """
         if value < 1:
             value = 1
-        elif value > 100:
-            value = 100
+        elif value > 200:
+            value = 200
 
         ui_settings = self.settings_manager.get("ui_settings", {})
         ui_settings["mods_per_page"] = value
@@ -261,7 +261,7 @@ class UISettings:
     def reset_to_defaults(self) -> None:
         """Reset all UI settings to defaults."""
         defaults = {
-            "mods_per_page": 5,
+            "mods_per_page": 50,
             "check_for_updates": True,
             "auto_launch_steam": False,
             "theme": "default",

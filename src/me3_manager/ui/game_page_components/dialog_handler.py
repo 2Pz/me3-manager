@@ -71,7 +71,7 @@ class DialogHandler:
             if not mod_info:
                 raise ValueError(tr("mod_info_not_found_error"))
 
-            is_folder_mod = mod_info.mod_type == ModType.PACKAGE
+            is_folder_mod = mod_info.mod_type == ModType.FOLDER
             available_mod_names = [
                 info.name
                 for path, info in self.game_page.mod_infos.items()

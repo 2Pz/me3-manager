@@ -500,25 +500,57 @@ class NexusService:
         - Prefer MAIN category
         - Then newest uploaded_timestamp, then greatest file_id
         """
+        return self.pick_file(files, category_preference="MAIN")
+
+    def pick_file(
+        self, files: Iterable[NexusModFile], category_preference: str | None = "MAIN"
+    ) -> NexusModFile | None:
+        """
+        Select the best file based on category preference.
+
+        Args:
+            files: List of files to choose from
+            category_preference: Preferred category name (case-insensitive)
+                                 e.g. "MAIN", "UPDATE", "OPTIONAL", "MISCELLANEOUS"
+                                 If None, defaults to "MAIN".
+        """
         fs = list(files)
         if not fs:
             return None
 
-        def is_main(f: NexusModFile) -> bool:
-            try:
-                if f.category_id == 1:
-                    return True
-            except Exception:
-                pass
-            return (f.category_name or "").strip().upper() == "MAIN"
+        pref = (category_preference or "MAIN").strip().upper()
+
+        def is_category_match(f: NexusModFile, target_cat: str) -> bool:
+            # Special case for MAIN
+            if target_cat == "MAIN":
+                try:
+                    if f.category_id == 1:
+                        return True
+                except Exception:
+                    pass
+
+            return (f.category_name or "").strip().upper() == target_cat
 
         def score(f: NexusModFile) -> tuple:
-            # Prefer MAIN category for downloads as requested.
-            main = 1 if is_main(f) else 0
+            matches_pref = 1 if is_category_match(f, pref) else 0
+
             primary = 1 if f.is_primary else 0
+
             ts = f.uploaded_timestamp or 0
+
             fid = f.file_id or 0
-            return (main, primary, ts, fid)
+
+            return (matches_pref, primary, ts, fid)
+
+        matching_files = [f for f in fs if is_category_match(f, pref)]
+        if matching_files:
+            return sorted(
+                matching_files,
+                key=lambda f: (f.is_primary, f.uploaded_timestamp or 0, f.file_id or 0),
+                reverse=True,
+            )[0]
+
+        # Fall back to best available file if no match for the preferred category
 
         return sorted(fs, key=score, reverse=True)[0]
 
