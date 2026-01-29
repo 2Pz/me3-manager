@@ -385,12 +385,9 @@ class ModInstaller:
 
             if mod_type == "me3":
                 return self._install_me3_mod(mod_root, mod_name_hint, load_mods)
-            elif mod_type in ("native", "package"):
-                # Simplified: both native and package mods are just folders
-                return self._install_folder_mod(mod_root, mod_name_hint, load_mods)
 
-            self._show_error(tr("unknown_mod_structure_error"))
-            return []
+            # Simplified: Treat all other types (native, package, unknown) as folder mods
+            return self._install_folder_mod(mod_root, mod_name_hint, load_mods)
 
         except Exception as e:
             self._log.exception("Mod installation failed")
@@ -1187,30 +1184,44 @@ class ModInstaller:
                 continue
         return False
 
+    def _sanitize_mod_name(self, name: str) -> str:
+        """Sanitize mod name to be valid for Windows filesystem."""
+        # Replace forbidden chars with underscore, but keep spaces
+        name = re.sub(r'[<>:"/\\|?*]', "_", name)
+        # Remove leading/trailing dots and spaces
+        name = name.strip(". ")
+        # Truncate to reasonable length
+        if len(name) > 60:
+            name = name[:60]
+        return name
+
     def _resolve_mod_name(
         self, mod_name_hint: str | None, fallback_name: str
     ) -> str | None:
         """
-        Resolve and validate mod name, prompting user if needed.
-
-        Returns validated mod name or None if cancelled/invalid.
+        Resolve and validate mod name, prompting user ONLY if absolutely necessary.
         """
-        mod_name = mod_name_hint or fallback_name
-        if not _validate_mod_name(mod_name):
-            mod_name, ok = QInputDialog.getText(
-                self.game_page,
-                tr("name_mod_package_title"),
-                tr("name_mod_package_desc"),
-                text=fallback_name,
-            )
-            if not ok or not mod_name.strip():
-                return None
-            mod_name = mod_name.strip()
+        # Try sanitized hint first
+        if mod_name_hint:
+            clean_hint = self._sanitize_mod_name(mod_name_hint)
+            if _validate_mod_name(clean_hint):
+                return clean_hint
 
-        if not _validate_mod_name(mod_name):
-            self._show_error(tr("invalid_mod_name_msg"))
+        # Try sanitized fallback
+        clean_fallback = self._sanitize_mod_name(fallback_name)
+        if _validate_mod_name(clean_fallback):
+            return clean_fallback
+
+        # Last resort: Prompt user
+        mod_name, ok = QInputDialog.getText(
+            self.game_page,
+            tr("name_mod_package_title"),
+            tr("name_mod_package_desc"),
+            text=mod_name_hint or fallback_name,
+        )
+        if not ok or not mod_name.strip():
             return None
-        return mod_name
+        return mod_name.strip()
 
     def _get_mods_dir(self) -> Path:
         """Get the mods directory for the current game."""

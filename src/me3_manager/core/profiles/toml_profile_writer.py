@@ -286,6 +286,10 @@ class TomlProfileWriter:
                         and package.get("enabled", True) is not False
                         and not package.get("load_before")
                         and not package.get("load_after")
+                        # If a package is explicitly tracked in config_data, we should write it
+                        # This ensures empty containers or containers used for grouping are persisted.
+                        # The implicit check was too aggressive for "folder mods" that also happen to have children.
+                        and False  # DISABLE REDUNDANCY CHECK
                     ):
                         continue
 

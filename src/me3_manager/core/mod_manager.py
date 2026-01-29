@@ -62,12 +62,62 @@ class ImprovedModManager:
         self.config_manager = config_manager
         self.acceptable_folders = ACCEPTABLE_FOLDERS
 
+    def _ensure_package_entry(
+        self,
+        config_data: dict,
+        mod_name: str,
+        normalized_path: str,
+        initial_enabled: bool = True,
+    ) -> dict:
+        """
+        Ensure a package entry exists in the config data.
+        Returns the existing or newly created entry.
+        """
+        packages = config_data.get("packages", [])
+
+        # Check for existing entry
+        for package in packages:
+            if isinstance(package, dict):
+                if package.get("id") == mod_name:
+                    return package
+                path = package.get("path") or package.get("source")
+                if path and self._normalize_path(path) == normalized_path:
+                    return package
+
+        # Create new entry
+        entry = {
+            "id": mod_name,
+            "path": normalized_path,
+        }
+        if not initial_enabled:
+            entry["enabled"] = False
+
+        packages.append(entry)
+        config_data["packages"] = packages
+        return entry
+
     def _normalize_path(self, path_str: str) -> str:
         """
         Normalize path to use forward slashes consistently.
         This fixes the path consistency issue between enable/disable operations.
         """
         return PathUtils.normalize(path_str)
+
+    def _analyze_folder_content(self, folder_path: Path) -> tuple[bool, bool]:
+        """
+        Analyze folder content to determine properties.
+        Returns: (has_regulation, has_mod_content)
+        """
+        has_regulation = (folder_path / "regulation.bin").exists() or (
+            folder_path / "regulation.bin.disabled"
+        ).exists()
+
+        has_mod_content = has_regulation or any(
+            (folder_path / acceptable).exists()
+            for acceptable in self.acceptable_folders
+        )
+
+        return has_regulation, has_mod_content
 
     def get_all_mods(self, game_name: str) -> dict[str, ModInfo]:
         """
@@ -252,14 +302,8 @@ class ImprovedModManager:
                 continue
 
             mod_path = str(folder)
-            has_regulation = (folder / "regulation.bin").exists() or (
-                folder / "regulation.bin.disabled"
-            ).exists()
+            has_regulation, has_mod_content = self._analyze_folder_content(folder)
             regulation_active = has_regulation and folder.name == active_regulation_mod
-
-            has_mod_content = has_regulation or any(
-                (folder / acceptable).exists() for acceptable in self.acceptable_folders
-            )
 
             folder_mod_info = ModInfo(
                 path=mod_path,
@@ -304,9 +348,7 @@ class ImprovedModManager:
                             f"{folder.name}/{str(rel_path).replace(chr(92), '/')}"
                         )
 
-                        has_regulation = (subfolder / "regulation.bin").exists() or (
-                            subfolder / "regulation.bin.disabled"
-                        ).exists()
+                        has_regulation, _ = self._analyze_folder_content(subfolder)
                         regulation_active = (
                             has_regulation and (subfolder / "regulation.bin").exists()
                         )
@@ -414,10 +456,13 @@ class ImprovedModManager:
                 if is_directory:
                     mod_type = ModType.FOLDER
                     mod_name = path_obj.name
-                    has_regulation = (path_obj / "regulation.bin").exists() or (
-                        path_obj / "regulation.bin.disabled"
-                    ).exists()
+
+                    has_regulation, has_mod_content = self._analyze_folder_content(
+                        path_obj
+                    )
                     regulation_active = (path_obj / "regulation.bin").exists()
+                    is_container = not has_mod_content
+
                     enabled = enabled_status.get(
                         normalized_path, False
                     ) or enabled_status.get(mod_name, False)
@@ -429,6 +474,7 @@ class ImprovedModManager:
                     mod_name = path_obj.stem
                     has_regulation = False
                     regulation_active = False
+                    is_container = False
                     enabled = enabled_status.get(normalized_path, False)
                     advanced = advanced_options.get(normalized_path, {})
             else:
@@ -436,6 +482,7 @@ class ImprovedModManager:
                 mod_name = path_obj.stem if mod_type == ModType.DLL else path_obj.name
                 has_regulation = False
                 regulation_active = False
+                is_container = False  # Default missing to false
                 enabled = enabled_status.get(
                     normalized_path, False
                 ) or enabled_status.get(mod_name, False)
@@ -457,6 +504,7 @@ class ImprovedModManager:
                 is_external=True,
                 has_regulation=has_regulation,
                 regulation_active=regulation_active,
+                is_container=is_container,
                 advanced_options=advanced,
             )
 
@@ -564,7 +612,8 @@ class ImprovedModManager:
 
         for mod_path, mod_info in current_mods.items():
             if mod_info.is_external:
-                current_external_paths.add(self._normalize_path(mod_path))
+                norm_path = self._normalize_path(mod_path)
+                current_external_paths.add(norm_path)
                 # For external DLLs, also track as config key
                 if mod_info.mod_type == ModType.DLL:
                     config_key = self._get_config_key_for_mod(mod_path, game_name)
@@ -611,7 +660,14 @@ class ImprovedModManager:
                     or pkg_id in current_package_names
                     or (
                         normalized_path is not None
-                        and normalized_path in current_external_paths
+                        and (
+                            normalized_path in current_external_paths
+                            or normalized_path in current_config_keys
+                            or any(
+                                p.lower() == normalized_path.lower()
+                                for p in current_external_paths
+                            )
+                        )
                     )
                 ):
                     valid_packages.append(package)
@@ -905,8 +961,8 @@ class ImprovedModManager:
                 if mod_info.parent_package == mod_name:
                     children.append(mod_info)
 
-            if not children:
-                return False, "Container has no children"
+            # if not children:
+            #     return False, "Container has no children"
 
             if not enabled:
                 # DISABLE: Save state of currently enabled children
@@ -917,15 +973,11 @@ class ImprovedModManager:
                         enabled_children.append(child.name)
 
                 # Update container entry with saved state
+                # Update container entry with saved state
                 if container_entry is None:
-                    # Should not happen typically if scanned correctly, but robustly handle it
-                    container_entry = {
-                        "id": mod_name,
-                        "path": normalized_path,
-                        "enabled": False,
-                    }
-                    packages.append(container_entry)
-                    config_data["packages"] = packages
+                    container_entry = self._ensure_package_entry(
+                        config_data, mod_name, normalized_path, initial_enabled=False
+                    )
 
                 container_entry["saved_child_state"] = enabled_children
                 container_entry["enabled"] = False  # Mark container as disabled
@@ -947,13 +999,20 @@ class ImprovedModManager:
 
             else:
                 # ENABLE: Restore state
-                saved_state = getattr(container_entry, "get", lambda k, d=None: d)(
-                    "saved_child_state", None
-                )
-                container_enabled_count = 0
 
-                if container_entry:
-                    container_entry.pop("enabled", None)  # Mark container as enabled
+                # Ensure container entry exists in config
+                # Ensure container entry exists in config
+                if container_entry is None:
+                    container_entry = self._ensure_package_entry(
+                        config_data, mod_name, normalized_path, initial_enabled=True
+                    )
+
+                # Mark container as explicitly enabled (remove disabled flag)
+                if isinstance(container_entry, dict) or hasattr(container_entry, "pop"):
+                    container_entry.pop("enabled", None)
+
+                saved_state = container_entry.get("saved_child_state", None)
+                container_enabled_count = 0
 
                 if saved_state is not None:
                     # Restore specific children (BATCH UPDATE)
@@ -985,8 +1044,12 @@ class ImprovedModManager:
                             self._set_native_enabled(
                                 config_data, child.path, True, game_name
                             )
-                    container_enabled_count = len(children)
-                    msg = f"Enabled container and all {len(children)} children"
+                        container_enabled_count += 1
+
+                    if not children:
+                        msg = "Enabled container (empty)"
+                    else:
+                        msg = f"Enabled container and all {container_enabled_count} children"
 
                 # Update config to save container enabled state
                 self._write_improved_config(profile_path, config_data, game_name)
