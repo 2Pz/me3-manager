@@ -139,25 +139,46 @@ class InstallWorker(QThread):
         self.errors = []
         parent = self.mods_dir.resolve()
 
-        for i, item_entry in enumerate(self.items):
-            if self.isInterruptionRequested():
-                break
-
-            # Handle both legacy Path and new tuple inputs
+        # Phase 1: Count total files for accurate progress
+        total_files = 0
+        file_to_item_map = []  # List of (source, dest_rel)
+        for item_entry in self.items:
             if isinstance(item_entry, tuple):
                 source_path, dest_rel_path = item_entry
             else:
                 source_path = item_entry
                 dest_rel_path = Path(item_entry.name)
 
-            self.progress_update.emit(
-                tr("installing_status", name=dest_rel_path.name), i, len(self.items)
-            )
+            file_to_item_map.append((source_path, dest_rel_path))
+
+            if source_path.is_file():
+                total_files += 1
+            else:
+                # Count files recursively, ignoring junk
+                for p in source_path.rglob("*"):
+                    if p.is_file() and p.name not in _JUNK_NAMES:
+                        total_files += 1
+
+        if total_files == 0:
+            total_files = len(self.items) or 1
+
+        current_file_index = 0
+
+        for source_path, dest_rel_path in file_to_item_map:
+            if self.isInterruptionRequested():
+                break
 
             try:
                 if _contains_symlink(source_path):
                     msg = tr("symlink_rejected_msg", name=dest_rel_path.name)
                     self.errors.append(msg)
+                    # Advance progress for failed item (rough estimate)
+                    if source_path.is_file():
+                        current_file_index += 1
+                    else:
+                        current_file_index += sum(
+                            1 for _ in source_path.rglob("*") if _.is_file()
+                        )
                     continue
 
                 dest_path = self.mods_dir / dest_rel_path
@@ -180,14 +201,24 @@ class InstallWorker(QThread):
                     tmp_dst = tmp_root / dest_rel_path.name
 
                     if source_path.is_dir():
-                        shutil.copytree(
-                            source_path,
-                            tmp_dst,
-                            symlinks=False,
-                            ignore_dangling_symlinks=True,
+                        # Manual copy with progress
+                        self._copy_recursive_with_progress(
+                            source_path, tmp_dst, current_file_index, total_files
+                        )
+                        # Update index after directory copy
+                        current_file_index += sum(
+                            1
+                            for p in source_path.rglob("*")
+                            if p.is_file() and p.name not in _JUNK_NAMES
                         )
                     else:
                         shutil.copy2(source_path, tmp_dst, follow_symlinks=False)
+                        current_file_index += 1
+                        self.progress_update.emit(
+                            tr("installing_status", name=dest_rel_path.name),
+                            current_file_index,
+                            total_files,
+                        )
 
                     # Ensure parent directory exists
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -213,6 +244,37 @@ class InstallWorker(QThread):
                 )
 
         self.finished_signal.emit(self.installed_count, self.errors)
+
+    def _copy_recursive_with_progress(
+        self, src: Path, dst: Path, start_idx: int, total: int
+    ):
+        """Recursively copy directory and emit progress updates."""
+        if not dst.exists():
+            dst.mkdir(parents=True, exist_ok=True)
+
+        # We need a shared counter across recursive calls
+        counter = [start_idx]
+
+        def _copy_internal(s: Path, d: Path):
+            if self.isInterruptionRequested():
+                return
+
+            for item in s.iterdir():
+                if item.name in _JUNK_NAMES:
+                    continue
+
+                target = d / item.name
+                if item.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    _copy_internal(item, target)
+                else:
+                    shutil.copy2(item, target, follow_symlinks=False)
+                    counter[0] += 1
+                    self.progress_update.emit(
+                        tr("installing_status", name=item.name), counter[0], total
+                    )
+
+        _copy_internal(src, dst)
 
     def _backup_configs(self, source: Path, backup_root: Path):
         """Recursively backup config files (everything except binaries)."""
@@ -1392,11 +1454,14 @@ class ModInstaller:
         if not items:
             return False
 
+        # First, count files for the progress dialog if possible, or just use item count as initial
+        total_guess = len(items)
+
         progress = QProgressDialog(
             tr("installing_status", name="..."),
             tr("cancel_button"),
             0,
-            len(items),
+            total_guess,
             self.game_page,
         )
         progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -1408,7 +1473,8 @@ class ModInstaller:
 
         def on_progress(status, current, total):
             progress.setLabelText(status)
-            progress.setMaximum(total)
+            if progress.maximum() != total:
+                progress.setMaximum(total)
             progress.setValue(current)
 
         def on_complete(count, errors):
