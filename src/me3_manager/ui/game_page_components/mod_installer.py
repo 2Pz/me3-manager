@@ -387,7 +387,9 @@ class ModInstaller:
                 return self._install_me3_mod(mod_root, mod_name_hint, load_mods)
 
             # Simplified: Treat all other types (native, package, unknown) as folder mods
-            return self._install_folder_mod(mod_root, mod_name_hint, load_mods)
+            return self._install_folder_mod(
+                mod_root, mod_name_hint, load_mods, mod_type
+            )
 
         except Exception as e:
             self._log.exception("Mod installation failed")
@@ -581,7 +583,11 @@ class ModInstaller:
         )
 
     def _install_folder_mod(
-        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
+        self,
+        mod_root: Path,
+        mod_name_hint: str | None,
+        load_mods: bool = True,
+        mod_type: str = "unknown",
     ) -> list[str]:
         """Install mod as folder (unified installation for all mod types).
 
@@ -601,9 +607,10 @@ class ModInstaller:
         if not self._install_staged_items([(mod_root, Path(mod_name))]):
             return []
 
-        # Register the folder mod
+        # Register the folder mod (skip for native-only mods to avoid redundancy)
         dest = mods_dir / mod_name
-        self._register_folder_mod(mod_name, dest)
+        if mod_type != "native":
+            self._register_folder_mod(mod_name, dest)
 
         # Auto-register all DLLs within the folder
         for dll in dest.rglob("*.dll"):

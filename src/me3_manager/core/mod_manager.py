@@ -555,6 +555,29 @@ class ImprovedModManager:
                     if Path(normalized_path).is_absolute():
                         enabled_status[normalized_path] = True
 
+        # Special case: If a folder is NOT in packages but contains enabled natives,
+        # it should be considered enabled for UI purposes (display as green).
+        # This handles native-only mods that aren't registered as packages.
+        mods_dir = self.config_manager.get_mods_dir(game_name)
+        if mods_dir.exists():
+            for folder in mods_dir.iterdir():
+                if not folder.is_dir():
+                    continue
+
+                folder_name = folder.name
+                if folder_name not in enabled_status:
+                    # Check for child DLLs
+                    try:
+                        for dll in folder.rglob("*.dll"):
+                            config_key = self._get_config_key_for_mod(
+                                str(dll), game_name
+                            )
+                            if enabled_status.get(config_key):
+                                enabled_status[folder_name] = True
+                                break
+                    except (PermissionError, OSError):
+                        pass
+
         return enabled_status
 
     def _parse_advanced_options(self, config_data: dict) -> dict[str, dict]:
@@ -693,10 +716,36 @@ class ImprovedModManager:
             config_data = self.config_manager._parse_toml_config(profile_path)
 
             if mod_path_obj.is_dir():
-                # Handle package mod
-                success, msg = self._set_package_enabled(
-                    config_data, str(mod_path_obj), enabled, game_name
+                # IMPROVEMENT: If the folder is a "container" (native-only mod),
+                # toggling it should toggle its child DLLs instead of adding it to packages.
+                has_regulation, has_mod_content = self._analyze_folder_content(
+                    mod_path_obj
                 )
+
+                if not has_mod_content:
+                    # Native-only mod: toggle all contained DLLs
+                    modified = False
+                    try:
+                        for dll in mod_path_obj.rglob("*.dll"):
+                            self._set_native_enabled(
+                                config_data, str(dll), enabled, game_name
+                            )
+                            modified = True
+                    except (PermissionError, OSError):
+                        pass
+
+                    if modified:
+                        success, msg = (
+                            True,
+                            f"Toggled native mods in {mod_path_obj.name}",
+                        )
+                    else:
+                        success, msg = False, "No native mods found to toggle"
+                else:
+                    # Regular package mod: add/remove from packages
+                    success, msg = self._set_package_enabled(
+                        config_data, str(mod_path_obj), enabled, game_name
+                    )
             else:
                 # Handle DLL mod
                 success, msg = self._set_native_enabled(
