@@ -370,6 +370,7 @@
   "ui_scale_header": "UI Scale",
   "ui_scale_restart_note": "Note: Changes to UI scale require an application restart.",
   "terminal_title": "Terminal",
+  "terminal_toggle_tooltip": "Show/hide terminal output",
   "copy_button": "Copy",
   "copied_feedback": "Copied!",
   "process_success_status": "Process completed successfully.",

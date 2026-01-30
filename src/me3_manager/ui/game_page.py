@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -44,6 +45,8 @@ from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
+
+log = logging.getLogger(__name__)
 
 
 class NexusDownloadWorker(QThread):
@@ -163,6 +166,87 @@ class GamePage(QWidget):
         except Exception:
             pass
 
+    def _collapse_terminal(self):
+        """Collapse the terminal widget to give more space for mod details."""
+        try:
+            # Navigate up to find the main window which owns the terminal
+            main_window = self.window()
+            if main_window and hasattr(main_window, "terminal"):
+                main_window.terminal.collapse()
+        except Exception:
+            pass
+
+    def _expand_window_for_sidebar(self):
+        """Expand the main window to accommodate the sidebar (wider and taller)."""
+        try:
+            main_window = self.window()
+            if main_window:
+                # Check for maximized state using windowState()
+                # isMaximized() can be unreliable on some platforms/Qt versions depending on how it was maximized
+                is_maximized = bool(
+                    main_window.windowState() & Qt.WindowState.WindowMaximized
+                )
+
+                if is_maximized:
+                    # If maximized, we DON'T resize, but we record that we didn't
+                    main_window._was_maximized_before_sidebar = True
+                    return
+
+                main_window._was_maximized_before_sidebar = False
+
+                # Store original size on MAIN WINDOW if not already stored
+                if not hasattr(main_window, "_original_window_size"):
+                    main_window._original_window_size = (
+                        main_window.width(),
+                        main_window.height(),
+                    )
+
+                    # Add extra width for sidebar (350px) and height (200px)
+                    new_width = main_window.width() + 350
+                    new_height = main_window.height() + 200
+                    main_window.resize(new_width, new_height)
+
+        except Exception as e:
+            log.error("Error expanding window: %s", e)
+
+    def _restore_window_and_terminal(self):
+        """Restore the window to its original size and expand the terminal."""
+        try:
+            main_window = self.window()
+            if main_window:
+                # Check if we were maximized
+                was_maximized = getattr(
+                    main_window, "_was_maximized_before_sidebar", False
+                )
+
+                # Cleanup flag
+                if hasattr(main_window, "_was_maximized_before_sidebar"):
+                    del main_window._was_maximized_before_sidebar
+
+                # Expand terminal immediately
+                if hasattr(main_window, "terminal"):
+                    main_window.terminal.expand()
+
+                if not was_maximized:
+                    # Delay window resize slightly to allow layout (margins) to update
+                    def do_resize():
+                        try:
+                            # Restore original size if stored on main window
+                            if hasattr(main_window, "_original_window_size"):
+                                width, height = main_window._original_window_size
+                                main_window.resize(width, height)
+                                del main_window._original_window_size
+                            else:
+                                # Fallback to default app size if state is lost
+                                main_window.resize(1200, 800)
+                        except Exception as e:
+                            log.error("Error in do_resize: %s", e)
+
+                    QTimer.singleShot(50, do_resize)
+
+        except Exception as e:
+            log.error("Error restoring window: %s", e)
+
     def _setup_sidebar_signals(self, sidebar) -> None:
         """Setup standard signal connections for the Nexus details sidebar."""
         self._safe_disconnect(sidebar.install_clicked)
@@ -171,6 +255,7 @@ class GamePage(QWidget):
         self._safe_disconnect(sidebar.check_update_clicked)
         self._safe_disconnect(sidebar.close_clicked)
         self._safe_disconnect(sidebar.mod_root_changed)
+        self._safe_disconnect(sidebar.hidden)
 
         sidebar.link_clicked.connect(self.link_selected_nexus_mod)
         sidebar.open_page_clicked.connect(self.open_selected_nexus_page)
@@ -178,7 +263,14 @@ class GamePage(QWidget):
         sidebar.install_clicked.connect(self.download_selected_nexus_mod)
         sidebar.file_selected.connect(self.on_sidebar_file_selected)
         sidebar.mod_root_changed.connect(self.on_sidebar_mod_root_changed)
-        sidebar.close_clicked.connect(lambda: sidebar.hide_animated())
+        sidebar.close_clicked.connect(self._on_sidebar_closed)
+        sidebar.hidden.connect(self._restore_window_and_terminal)
+
+    def _on_sidebar_closed(self):
+        """Handle sidebar close: hide sidebar, restore window size, expand terminal."""
+        sidebar = getattr(self, "nexus_details_sidebar", None)
+        if sidebar:
+            sidebar.hide_animated()
 
     # Search mode handlers (Local/Nexus)
     def on_search_mode_changed(self):
@@ -502,6 +594,9 @@ class GamePage(QWidget):
             sidebar = getattr(self, "nexus_details_sidebar", None)
             if sidebar:
                 sidebar.show_animated()
+                # Auto-collapse the terminal and expand window
+                self._collapse_terminal()
+                self._expand_window_for_sidebar()
                 sidebar.set_details(mod, None)
                 sidebar.set_status(tr("nexus_loading_details"))
                 sidebar.set_cached_text(tr("nexus_cached_just_now"))
@@ -1345,6 +1440,8 @@ class GamePage(QWidget):
                 sidebar = getattr(self, "nexus_details_sidebar", None)
                 if sidebar:
                     sidebar.show_animated()
+                    self._collapse_terminal()
+                    self._expand_window_for_sidebar()
                     sidebar.set_details(mod, latest)
                     sidebar.set_status(tr("nexus_linked_status"))
             self._update_status(tr("nexus_linked_status"))
@@ -1446,6 +1543,8 @@ class GamePage(QWidget):
 
             # Show with animation
             sidebar.show_animated()
+            self._collapse_terminal()
+            self._expand_window_for_sidebar()
         except Exception:
             # Keep sidebar hidden if anything fails
             return

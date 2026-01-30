@@ -370,6 +370,7 @@
   "ui_scale_header": "حجم واجهة المستخدم",
   "ui_scale_restart_note": "ملاحظة: تغيير حجم الواجهة يتطلب إعادة تشغيل التطبيق.",
   "terminal_title": "الطرفية (Terminal)",
+  "terminal_toggle_tooltip": "إظهار/إخفاء نافذة الطرفية",
   "copy_button": "نسخ",
   "copied_feedback": "تم النسخ!",
   "process_success_status": "العملية تمت بنجاح.",

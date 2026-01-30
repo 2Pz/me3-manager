@@ -53,6 +53,7 @@ class NexusModDetailsSidebar(QWidget):
     link_clicked = Signal()
     file_selected = Signal(int)
     mod_root_changed = Signal(str)
+    hidden = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -68,6 +69,8 @@ class NexusModDetailsSidebar(QWidget):
         # Install event filter to track parent resizes
         if parent:
             parent.installEventFilter(self)
+
+    # ... (skipping unchanged methods) ...
 
     def populate_files(self, files: list[NexusModFile], selected_id: int | None = None):
         """Populate the file selection combobox."""
@@ -226,6 +229,8 @@ class NexusModDetailsSidebar(QWidget):
         self.setGraphicsEffect(None)  # Remove effect to restore normal rendering
         # Restore content margin
         self._adjust_content_margin(expand=False)
+        # Signal that we are fully hidden and margins are restored
+        self.hidden.emit()
 
     def _build(self):
         self.setFixedWidth(self._target_width)
