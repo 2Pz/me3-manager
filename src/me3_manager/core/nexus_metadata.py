@@ -470,6 +470,7 @@ class NexusMetadataManager:
         nexus_url: str | None = None,
         custom_name: str | None = None,
         mod_root_path: str | None = None,
+        update_available: bool | None = None,
     ) -> None:
         """
         Update cached details for a mod.
@@ -564,12 +565,21 @@ class NexusMetadataManager:
         if mod_root_path is not None:
             tracked.mod_root_path = mod_root_path
 
+        if update_available is not None:
+            tracked.update_available = update_available
+            if not update_available:
+                tracked.update_latest_file_id = None
+                tracked.update_latest_version = None
+                tracked.update_error = None
+                tracked.update_checked_at = TrackedNexusMod.now_iso()
+
         # If we just installed/updated a file (file_id written), any previously cached
-        # "update available" state should be cleared so the UI badge disappears.
+        # "update available" state should be cleared only if update_available arg wasn't explicit
         if (
             is_installed_mod
             and (file_id is not None)
             and (tracked.file_id != prev_file_id)
+            and update_available is None
         ):
             tracked.update_available = False
             tracked.update_latest_file_id = None

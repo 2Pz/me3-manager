@@ -460,6 +460,7 @@
   "nexus_download_failed_status": "فشل التحميل: {error}",
   "nexus_open_page_button": "فتح صفحة Nexus",
   "nexus_check_update_button": "تحقق من التحديث",
+  "nexus_update_button": "تحديث",
   "nexus_install_button": "تثبيت",
   "nexus_cached_just_now": "قبل 0 ثانية",
   "nexus_cached_unknown": "-",

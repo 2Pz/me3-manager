@@ -460,6 +460,7 @@
   "nexus_download_failed_status": "下载失败：{error}",
   "nexus_open_page_button": "打开 Nexus 页面",
   "nexus_check_update_button": "检查更新",
+  "nexus_update_button": "更新",
   "nexus_install_button": "安装",
   "nexus_cached_just_now": "刚刚",
   "nexus_cached_unknown": "-",

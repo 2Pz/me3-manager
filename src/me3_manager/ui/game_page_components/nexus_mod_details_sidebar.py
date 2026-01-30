@@ -605,6 +605,14 @@ class NexusModDetailsSidebar(QWidget):
         self.open_page_btn.setEnabled(True)
         self.check_update_btn.setEnabled(True)
         self.install_btn.setEnabled(True)
+        # Reset to Install by default; external logic can switch to Update
+        self.set_update_mode(False)
+
+    def set_update_mode(self, is_update: bool):
+        """Toggle the install button text between Install and Update."""
+        self.install_btn.setText(
+            tr("nexus_update_button") if is_update else tr("nexus_install_button")
+        )
 
     def set_status(self, text: str):
         self.status.setText(text or "")

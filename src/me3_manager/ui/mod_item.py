@@ -296,18 +296,17 @@ class ModItem(QWidget):
         left_layout.addWidget(name_label)
 
         # Update available badge (only for main mods)
-        if (not self.is_nested) and self.update_available_version:
-            update_label = QLabel(
-                tr(
-                    "nexus_update_available_status",
-                    version=str(self.update_available_version),
-                )
-            )
-            update_label.setStyleSheet(
+        # Update available badge (only for main mods)
+        if not self.is_nested:
+            self.update_label = QLabel()
+            self.update_label.setStyleSheet(
                 "color: #ffb020; font-size: 10px; padding: 2px 0px 2px 6px;"
             )
-            update_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-            left_layout.addWidget(update_label)
+            self.update_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+            left_layout.addWidget(self.update_label)
+
+            # Use setter to handle visibility/text to avoid duplication
+            self.set_update_available(self.update_available_version)
 
         # Status indicators with icons (only for main mods)
         if not self.is_nested:
@@ -614,6 +613,20 @@ class ModItem(QWidget):
         """Programmatically set expanded state"""
         self.is_expanded = expanded
         self._update_expand_button()
+
+    def set_update_available(self, version: str | None):
+        """Update the update available badge dynamically."""
+        if self.is_nested or not hasattr(self, "update_label"):
+            return
+
+        self.update_available_version = version
+        if version:
+            self.update_label.setText(
+                tr("nexus_update_available_status", version=str(version))
+            )
+            self.update_label.show()
+        else:
+            self.update_label.hide()
 
     def contextMenuEvent(self, event):
         """Show context menu on right-click"""
