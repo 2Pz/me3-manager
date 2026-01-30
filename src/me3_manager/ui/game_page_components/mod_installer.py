@@ -1101,15 +1101,14 @@ class ModInstaller:
         # Check if we have nexus service available
         nexus_service = getattr(self.game_page, "nexus_service", None)
         if not nexus_service or not nexus_service.has_api_key:
-            reply = QMessageBox.warning(
+            QMessageBox.warning(
                 self.game_page,
                 tr("nexus_api_key_missing_status"),
                 tr("nexus_dependencies_missing_api_key", count=len(nexus_deps)),
-                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Ok,
             )
-            if reply == QMessageBox.StandardButton.Cancel:
-                return False
-            return True
+            # Always cancel - user must log in to proceed
+            return False
 
         # Filter to only mods that aren't already installed
         # For now, we'll just show all and let download_from_nexus handle duplicates
