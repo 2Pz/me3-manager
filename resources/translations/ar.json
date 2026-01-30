@@ -512,10 +512,10 @@
   "community_downloading_status": "جاري تحميل البروفايل: {profile}...",
   "community_contribute_button": "إرسال بروفايل",
   "no_description": "لا يوجد وصف.",
-  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}.",
   "user_prompts_dialog_title": "ضبط البروفايل",
   "user_prompts_dialog_description": "هذا البروفايل يحتاج ضبط بعض الإعدادات:",
   "user_prompts_required_note": "* الحقول المطلوبة",
   "user_prompts_required_error_title": "حقول مطلوبة ناقصة",
-  "user_prompts_required_error": "لو سمحت عبّي كل الحقول المطلوبة:"
+  "user_prompts_required_error": "لو سمحت عبّي كل الحقول المطلوبة:",
+  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}."
 }

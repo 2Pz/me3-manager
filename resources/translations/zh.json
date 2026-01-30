@@ -512,10 +512,10 @@
   "community_downloading_status": "正在下载配置文件: {profile}...",
   "community_contribute_button": "提交配置文件",
   "no_description": "无可用说明。",
-  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。",
   "user_prompts_dialog_title": "配置文件设置",
   "user_prompts_dialog_description": "此配置文件需要配置以下设置：",
   "user_prompts_required_note": "* 必填字段",
   "user_prompts_required_error_title": "必填字段缺失",
-  "user_prompts_required_error": "请填写所有必填字段："
+  "user_prompts_required_error": "请填写所有必填字段：",
+  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。"
 }
