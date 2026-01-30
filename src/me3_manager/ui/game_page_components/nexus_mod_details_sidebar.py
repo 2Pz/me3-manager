@@ -367,14 +367,15 @@ class NexusModDetailsSidebar(QWidget):
         # Mod name - limit to 2 lines
         self.mod_name = QLabel("-")
         self.mod_name.setWordWrap(True)
-        self.mod_name.setMaximumHeight(50)  # ~2 lines
+        # self.mod_name.setMaximumHeight(50)  # Removed to allow wrapping
         self.mod_name.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         content_layout.addWidget(self.mod_name)
 
         # Author - single line with elide
         self.author = QLabel("-")
+        self.author.setWordWrap(True)
         self.author.setStyleSheet("color: #888888; font-size: 11px;")
-        self.author.setMaximumHeight(20)
+        # self.author.setMaximumHeight(20) # Removed to allow wrapping
         content_layout.addWidget(self.author)
 
         # Stats container
@@ -396,6 +397,8 @@ class NexusModDetailsSidebar(QWidget):
             k = QLabel(tr(label_key))
             k.setStyleSheet("color: #888888; font-size: 11px;")
             v = value_label
+            v.setWordWrap(True)
+            v.setAlignment(Qt.AlignmentFlag.AlignRight)
             v.setStyleSheet("color: #ffffff; font-size: 11px;")
             row.addWidget(k)
             row.addStretch()
