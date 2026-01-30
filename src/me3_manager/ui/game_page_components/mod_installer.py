@@ -1151,13 +1151,13 @@ class ModInstaller:
                     installed = self.game_page.download_selected_nexus_mod(
                         mod,
                         load_mods=False,
-                        # Pass mod_folder as install_name (destination), not mod_root_path (source)
-                        # This prevents "folder not found" errors when renaming is intended
-                        mod_root_path=None,
+                        # Pass mod_folder as mod_root_path (source) to support subfolder extraction
+                        mod_root_path=mod_folder,
                         file_category=file_category,
                         file_id=file_id,
                         file_name=file_name,
-                        install_name=mod_folder,
+                        install_name=None,
+                        ignore_sidebar=True,
                     )
 
                     if installed:

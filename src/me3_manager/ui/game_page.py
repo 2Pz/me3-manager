@@ -679,6 +679,7 @@ class GamePage(QWidget):
         file_id: int | None = None,
         file_name: str | None = None,
         install_name: str | None = None,
+        ignore_sidebar: bool = False,
     ):
         """Download and install a Nexus mod (zip only).
 
@@ -690,10 +691,16 @@ class GamePage(QWidget):
             file_id: Optional specific file ID to download. Takes precedence.
             file_name: Optional file name pattern to match (case-insensitive substring).
             install_name: Optional name for the installed folder (destination name).
+            ignore_sidebar: If True, do not pull state (mod, file selection, rules) from the sidebar.
         """
         import logging
 
         sidebar = getattr(self, "nexus_details_sidebar", None)
+        if hasattr(self, "nexus_details_sidebar") and not ignore_sidebar:
+            sidebar = self.nexus_details_sidebar
+        else:
+            sidebar = None
+
         if mod is None:
             mod = sidebar.current_mod() if sidebar else None
 
