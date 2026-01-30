@@ -448,6 +448,8 @@
   "nexus_version_label": "版本",
   "nexus_file_size_label": "文件大小",
   "nexus_cached_label": "已缓存",
+  "nexus_file_label": "文件",
+  "nexus_no_files_found": "没有可用文件",
   "nexus_loading_details": "正在加载文件信息...",
   "nexus_selected_mod_status": "已选：{mod_name}",
   "nexus_downloading_status": "正在下载...",

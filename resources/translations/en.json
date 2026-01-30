@@ -448,6 +448,8 @@
   "nexus_version_label": "Version",
   "nexus_file_size_label": "File size",
   "nexus_cached_label": "Cached",
+  "nexus_file_label": "File",
+  "nexus_no_files_found": "No files available",
   "nexus_loading_details": "Loading file info…",
   "nexus_selected_mod_status": "Selected: {mod_name}",
   "nexus_downloading_status": "Downloading…",
