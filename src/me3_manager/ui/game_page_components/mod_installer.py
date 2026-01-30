@@ -786,7 +786,8 @@ class ModInstaller:
 
             # Check for nexus_link dependencies and download if needed
             # Done after confirmation so user knows what they are importing first
-            self._handle_nexus_dependencies(profile_data)
+            if not self._handle_nexus_dependencies(profile_data):
+                return []
 
             # Check for custom install script in profile metadata
             # Support both metadata.install_script (new standard) and older top-level if any
@@ -1056,11 +1057,14 @@ class ModInstaller:
                 return True
         return False
 
-    def _handle_nexus_dependencies(self, profile_data: dict) -> None:
+    def _handle_nexus_dependencies(self, profile_data: dict) -> bool:
         """Check for and download missing mods from nexus_link entries.
 
         Args:
             profile_data: Normalized profile data with natives and packages
+
+        Returns:
+            True if successful or no dependencies, False if user cancelled
         """
         # Collect all nexus_link entries from both natives and packages
         nexus_deps = []
@@ -1092,7 +1096,7 @@ class ModInstaller:
         _process_entries(profile_data.get("packages", []), "package")
 
         if not nexus_deps:
-            return
+            return True
 
         # Check if we have nexus service available
         nexus_service = getattr(self.game_page, "nexus_service", None)
@@ -1104,17 +1108,33 @@ class ModInstaller:
                 QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
             )
             if reply == QMessageBox.StandardButton.Cancel:
-                raise Exception("Nexus API key required for downloading dependencies")
-            return
+                return False
+            return True
 
         # Filter to only mods that aren't already installed
         # For now, we'll just show all and let download_from_nexus handle duplicates
         missing_deps = nexus_deps
 
-        # Show confirmation dialog
+        # Fetch mod info upfront to show names in the dialog
+        # This also caches the mod info for use during download
+        for dep in missing_deps:
+            try:
+                mod = nexus_service.get_mod(dep["game_domain"], dep["mod_id"])
+                dep["mod_info"] = mod
+                dep["mod_name"] = mod.name or f"Mod #{dep['mod_id']}"
+            except Exception:
+                dep["mod_info"] = None
+                dep["mod_name"] = f"Mod #{dep['mod_id']}"
+
+        # Show confirmation dialog with mod names and file names
         msg_lines = [tr("nexus_dependencies_found", count=len(missing_deps)), ""]
         for i, dep in enumerate(missing_deps, 1):
-            msg_lines.append(f"{i}. {dep['url']}")
+            # Include file name if specified in the profile
+            file_name = dep["settings"].get("nexus_file_name")
+            if file_name:
+                msg_lines.append(f"{i}. {dep['mod_name']} - {file_name}")
+            else:
+                msg_lines.append(f"{i}. {dep['mod_name']}")
         msg_lines.append("")
         msg_lines.append(tr("nexus_dependencies_confirm"))
 
@@ -1126,15 +1146,18 @@ class ModInstaller:
         )
 
         if reply != QMessageBox.StandardButton.Yes:
-            return
+            return False
 
         try:
             # Download each missing dependency
             for dep in missing_deps:
                 try:
-                    mod = self.game_page.nexus_service.get_mod(
-                        dep["game_domain"], dep["mod_id"]
-                    )
+                    # Use cached mod info if available, otherwise fetch
+                    mod = dep.get("mod_info")
+                    if not mod:
+                        mod = self.game_page.nexus_service.get_mod(
+                            dep["game_domain"], dep["mod_id"]
+                        )
 
                     # Use GamePage's existing download method headlessly
                     mod_folder = dep["entry"].get("mod_folder")
@@ -1227,6 +1250,8 @@ class ModInstaller:
                     raise
         finally:
             pass  # Sidebar is no longer touched during fetch
+
+        return True
 
     # =========================================================================
     # HELPER METHODS
