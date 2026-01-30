@@ -664,8 +664,21 @@ class GamePage(QWidget):
         load_mods=True,
         mod_root_path: str | None = None,
         file_category: str | None = None,
+        file_id: int | None = None,
+        file_name: str | None = None,
+        install_name: str | None = None,
     ):
-        """Download and install a Nexus mod (zip only)."""
+        """Download and install a Nexus mod (zip only).
+
+        Args:
+            mod: Optional mod object. If None, uses sidebar's current mod.
+            load_mods: Whether to refresh mod list after install.
+            mod_root_path: Optional path within archive to use as mod root.
+            file_category: Optional category preference (e.g. "MAIN", "UPDATE").
+            file_id: Optional specific file ID to download. Takes precedence.
+            file_name: Optional file name pattern to match (case-insensitive substring).
+            install_name: Optional name for the installed folder (destination name).
+        """
         import logging
 
         sidebar = getattr(self, "nexus_details_sidebar", None)
@@ -675,10 +688,9 @@ class GamePage(QWidget):
         if not mod:
             return
 
-        # If file_category not explicit, get from sidebar?
-        # Actually, if we have a sidebar, we should check which FILE is selected, not just category.
-        target_file_id = None
-        if sidebar:
+        # If file_id not explicit, check from sidebar
+        target_file_id = file_id
+        if target_file_id is None and sidebar:
             target_file_id = sidebar.current_selected_file_id()
 
         if not file_category and sidebar and not target_file_id:
@@ -702,6 +714,14 @@ class GamePage(QWidget):
             chosen = None
             if target_file_id:
                 chosen = next((f for f in files if f.file_id == target_file_id), None)
+
+            # If file_name provided, try to match by name pattern
+            if not chosen and file_name:
+                pattern = file_name.lower()
+                for f in files:
+                    if f.name and pattern in f.name.lower():
+                        chosen = f
+                        break
 
             if not chosen:
                 # Fallback to picking by category or latest main
@@ -903,10 +923,15 @@ class GamePage(QWidget):
                 if sidebar:
                     sidebar.set_status(tr("nexus_installing_status"))
 
-                # Use Nexus mod name as folder name
-                mod_name_hint = (
-                    mod.name or chosen.name or f"nexus_{mod.mod_id}_{chosen.file_id}"
-                ).strip()
+                # Use Nexus mod name as folder name, or override if install_name provided
+                if install_name:
+                    mod_name_hint = install_name.strip()
+                else:
+                    mod_name_hint = (
+                        mod.name
+                        or chosen.name
+                        or f"nexus_{mod.mod_id}_{chosen.file_id}"
+                    ).strip()
 
                 mod_root_path = mod_root_path or (
                     sidebar.get_mod_root_path() if sidebar else None

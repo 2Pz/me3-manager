@@ -1139,11 +1139,25 @@ class ModInstaller:
                     # Use GamePage's existing download method headlessly
                     mod_folder = dep["entry"].get("mod_folder")
                     file_category = dep["settings"].get("nexus_category")
+                    # Support specifying exact file by ID
+                    file_id = dep["settings"].get("nexus_file_id")
+                    if file_id is not None:
+                        try:
+                            file_id = int(file_id)
+                        except (ValueError, TypeError):
+                            file_id = None
+                    # Support specifying file by name pattern
+                    file_name = dep["settings"].get("nexus_file_name")
                     installed = self.game_page.download_selected_nexus_mod(
                         mod,
                         load_mods=False,
-                        mod_root_path=mod_folder,
+                        # Pass mod_folder as install_name (destination), not mod_root_path (source)
+                        # This prevents "folder not found" errors when renaming is intended
+                        mod_root_path=None,
                         file_category=file_category,
+                        file_id=file_id,
+                        file_name=file_name,
+                        install_name=mod_folder,
                     )
 
                     if installed:
