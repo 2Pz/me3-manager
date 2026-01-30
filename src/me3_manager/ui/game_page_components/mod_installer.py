@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from me3_manager.core.config_applicator import ConfigApplicator
 from me3_manager.core.profiles.profile_manager import ProfileManager
+from me3_manager.ui.dialogs.user_prompts_dialog import UserPromptsDialog
 from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS, extract_archive
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.translator import tr
@@ -962,6 +963,26 @@ class ModInstaller:
             dialog.setLayout(layout)
             dialog.exec()
 
+            # Collect user prompts from the profile
+            all_prompts = self._collect_user_prompts(profile_data)
+            user_values: dict[str, dict] = {}
+
+            if all_prompts:
+                # Show dialog to collect user input
+                prompts_dialog = UserPromptsDialog(
+                    all_prompts,
+                    profile_description=profile_data.get("description", ""),
+                    parent=self.game_page,
+                )
+                if prompts_dialog.exec() != QDialog.DialogCode.Accepted:
+                    self.game_page.status_label.setText(tr("import_cancelled_status"))
+                    return []
+
+                user_values = prompts_dialog.get_values_by_config()
+
+                # Merge user values into config_overrides
+                self._merge_user_values_into_profile(profile_data, user_values)
+
             # Apply configuration overrides
             mods_dir = self._get_mods_dir()
 
@@ -1252,6 +1273,65 @@ class ModInstaller:
             except Exception:
                 continue
         return False
+
+    def _collect_user_prompts(self, profile_data: dict) -> list[dict]:
+        """
+        Collect all user_prompts from natives and packages in the profile.
+
+        Returns a flat list of prompt definitions with config path attached.
+        """
+        all_prompts = []
+
+        def _extract_prompts(entries):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                config_path = entry.get("config")
+                user_prompts = entry.get("user_prompts", [])
+                if not config_path or not user_prompts:
+                    continue
+
+                for prompt in user_prompts:
+                    if isinstance(prompt, dict) and prompt.get("key"):
+                        # Attach the config path to each prompt
+                        prompt_copy = dict(prompt)
+                        prompt_copy["config"] = config_path
+                        all_prompts.append(prompt_copy)
+
+        _extract_prompts(profile_data.get("natives", []))
+        _extract_prompts(profile_data.get("packages", []))
+
+        return all_prompts
+
+    def _merge_user_values_into_profile(
+        self, profile_data: dict, user_values: dict[str, dict]
+    ) -> None:
+        """
+        Merge user-provided values into the appropriate config_overrides.
+
+        Args:
+            profile_data: The profile data to modify
+            user_values: Dict mapping config paths to {key: value} dicts
+        """
+
+        def _merge_into_entries(entries):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                config_path = entry.get("config")
+                if not config_path or config_path not in user_values:
+                    continue
+
+                # Initialize config_overrides if not present
+                if "config_overrides" not in entry:
+                    entry["config_overrides"] = {}
+
+                # Merge user values
+                for key, value in user_values[config_path].items():
+                    entry["config_overrides"][key] = value
+
+        _merge_into_entries(profile_data.get("natives", []))
+        _merge_into_entries(profile_data.get("packages", []))
 
     def _sanitize_mod_name(self, name: str) -> str:
         """Sanitize mod name to be valid for Windows filesystem."""

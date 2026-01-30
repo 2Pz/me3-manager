@@ -105,6 +105,7 @@ class ProfileConverter:
                     "version",
                     "config",
                     "config_overrides",
+                    "user_prompts",
                 ):
                     if k in nat and nat[k] not in (None, []):
                         entry[k] = nat[k]
@@ -157,6 +158,7 @@ class ProfileConverter:
                         "version",
                         "config",
                         "config_overrides",
+                        "user_prompts",
                     ):
                         if k in pkg and pkg[k] not in (None, []):
                             entry[k] = pkg[k]
@@ -256,6 +258,7 @@ class ProfileConverter:
                         "version",
                         "config",
                         "config_overrides",
+                        "user_prompts",
                     ):
                         if k in table and table[k] not in (None, []):
                             entry[k] = table[k]
@@ -284,6 +287,7 @@ class ProfileConverter:
                         "version",
                         "config",
                         "config_overrides",
+                        "user_prompts",
                     ):
                         if k in table and table[k] not in (None, []):
                             entry[k] = table[k]
