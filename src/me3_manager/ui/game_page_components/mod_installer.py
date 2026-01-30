@@ -952,18 +952,7 @@ class ModInstaller:
                     script_path, final_folder_names, profile_data
                 )
 
-            # Show success dialog
-            dialog = QDialog(self.game_page)
-            dialog.setWindowTitle(tr("import_complete_title"))
-            layout = QVBoxLayout()
-            layout.addWidget(QLabel(tr("import_complete_success_header")))
-            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-            button_box.accepted.connect(dialog.accept)
-            layout.addWidget(button_box)
-            dialog.setLayout(layout)
-            dialog.exec()
-
-            # Collect user prompts from the profile
+            # Collect user prompts from the profile BEFORE showing success dialog
             all_prompts = self._collect_user_prompts(profile_data)
             user_values: dict[str, dict] = {}
 
@@ -1010,6 +999,17 @@ class ModInstaller:
 
             _apply_configs(profile_data.get("natives", []))
             _apply_configs(profile_data.get("packages", []))
+
+            # Show success dialog LAST (after all prompts and config are applied)
+            dialog = QDialog(self.game_page)
+            dialog.setWindowTitle(tr("import_complete_title"))
+            layout = QVBoxLayout()
+            layout.addWidget(QLabel(tr("import_complete_success_header")))
+            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+            button_box.accepted.connect(dialog.accept)
+            layout.addWidget(button_box)
+            dialog.setLayout(layout)
+            dialog.exec()
 
             self.game_page.load_mods()
             return final_folder_names
@@ -1148,17 +1148,31 @@ class ModInstaller:
                             file_id = None
                     # Support specifying file by name pattern
                     file_name = dep["settings"].get("nexus_file_name")
-                    installed = self.game_page.download_selected_nexus_mod(
-                        mod,
-                        load_mods=False,
-                        # Pass mod_folder as mod_root_path (source) to support subfolder extraction
-                        mod_root_path=mod_folder,
-                        file_category=file_category,
-                        file_id=file_id,
-                        file_name=file_name,
-                        install_name=None,
-                        ignore_sidebar=True,
-                    )
+
+                    # For natives, mod_folder is the path WITHIN the archive to extract from
+                    # For packages, mod_folder is the DESTINATION folder name
+                    if dep["type"] == "native":
+                        installed = self.game_page.download_selected_nexus_mod(
+                            mod,
+                            load_mods=False,
+                            mod_root_path=mod_folder,  # Source path within archive
+                            file_category=file_category,
+                            file_id=file_id,
+                            file_name=file_name,
+                            install_name=None,
+                            ignore_sidebar=True,
+                        )
+                    else:
+                        installed = self.game_page.download_selected_nexus_mod(
+                            mod,
+                            load_mods=False,
+                            mod_root_path=None,
+                            file_category=file_category,
+                            file_id=file_id,
+                            file_name=file_name,
+                            install_name=mod_folder,  # Destination folder name
+                            ignore_sidebar=True,
+                        )
 
                     if installed:
                         mod_name = (
@@ -1190,10 +1204,11 @@ class ModInstaller:
                             pass
 
                         # Save mod_root_path to metadata if provided in the profile
+                        # Skip temp folders to preserve the main mod's metadata
                         m_folder = dep["entry"].get("mod_folder") or dep["entry"].get(
                             "mod_root_path"
                         )
-                        if m_folder:
+                        if m_folder and "_temp" not in m_folder.lower():
                             try:
                                 self.game_page.nexus_metadata.set_mod_root_path(
                                     dep["game_domain"], dep["mod_id"], m_folder
@@ -1208,6 +1223,8 @@ class ModInstaller:
                         tr("ERROR"),
                         tr("nexus_download_failed", url=dep["url"], error=str(e)),
                     )
+                    # Stop the entire installation on failure
+                    raise
         finally:
             pass  # Sidebar is no longer touched during fetch
 
