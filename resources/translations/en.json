@@ -518,3 +518,5 @@
   "user_prompts_required_error_title": "Missing Required Fields",
   "user_prompts_required_error": "Please fill in all required fields:"
 }
+  "no_description": "No description available."
+}

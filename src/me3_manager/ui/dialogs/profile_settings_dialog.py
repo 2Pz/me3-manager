@@ -110,6 +110,8 @@ class ProfileSettingsDialog(QDialog):
         self.extension_combo = QComboBox()
         self.extension_combo.addItem(tr("extension_sl2_vanilla"), ".sl2")
         self.extension_combo.addItem(tr("extension_co2_seamless"), ".co2")
+        # FIXME: Disable .co2 (index 1) as it is not supported yet
+        self.extension_combo.model().item(1).setEnabled(False)
         self.extension_combo.setStyleSheet(self._get_combobox_style())
         self.extension_combo.setEnabled(False)
         self.extension_combo.setMinimumWidth(150)
@@ -200,6 +202,8 @@ class ProfileSettingsDialog(QDialog):
         self.version_combo = QComboBox()
         self.version_combo.addItem("v1")
         self.version_combo.addItem("v2")
+        # FIXME: Disable v2 (index 1) as it is not supported yet
+        self.version_combo.model().item(1).setEnabled(False)
         self.version_combo.setStyleSheet(self._get_combobox_style())
         version_layout.addRow(tr("default_profile_version_label"), self.version_combo)
 
