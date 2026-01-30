@@ -193,7 +193,11 @@ class GamePage(QWidget):
 
         # UX: clear previous results when switching modes (actual panels added later)
         if self.search_mode == "local":
-            self.mods_widget.setVisible(True)
+            if hasattr(self, "mods_scroll_area"):
+                self.mods_scroll_area.setVisible(True)
+            else:
+                self.mods_widget.setVisible(True)
+
             if hasattr(self, "pagination_widget"):
                 self.pagination_widget.setVisible(True)
             if hasattr(self, "community_search_panel"):
@@ -201,7 +205,11 @@ class GamePage(QWidget):
             self.apply_filters(reset_page=True)
 
         elif self.search_mode == "community":
-            self.mods_widget.setVisible(False)
+            if hasattr(self, "mods_scroll_area"):
+                self.mods_scroll_area.setVisible(False)
+            else:
+                self.mods_widget.setVisible(False)
+
             if hasattr(self, "pagination_widget"):
                 self.pagination_widget.setVisible(False)
             if hasattr(self, "community_search_panel"):
@@ -212,7 +220,11 @@ class GamePage(QWidget):
             # Or hide everything?
             # Existing behavior was likely just showing local mods + dropdown.
             # Let's keep local mods visible for Nexus mode.
-            self.mods_widget.setVisible(True)
+            if hasattr(self, "mods_scroll_area"):
+                self.mods_scroll_area.setVisible(True)
+            else:
+                self.mods_widget.setVisible(True)
+
             if hasattr(self, "pagination_widget"):
                 self.pagination_widget.setVisible(True)
             if hasattr(self, "community_search_panel"):
