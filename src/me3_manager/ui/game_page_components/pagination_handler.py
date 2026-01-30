@@ -90,7 +90,7 @@ class PaginationHandler:
             if group_data["type"] == "parent_with_children":
                 parent_info = group_data["parent"]
                 # Create parent mod widget (calls back to a method on GamePage)
-                parent_widget = gp._create_mod_widget(
+                parent_widget = gp.mod_list_handler._create_mod_widget(
                     group_key,
                     parent_info,
                     has_children=True,
@@ -101,17 +101,28 @@ class PaginationHandler:
                 gp.mod_widgets_map[group_key] = parent_widget
 
                 if group_data.get("expanded", False):
-                    for child_path, child_info in group_data["children"].items():
-                        child_widget = gp._create_mod_widget(
-                            child_path, child_info, is_nested=True
+                    children_items = list(group_data["children"].items())
+                    total_children = len(children_items)
+                    for i, (child_path, child_info) in enumerate(children_items):
+                        is_last = i == total_children - 1
+                        child_widget = gp.mod_list_handler._create_mod_widget(
+                            child_path,
+                            child_info,
+                            is_nested=True,
+                            is_last_child=is_last,
                         )
                         gp.mods_layout.addWidget(child_widget)
                         gp.mod_widgets_map[child_path] = child_widget
             else:
                 # Regular standalone mod
-                mod_widget = gp._create_mod_widget(group_key, group_data["info"])
+                mod_widget = gp.mod_list_handler._create_mod_widget(
+                    group_key, group_data["info"]
+                )
                 gp.mods_layout.addWidget(mod_widget)
                 gp.mod_widgets_map[group_key] = mod_widget
+
+        # Add stretch to push items to the top
+        gp.mods_layout.addStretch()
 
         # Update status label
         total_mods_filtered = len(gp.filtered_mods)

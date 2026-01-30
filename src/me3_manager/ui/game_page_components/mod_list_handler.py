@@ -221,7 +221,13 @@ class ModListHandler:
         return grouped
 
     def _create_mod_widget(
-        self, mod_path, info, is_nested=False, has_children=False, is_expanded=False
+        self,
+        mod_path,
+        info,
+        is_nested=False,
+        has_children=False,
+        is_expanded=False,
+        is_last_child=False,
     ):
         """Factory method to create a single ModItem widget."""
         gp = self.game_page
@@ -288,6 +294,7 @@ class ModListHandler:
             is_expanded=is_expanded,
             is_container=mod_info.is_container if mod_info else False,
             update_available_version=info.get("update_available_version"),
+            is_last_child=is_last_child,
         )
 
         # Connect signals to the GamePage's delegating methods

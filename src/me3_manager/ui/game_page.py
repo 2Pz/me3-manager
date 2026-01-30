@@ -1635,13 +1635,6 @@ class GamePage(QWidget):
     def _group_mods_for_tree_display(self, mod_items):
         return self.mod_list_handler._group_mods_for_tree_display(mod_items)
 
-    def _create_mod_widget(
-        self, mod_path, info, is_nested=False, has_children=False, is_expanded=False
-    ):
-        return self.mod_list_handler._create_mod_widget(
-            mod_path, info, is_nested, has_children, is_expanded
-        )
-
     def _on_mod_expand_requested(self, mod_path: str, expanded: bool):
         self.mod_list_handler._on_mod_expand_requested(mod_path, expanded)
 
