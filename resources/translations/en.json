@@ -516,7 +516,6 @@
   "user_prompts_dialog_description": "This profile requires some settings to be configured:",
   "user_prompts_required_note": "* Required fields",
   "user_prompts_required_error_title": "Missing Required Fields",
-  "user_prompts_required_error": "Please fill in all required fields:"
-}
-  "no_description": "No description available."
+  "user_prompts_required_error": "Please fill in all required fields:",
+  "profile_settings_saved_status": "Profile settings saved for {game_name}."
 }
