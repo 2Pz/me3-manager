@@ -401,45 +401,14 @@ class ModInstaller:
 
             if me3_candidates:
                 mod_root, mod_type = me3_candidates[0]
-            elif len(candidates) > 1 and not mod_root_path:
-                # Prompt user
-                items = []
-                for path, mtype in candidates:
-                    name = (
-                        tr("mod_option_entire_folder")
-                        if path == mod_root
-                        else path.name
-                    )
-                    type_label = {
-                        "package": tr("mod_type_package"),
-                        "native": tr("mod_type_native"),
-                        "me3": "Profile",
-                    }.get(mtype, mtype)
-                    items.append(f"{name} ({type_label})")
-
-                selected_item, ok = QInputDialog.getItem(
-                    self.game_page,
-                    tr("select_mod_root_title"),
-                    tr("select_mod_root_desc"),
-                    items,
-                    0,
-                    False,
-                )
-
-                if ok and selected_item:
-                    idx = items.index(selected_item)
-                    mod_root, mod_type = candidates[idx]
-                    # Calculate relative path from source to selected mod_root
-                    # This path can be saved for future updates
-                    try:
-                        rel_path = mod_root.relative_to(source)
-                        if str(rel_path) != ".":
-                            self._last_selected_mod_root_path = str(rel_path)
-                    except ValueError:
-                        # mod_root is not relative to source, shouldn't happen
-                        pass
+            elif len(candidates) >= 1 and not mod_root_path:
+                # Install entire folder as container mod - no selection dialog needed
+                # Find the root candidate (if exists), otherwise use first candidate
+                root_candidates = [c for c in candidates if c[0] == mod_root]
+                if root_candidates:
+                    mod_root, mod_type = root_candidates[0]
                 else:
-                    return []
+                    mod_root, mod_type = candidates[0]
             elif len(candidates) == 1:
                 mod_root, mod_type = candidates[0]
             else:
