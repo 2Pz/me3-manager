@@ -30,7 +30,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from me3_manager.core.config_applicator import ConfigApplicator
 from me3_manager.core.profiles.profile_manager import ProfileManager
+from me3_manager.ui.dialogs.user_prompts_dialog import UserPromptsDialog
 from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS, extract_archive
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.translator import tr
@@ -138,25 +140,46 @@ class InstallWorker(QThread):
         self.errors = []
         parent = self.mods_dir.resolve()
 
-        for i, item_entry in enumerate(self.items):
-            if self.isInterruptionRequested():
-                break
-
-            # Handle both legacy Path and new tuple inputs
+        # Phase 1: Count total files for accurate progress
+        total_files = 0
+        file_to_item_map = []  # List of (source, dest_rel)
+        for item_entry in self.items:
             if isinstance(item_entry, tuple):
                 source_path, dest_rel_path = item_entry
             else:
                 source_path = item_entry
                 dest_rel_path = Path(item_entry.name)
 
-            self.progress_update.emit(
-                tr("installing_status", name=dest_rel_path.name), i, len(self.items)
-            )
+            file_to_item_map.append((source_path, dest_rel_path))
+
+            if source_path.is_file():
+                total_files += 1
+            else:
+                # Count files recursively, ignoring junk
+                for p in source_path.rglob("*"):
+                    if p.is_file() and p.name not in _JUNK_NAMES:
+                        total_files += 1
+
+        if total_files == 0:
+            total_files = len(self.items) or 1
+
+        current_file_index = 0
+
+        for source_path, dest_rel_path in file_to_item_map:
+            if self.isInterruptionRequested():
+                break
 
             try:
                 if _contains_symlink(source_path):
                     msg = tr("symlink_rejected_msg", name=dest_rel_path.name)
                     self.errors.append(msg)
+                    # Advance progress for failed item (rough estimate)
+                    if source_path.is_file():
+                        current_file_index += 1
+                    else:
+                        current_file_index += sum(
+                            1 for _ in source_path.rglob("*") if _.is_file()
+                        )
                     continue
 
                 dest_path = self.mods_dir / dest_rel_path
@@ -179,14 +202,24 @@ class InstallWorker(QThread):
                     tmp_dst = tmp_root / dest_rel_path.name
 
                     if source_path.is_dir():
-                        shutil.copytree(
-                            source_path,
-                            tmp_dst,
-                            symlinks=False,
-                            ignore_dangling_symlinks=True,
+                        # Manual copy with progress
+                        self._copy_recursive_with_progress(
+                            source_path, tmp_dst, current_file_index, total_files
+                        )
+                        # Update index after directory copy
+                        current_file_index += sum(
+                            1
+                            for p in source_path.rglob("*")
+                            if p.is_file() and p.name not in _JUNK_NAMES
                         )
                     else:
                         shutil.copy2(source_path, tmp_dst, follow_symlinks=False)
+                        current_file_index += 1
+                        self.progress_update.emit(
+                            tr("installing_status", name=dest_rel_path.name),
+                            current_file_index,
+                            total_files,
+                        )
 
                     # Ensure parent directory exists
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -212,6 +245,37 @@ class InstallWorker(QThread):
                 )
 
         self.finished_signal.emit(self.installed_count, self.errors)
+
+    def _copy_recursive_with_progress(
+        self, src: Path, dst: Path, start_idx: int, total: int
+    ):
+        """Recursively copy directory and emit progress updates."""
+        if not dst.exists():
+            dst.mkdir(parents=True, exist_ok=True)
+
+        # We need a shared counter across recursive calls
+        counter = [start_idx]
+
+        def _copy_internal(s: Path, d: Path):
+            if self.isInterruptionRequested():
+                return
+
+            for item in s.iterdir():
+                if item.name in _JUNK_NAMES:
+                    continue
+
+                target = d / item.name
+                if item.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    _copy_internal(item, target)
+                else:
+                    shutil.copy2(item, target, follow_symlinks=False)
+                    counter[0] += 1
+                    self.progress_update.emit(
+                        tr("installing_status", name=item.name), counter[0], total
+                    )
+
+        _copy_internal(src, dst)
 
     def _backup_configs(self, source: Path, backup_root: Path):
         """Recursively backup config files (everything except binaries)."""
@@ -337,45 +401,14 @@ class ModInstaller:
 
             if me3_candidates:
                 mod_root, mod_type = me3_candidates[0]
-            elif len(candidates) > 1 and not mod_root_path:
-                # Prompt user
-                items = []
-                for path, mtype in candidates:
-                    name = (
-                        tr("mod_option_entire_folder")
-                        if path == mod_root
-                        else path.name
-                    )
-                    type_label = {
-                        "package": tr("mod_type_package"),
-                        "native": tr("mod_type_native"),
-                        "me3": "Profile",
-                    }.get(mtype, mtype)
-                    items.append(f"{name} ({type_label})")
-
-                selected_item, ok = QInputDialog.getItem(
-                    self.game_page,
-                    tr("select_mod_root_title"),
-                    tr("select_mod_root_desc"),
-                    items,
-                    0,
-                    False,
-                )
-
-                if ok and selected_item:
-                    idx = items.index(selected_item)
-                    mod_root, mod_type = candidates[idx]
-                    # Calculate relative path from source to selected mod_root
-                    # This path can be saved for future updates
-                    try:
-                        rel_path = mod_root.relative_to(source)
-                        if str(rel_path) != ".":
-                            self._last_selected_mod_root_path = str(rel_path)
-                    except ValueError:
-                        # mod_root is not relative to source, shouldn't happen
-                        pass
+            elif len(candidates) >= 1 and not mod_root_path:
+                # Install entire folder as container mod - no selection dialog needed
+                # Find the root candidate (if exists), otherwise use first candidate
+                root_candidates = [c for c in candidates if c[0] == mod_root]
+                if root_candidates:
+                    mod_root, mod_type = root_candidates[0]
                 else:
-                    return []
+                    mod_root, mod_type = candidates[0]
             elif len(candidates) == 1:
                 mod_root, mod_type = candidates[0]
             else:
@@ -384,13 +417,11 @@ class ModInstaller:
 
             if mod_type == "me3":
                 return self._install_me3_mod(mod_root, mod_name_hint, load_mods)
-            elif mod_type == "native":
-                return self._install_native_mod(mod_root, mod_name_hint, load_mods)
-            elif mod_type == "package":
-                return self._install_package_mod(mod_root, mod_name_hint, load_mods)
 
-            self._show_error(tr("unknown_mod_structure_error"))
-            return []
+            # Simplified: Treat all other types (native, package, unknown) as folder mods
+            return self._install_folder_mod(
+                mod_root, mod_name_hint, load_mods, mod_type
+            )
 
         except Exception as e:
             self._log.exception("Mod installation failed")
@@ -583,47 +614,40 @@ class ModInstaller:
             mod_root, profile_file, mod_name_hint, load_mods
         )
 
-    def _install_native_mod(
-        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
+    def _install_folder_mod(
+        self,
+        mod_root: Path,
+        mod_name_hint: str | None,
+        load_mods: bool = True,
+        mod_type: str = "unknown",
     ) -> list[str]:
-        """Install native (DLL-only) mod."""
+        """Install mod as folder (unified installation for all mod types).
+
+        Simplified logic:
+        - All mods are installed as folders
+        - Folder can contain DLLs, game assets, configs, or any combination
+        - DLLs within folder are auto-registered as natives
+        - Folder is registered for enable/disable
+        """
         mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
         if not mod_name:
             return []
 
         mods_dir = self._get_mods_dir()
 
-        # Stage and copy the mod
-        # We wrap contents in a new folder with mod_name by installing to Path(mod_name)
+        # Stage and copy the mod folder
         if not self._install_staged_items([(mod_root, Path(mod_name))]):
             return []
 
-        # Register all DLLs (handles both root-level and nested)
-        wrapper = mods_dir / mod_name
-        for dll in wrapper.rglob("*.dll"):
+        # Register the folder mod (skip for native-only mods to avoid redundancy)
+        dest = mods_dir / mod_name
+        if mod_type != "native":
+            self._register_folder_mod(mod_name, dest)
+
+        # Auto-register all DLLs within the folder
+        for dll in dest.rglob("*.dll"):
             self._register_native_mod(dll)
 
-        if load_mods:
-            self.game_page.load_mods()
-        return [mod_name]
-
-    def _install_package_mod(
-        self, mod_root: Path, mod_name_hint: str | None, load_mods: bool = True
-    ) -> list[str]:
-        """Install package mod (game assets)."""
-        mod_name = self._resolve_mod_name(mod_name_hint, mod_root.name)
-        if not mod_name:
-            return []
-
-        mods_dir = self._get_mods_dir()
-
-        # Stage and copy the mod
-        if not self._install_staged_items([(mod_root, Path(mod_name))]):
-            return []
-
-        # Register as package mod
-        dest = mods_dir / mod_name
-        self._register_folder_mod(mod_name, dest)
         if load_mods:
             self.game_page.load_mods()
         return [mod_name]
@@ -731,7 +755,8 @@ class ModInstaller:
 
             # Check for nexus_link dependencies and download if needed
             # Done after confirmation so user knows what they are importing first
-            self._handle_nexus_dependencies(profile_data)
+            if not self._handle_nexus_dependencies(profile_data):
+                return []
 
             # Check for custom install script in profile metadata
             # Support both metadata.install_script (new standard) and older top-level if any
@@ -897,7 +922,55 @@ class ModInstaller:
                     script_path, final_folder_names, profile_data
                 )
 
-            # Show success dialog
+            # Collect user prompts from the profile BEFORE showing success dialog
+            all_prompts = self._collect_user_prompts(profile_data)
+            user_values: dict[str, dict] = {}
+
+            if all_prompts:
+                # Show dialog to collect user input
+                prompts_dialog = UserPromptsDialog(
+                    all_prompts,
+                    profile_description=profile_data.get("description", ""),
+                    parent=self.game_page,
+                )
+                if prompts_dialog.exec() != QDialog.DialogCode.Accepted:
+                    self.game_page.status_label.setText(tr("import_cancelled_status"))
+                    return []
+
+                user_values = prompts_dialog.get_values_by_config()
+
+                # Merge user values into config_overrides
+                self._merge_user_values_into_profile(profile_data, user_values)
+
+            # Apply configuration overrides
+            mods_dir = self._get_mods_dir()
+
+            def _apply_configs(entries):
+                for entry in entries:
+                    if (
+                        isinstance(entry, dict)
+                        and entry.get("config")
+                        and entry.get("config_overrides")
+                    ):
+                        # path is relative to mods_dir
+                        config_rel = entry["config"]
+                        config_path = mods_dir / config_rel
+                        # Simple security check to prevent escaping mods_dir
+                        try:
+                            config_path.resolve().relative_to(mods_dir.resolve())
+                            ConfigApplicator.apply_ini_overrides(
+                                config_path, entry["config_overrides"]
+                            )
+                        except Exception:
+                            self._log.warning(
+                                "Invalid config override path (security check failed): %s",
+                                config_rel,
+                            )
+
+            _apply_configs(profile_data.get("natives", []))
+            _apply_configs(profile_data.get("packages", []))
+
+            # Show success dialog LAST (after all prompts and config are applied)
             dialog = QDialog(self.game_page)
             dialog.setWindowTitle(tr("import_complete_title"))
             layout = QVBoxLayout()
@@ -953,11 +1026,14 @@ class ModInstaller:
                 return True
         return False
 
-    def _handle_nexus_dependencies(self, profile_data: dict) -> None:
+    def _handle_nexus_dependencies(self, profile_data: dict) -> bool:
         """Check for and download missing mods from nexus_link entries.
 
         Args:
             profile_data: Normalized profile data with natives and packages
+
+        Returns:
+            True if successful or no dependencies, False if user cancelled
         """
         # Collect all nexus_link entries from both natives and packages
         nexus_deps = []
@@ -989,29 +1065,49 @@ class ModInstaller:
         _process_entries(profile_data.get("packages", []), "package")
 
         if not nexus_deps:
-            return
+            return True
 
         # Check if we have nexus service available
         nexus_service = getattr(self.game_page, "nexus_service", None)
+
+        # Ensure API key is up-to-date (handles case where user just logged in)
+        if nexus_service:
+            nexus_service.set_api_key(self.config_manager.get_nexus_api_key())
+
         if not nexus_service or not nexus_service.has_api_key:
-            reply = QMessageBox.warning(
+            QMessageBox.warning(
                 self.game_page,
                 tr("nexus_api_key_missing_status"),
                 tr("nexus_dependencies_missing_api_key", count=len(nexus_deps)),
-                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Ok,
             )
-            if reply == QMessageBox.StandardButton.Cancel:
-                raise Exception("Nexus API key required for downloading dependencies")
-            return
+            # Always cancel - user must log in to proceed
+            return False
 
         # Filter to only mods that aren't already installed
         # For now, we'll just show all and let download_from_nexus handle duplicates
         missing_deps = nexus_deps
 
-        # Show confirmation dialog
+        # Fetch mod info upfront to show names in the dialog
+        # This also caches the mod info for use during download
+        for dep in missing_deps:
+            try:
+                mod = nexus_service.get_mod(dep["game_domain"], dep["mod_id"])
+                dep["mod_info"] = mod
+                dep["mod_name"] = mod.name or f"Mod #{dep['mod_id']}"
+            except Exception:
+                dep["mod_info"] = None
+                dep["mod_name"] = f"Mod #{dep['mod_id']}"
+
+        # Show confirmation dialog with mod names and file names
         msg_lines = [tr("nexus_dependencies_found", count=len(missing_deps)), ""]
         for i, dep in enumerate(missing_deps, 1):
-            msg_lines.append(f"{i}. {dep['url']}")
+            # Include file name if specified in the profile
+            file_name = dep["settings"].get("nexus_file_name")
+            if file_name:
+                msg_lines.append(f"{i}. {dep['mod_name']} - {file_name}")
+            else:
+                msg_lines.append(f"{i}. {dep['mod_name']}")
         msg_lines.append("")
         msg_lines.append(tr("nexus_dependencies_confirm"))
 
@@ -1023,21 +1119,56 @@ class ModInstaller:
         )
 
         if reply != QMessageBox.StandardButton.Yes:
-            return
+            return False
 
         try:
             # Download each missing dependency
             for dep in missing_deps:
                 try:
-                    mod = self.game_page.nexus_service.get_mod(
-                        dep["game_domain"], dep["mod_id"]
-                    )
+                    # Use cached mod info if available, otherwise fetch
+                    mod = dep.get("mod_info")
+                    if not mod:
+                        mod = self.game_page.nexus_service.get_mod(
+                            dep["game_domain"], dep["mod_id"]
+                        )
 
                     # Use GamePage's existing download method headlessly
                     mod_folder = dep["entry"].get("mod_folder")
-                    installed = self.game_page.download_selected_nexus_mod(
-                        mod, load_mods=False, mod_root_path=mod_folder
-                    )
+                    file_category = dep["settings"].get("nexus_category")
+                    # Support specifying exact file by ID
+                    file_id = dep["settings"].get("nexus_file_id")
+                    if file_id is not None:
+                        try:
+                            file_id = int(file_id)
+                        except (ValueError, TypeError):
+                            file_id = None
+                    # Support specifying file by name pattern
+                    file_name = dep["settings"].get("nexus_file_name")
+
+                    # For natives, mod_folder is the path WITHIN the archive to extract from
+                    # For packages, mod_folder is the DESTINATION folder name
+                    if dep["type"] == "native":
+                        installed = self.game_page.download_selected_nexus_mod(
+                            mod,
+                            load_mods=False,
+                            mod_root_path=mod_folder,  # Source path within archive
+                            file_category=file_category,
+                            file_id=file_id,
+                            file_name=file_name,
+                            install_name=None,
+                            ignore_sidebar=True,
+                        )
+                    else:
+                        installed = self.game_page.download_selected_nexus_mod(
+                            mod,
+                            load_mods=False,
+                            mod_root_path=None,
+                            file_category=file_category,
+                            file_id=file_id,
+                            file_name=file_name,
+                            install_name=mod_folder,  # Destination folder name
+                            ignore_sidebar=True,
+                        )
 
                     if installed:
                         mod_name = (
@@ -1068,6 +1199,19 @@ class ModInstaller:
                         if dep["settings"]:
                             pass
 
+                        # Save mod_root_path to metadata if provided in the profile
+                        # Skip temp folders to preserve the main mod's metadata
+                        m_folder = dep["entry"].get("mod_folder") or dep["entry"].get(
+                            "mod_root_path"
+                        )
+                        if m_folder and "_temp" not in m_folder.lower():
+                            try:
+                                self.game_page.nexus_metadata.set_mod_root_path(
+                                    dep["game_domain"], dep["mod_id"], m_folder
+                                )
+                            except Exception:
+                                pass
+
                 except Exception as e:
                     self._log.error(f"Failed to download {dep['url']}: {e}")
                     QMessageBox.warning(
@@ -1075,8 +1219,12 @@ class ModInstaller:
                         tr("ERROR"),
                         tr("nexus_download_failed", url=dep["url"], error=str(e)),
                     )
+                    # Stop the entire installation on failure
+                    raise
         finally:
             pass  # Sidebar is no longer touched during fetch
+
+        return True
 
     # =========================================================================
     # HELPER METHODS
@@ -1155,30 +1303,103 @@ class ModInstaller:
                 continue
         return False
 
+    def _collect_user_prompts(self, profile_data: dict) -> list[dict]:
+        """
+        Collect all user_prompts from natives and packages in the profile.
+
+        Returns a flat list of prompt definitions with config path attached.
+        """
+        all_prompts = []
+
+        def _extract_prompts(entries):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                config_path = entry.get("config")
+                user_prompts = entry.get("user_prompts", [])
+                if not config_path or not user_prompts:
+                    continue
+
+                for prompt in user_prompts:
+                    if isinstance(prompt, dict) and prompt.get("key"):
+                        # Attach the config path to each prompt
+                        prompt_copy = dict(prompt)
+                        prompt_copy["config"] = config_path
+                        all_prompts.append(prompt_copy)
+
+        _extract_prompts(profile_data.get("natives", []))
+        _extract_prompts(profile_data.get("packages", []))
+
+        return all_prompts
+
+    def _merge_user_values_into_profile(
+        self, profile_data: dict, user_values: dict[str, dict]
+    ) -> None:
+        """
+        Merge user-provided values into the appropriate config_overrides.
+
+        Args:
+            profile_data: The profile data to modify
+            user_values: Dict mapping config paths to {key: value} dicts
+        """
+
+        def _merge_into_entries(entries):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                config_path = entry.get("config")
+                if not config_path or config_path not in user_values:
+                    continue
+
+                # Initialize config_overrides if not present
+                if "config_overrides" not in entry:
+                    entry["config_overrides"] = {}
+
+                # Merge user values
+                for key, value in user_values[config_path].items():
+                    entry["config_overrides"][key] = value
+
+        _merge_into_entries(profile_data.get("natives", []))
+        _merge_into_entries(profile_data.get("packages", []))
+
+    def _sanitize_mod_name(self, name: str) -> str:
+        """Sanitize mod name to be valid for Windows filesystem."""
+        # Replace forbidden chars with underscore, but keep spaces
+        name = re.sub(r'[<>:"/\\|?*]', "_", name)
+        # Remove leading/trailing dots and spaces
+        name = name.strip(". ")
+        # Truncate to reasonable length
+        if len(name) > 60:
+            name = name[:60]
+        return name
+
     def _resolve_mod_name(
         self, mod_name_hint: str | None, fallback_name: str
     ) -> str | None:
         """
-        Resolve and validate mod name, prompting user if needed.
-
-        Returns validated mod name or None if cancelled/invalid.
+        Resolve and validate mod name, prompting user ONLY if absolutely necessary.
         """
-        mod_name = mod_name_hint or fallback_name
-        if not _validate_mod_name(mod_name):
-            mod_name, ok = QInputDialog.getText(
-                self.game_page,
-                tr("name_mod_package_title"),
-                tr("name_mod_package_desc"),
-                text=fallback_name,
-            )
-            if not ok or not mod_name.strip():
-                return None
-            mod_name = mod_name.strip()
+        # Try sanitized hint first
+        if mod_name_hint:
+            clean_hint = self._sanitize_mod_name(mod_name_hint)
+            if _validate_mod_name(clean_hint):
+                return clean_hint
 
-        if not _validate_mod_name(mod_name):
-            self._show_error(tr("invalid_mod_name_msg"))
+        # Try sanitized fallback
+        clean_fallback = self._sanitize_mod_name(fallback_name)
+        if _validate_mod_name(clean_fallback):
+            return clean_fallback
+
+        # Last resort: Prompt user
+        mod_name, ok = QInputDialog.getText(
+            self.game_page,
+            tr("name_mod_package_title"),
+            tr("name_mod_package_desc"),
+            text=mod_name_hint or fallback_name,
+        )
+        if not ok or not mod_name.strip():
             return None
-        return mod_name
+        return mod_name.strip()
 
     def _get_mods_dir(self) -> Path:
         """Get the mods directory for the current game."""
@@ -1335,18 +1556,21 @@ class ModInstaller:
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
-                # Filter out ALL conflicts (both types)
+                # Filter out all conflicts
                 all_conflicts = set(conflicts + config_conflicts)
                 items = [p for p in items if get_dest_name(p) not in all_conflicts]
 
         if not items:
             return False
 
+        # First, count files for the progress dialog if possible, or just use item count as initial
+        total_guess = len(items)
+
         progress = QProgressDialog(
             tr("installing_status", name="..."),
             tr("cancel_button"),
             0,
-            len(items),
+            total_guess,
             self.game_page,
         )
         progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -1358,7 +1582,8 @@ class ModInstaller:
 
         def on_progress(status, current, total):
             progress.setLabelText(status)
-            progress.setMaximum(total)
+            if progress.maximum() != total:
+                progress.setMaximum(total)
             progress.setValue(current)
 
         def on_complete(count, errors):
@@ -1416,7 +1641,6 @@ class ModInstaller:
                     "mods_dir": self._get_mods_dir(),
                     "game_name": self.game_page.game_name,
                     "profile_data": profile_data,
-                    # Helper for moving/renaming
                     "shutil": shutil,
                     "Path": Path,
                 }

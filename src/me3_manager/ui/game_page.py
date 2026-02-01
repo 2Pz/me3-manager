@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -44,6 +45,8 @@ from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
 from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
 from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
+
+log = logging.getLogger(__name__)
 
 
 class NexusDownloadWorker(QThread):
@@ -163,6 +166,87 @@ class GamePage(QWidget):
         except Exception:
             pass
 
+    def _collapse_terminal(self):
+        """Collapse the terminal widget to give more space for mod details."""
+        try:
+            # Navigate up to find the main window which owns the terminal
+            main_window = self.window()
+            if main_window and hasattr(main_window, "terminal"):
+                main_window.terminal.collapse()
+        except Exception:
+            pass
+
+    def _expand_window_for_sidebar(self):
+        """Expand the main window to accommodate the sidebar (wider and taller)."""
+        try:
+            main_window = self.window()
+            if main_window:
+                # Check for maximized state using windowState()
+                # isMaximized() can be unreliable on some platforms/Qt versions depending on how it was maximized
+                is_maximized = bool(
+                    main_window.windowState() & Qt.WindowState.WindowMaximized
+                )
+
+                if is_maximized:
+                    # If maximized, we DON'T resize, but we record that we didn't
+                    main_window._was_maximized_before_sidebar = True
+                    return
+
+                main_window._was_maximized_before_sidebar = False
+
+                # Store original size on MAIN WINDOW if not already stored
+                if not hasattr(main_window, "_original_window_size"):
+                    main_window._original_window_size = (
+                        main_window.width(),
+                        main_window.height(),
+                    )
+
+                    # Add extra width for sidebar (350px) and height (200px)
+                    new_width = main_window.width() + 350
+                    new_height = main_window.height() + 200
+                    main_window.resize(new_width, new_height)
+
+        except Exception as e:
+            log.error("Error expanding window: %s", e)
+
+    def _restore_window_and_terminal(self):
+        """Restore the window to its original size and expand the terminal."""
+        try:
+            main_window = self.window()
+            if main_window:
+                # Check if we were maximized
+                was_maximized = getattr(
+                    main_window, "_was_maximized_before_sidebar", False
+                )
+
+                # Cleanup flag
+                if hasattr(main_window, "_was_maximized_before_sidebar"):
+                    del main_window._was_maximized_before_sidebar
+
+                # Expand terminal immediately
+                if hasattr(main_window, "terminal"):
+                    main_window.terminal.expand()
+
+                if not was_maximized:
+                    # Delay window resize slightly to allow layout (margins) to update
+                    def do_resize():
+                        try:
+                            # Restore original size if stored on main window
+                            if hasattr(main_window, "_original_window_size"):
+                                width, height = main_window._original_window_size
+                                main_window.resize(width, height)
+                                del main_window._original_window_size
+                            else:
+                                # Fallback to default app size if state is lost
+                                main_window.resize(1200, 800)
+                        except Exception as e:
+                            log.error("Error in do_resize: %s", e)
+
+                    QTimer.singleShot(50, do_resize)
+
+        except Exception as e:
+            log.error("Error restoring window: %s", e)
+
     def _setup_sidebar_signals(self, sidebar) -> None:
         """Setup standard signal connections for the Nexus details sidebar."""
         self._safe_disconnect(sidebar.install_clicked)
@@ -170,12 +254,23 @@ class GamePage(QWidget):
         self._safe_disconnect(sidebar.open_page_clicked)
         self._safe_disconnect(sidebar.check_update_clicked)
         self._safe_disconnect(sidebar.close_clicked)
+        self._safe_disconnect(sidebar.mod_root_changed)
+        self._safe_disconnect(sidebar.hidden)
 
         sidebar.link_clicked.connect(self.link_selected_nexus_mod)
         sidebar.open_page_clicked.connect(self.open_selected_nexus_page)
         sidebar.check_update_clicked.connect(self.check_update_selected_mod)
         sidebar.install_clicked.connect(self.download_selected_nexus_mod)
-        sidebar.close_clicked.connect(lambda: sidebar.hide_animated())
+        sidebar.file_selected.connect(self.on_sidebar_file_selected)
+        sidebar.mod_root_changed.connect(self.on_sidebar_mod_root_changed)
+        sidebar.close_clicked.connect(self._on_sidebar_closed)
+        sidebar.hidden.connect(self._restore_window_and_terminal)
+
+    def _on_sidebar_closed(self):
+        """Handle sidebar close: hide sidebar, restore window size, expand terminal."""
+        sidebar = getattr(self, "nexus_details_sidebar", None)
+        if sidebar:
+            sidebar.hide_animated()
 
     # Search mode handlers (Local/Nexus)
     def on_search_mode_changed(self):
@@ -190,7 +285,11 @@ class GamePage(QWidget):
 
         # UX: clear previous results when switching modes (actual panels added later)
         if self.search_mode == "local":
-            self.mods_widget.setVisible(True)
+            if hasattr(self, "mods_scroll_area"):
+                self.mods_scroll_area.setVisible(True)
+            else:
+                self.mods_widget.setVisible(True)
+
             if hasattr(self, "pagination_widget"):
                 self.pagination_widget.setVisible(True)
             if hasattr(self, "community_search_panel"):
@@ -198,7 +297,11 @@ class GamePage(QWidget):
             self.apply_filters(reset_page=True)
 
         elif self.search_mode == "community":
-            self.mods_widget.setVisible(False)
+            if hasattr(self, "mods_scroll_area"):
+                self.mods_scroll_area.setVisible(False)
+            else:
+                self.mods_widget.setVisible(False)
+
             if hasattr(self, "pagination_widget"):
                 self.pagination_widget.setVisible(False)
             if hasattr(self, "community_search_panel"):
@@ -209,7 +312,11 @@ class GamePage(QWidget):
             # Or hide everything?
             # Existing behavior was likely just showing local mods + dropdown.
             # Let's keep local mods visible for Nexus mode.
-            self.mods_widget.setVisible(True)
+            if hasattr(self, "mods_scroll_area"):
+                self.mods_scroll_area.setVisible(True)
+            else:
+                self.mods_widget.setVisible(True)
+
             if hasattr(self, "pagination_widget"):
                 self.pagination_widget.setVisible(True)
             if hasattr(self, "community_search_panel"):
@@ -487,6 +594,9 @@ class GamePage(QWidget):
             sidebar = getattr(self, "nexus_details_sidebar", None)
             if sidebar:
                 sidebar.show_animated()
+                # Auto-collapse the terminal and expand window
+                self._collapse_terminal()
+                self._expand_window_for_sidebar()
                 sidebar.set_details(mod, None)
                 sidebar.set_status(tr("nexus_loading_details"))
                 sidebar.set_cached_text(tr("nexus_cached_just_now"))
@@ -499,7 +609,38 @@ class GamePage(QWidget):
                     mod.game_domain, mod.mod_id
                 )
                 sidebar.set_mod_root_path(saved_root)
-                # Populate thumbnail (we already can fetch it, dropdown proves it's accessible)
+
+                # Fetch available files to populate the dropdown
+                # We do this asynchronously/lazily normally, but for the detail view needed for selection, we fetch now.
+                files = []
+                try:
+                    if self.nexus_service.has_api_key:
+                        files = self.nexus_service.get_mod_files(
+                            mod.game_domain, mod.mod_id
+                        )
+                except Exception:
+                    pass
+
+                # Determine which file should be selected by default
+                selected_file_id = None
+
+                # 1. Prefer currently installed/tracked file
+                cached_meta = self.nexus_metadata.get_cached_for_mod(
+                    mod.game_domain, mod.mod_id
+                )
+                if cached_meta and cached_meta.file_id:
+                    selected_file_id = int(cached_meta.file_id)
+
+                # 2. If not installed, pick latest main file
+                if selected_file_id is None and files:
+                    latest = self.nexus_service.pick_latest_main_file(files)
+                    if latest:
+                        selected_file_id = latest.file_id
+
+                # Populate the sidebar dropdown
+                sidebar.populate_files(files, selected_file_id)
+
+                # Populate thumbnail
                 try:
                     if mod.picture_url:
                         pix = self._load_thumbnail_pixmap(mod.picture_url)
@@ -509,82 +650,73 @@ class GamePage(QWidget):
                 # Setup sidebar signal connections
                 self._setup_sidebar_signals(sidebar)
 
-            # Prefer cached file details (offline + fewer requests).
-            # Update: Auto-fetch file details if not cached to show file size immediately.
-            cached = self.nexus_metadata.get_cached_for_mod(mod.game_domain, mod.mod_id)
-            latest: NexusModFile | None = None
+            # Update displayed details based on the Selected File (or Mod if no file)
+            # Find the file object for the selected ID
+            target_file = None
+            if files and selected_file_id:
+                for f in files:
+                    if f.file_id == selected_file_id:
+                        target_file = f
+                        break
 
-            if cached and cached.file_id:
-                latest = NexusModFile(
-                    file_id=int(cached.file_id),
-                    name=cached.file_name,
-                    version=cached.file_version,
-                    size_kb=cached.file_size_kb,
-                    category_name=cached.file_category,
+            # Fallback to cached file object if we couldn't fetch list but have cache
+            if (
+                not target_file
+                and cached_meta
+                and cached_meta.file_id == selected_file_id
+            ):
+                target_file = NexusModFile(
+                    file_id=int(cached_meta.file_id),
+                    name=cached_meta.file_name,
+                    version=cached_meta.file_version,
+                    size_kb=cached_meta.file_size_kb,
+                    category_name=cached_meta.file_category,
                     category_id=None,
                     is_primary=None,
-                    uploaded_timestamp=cached.file_uploaded_timestamp,
+                    uploaded_timestamp=cached_meta.file_uploaded_timestamp,
                 )
-                if sidebar:
-                    sidebar.set_details(mod, latest)
+
+            if target_file:
+                sidebar.set_details(mod, target_file)
+                if cached_meta and cached_meta.file_id == selected_file_id:
                     sidebar.set_status("")
-                    sidebar.set_cached_text(self._fmt_cached_age(cached.cached_at))
-            else:
-                # Not cached? Fetch file list to get size/version info.
-                if sidebar:
-                    sidebar.set_status(tr("nexus_loading_details"))
+                    sidebar.set_cached_text(self._fmt_cached_age(cached_meta.cached_at))
 
-                try:
-                    if self.nexus_service.has_api_key:
-                        files = self.nexus_service.get_mod_files(
-                            mod.game_domain, mod.mod_id
-                        )
-                        latest = self.nexus_service.pick_latest_main_file(files)
-
-                        if latest:
-                            if sidebar:
-                                sidebar.set_details(mod, latest)
-                                sidebar.set_status(tr("nexus_details_fetched_status"))
-                                sidebar.set_cached_text(tr("nexus_cached_just_now"))
-
-                            # Cache it so next time it's instant
-                            self.nexus_metadata.upsert_cache_for_mod(
-                                game_domain=mod.game_domain,
-                                mod_id=mod.mod_id,
-                                mod_name=mod.name,
-                                mod_version=latest.version,
-                                mod_author=mod.author,
-                                mod_endorsements=mod.endorsement_count,
-                                mod_unique_downloads=mod.unique_downloads,
-                                mod_total_downloads=mod.total_downloads,
-                                mod_picture_url=mod.picture_url,
-                                mod_summary=mod.summary,
-                                file_id=latest.file_id,
-                                file_name=latest.name,
-                                file_version=latest.version,
-                                file_size_kb=latest.size_kb,
-                                file_category=latest.category_name,
-                                file_uploaded_timestamp=latest.uploaded_timestamp,
-                                nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
-                            )
-                        else:
-                            # No files found
-                            if sidebar:
-                                sidebar.set_details(mod, None)
-                                sidebar.set_status(tr("nexus_no_files_found_status"))
-                    else:
-                        # No API key, can only show mod info
-                        if sidebar:
-                            sidebar.set_details(mod, None)
-                            sidebar.set_status(tr("nexus_api_key_missing_status"))
-
-                except Exception as e:
-                    # Fallback to just mod details if fetch fails
-                    if sidebar:
-                        sidebar.set_details(mod, None)
+                    # Check for update availability on initial load
+                    if cached_meta.update_available:
+                        sidebar.set_update_mode(True)
                         sidebar.set_status(
-                            tr("nexus_details_fetch_failed", error=str(e))
+                            tr(
+                                "nexus_update_available_status",
+                                version=cached_meta.update_latest_version or "",
+                            )
                         )
+                else:
+                    sidebar.set_status(tr("nexus_details_fetched_status"))
+                    sidebar.set_cached_text(tr("nexus_cached_just_now"))
+
+            # Save cache if we fetched fresh data
+            if target_file and self.nexus_service.has_api_key:
+                self.nexus_metadata.upsert_cache_for_mod(
+                    game_domain=mod.game_domain,
+                    mod_id=mod.mod_id,
+                    mod_name=mod.name,
+                    mod_version=target_file.version,
+                    mod_author=mod.author,
+                    mod_endorsements=mod.endorsement_count,
+                    mod_unique_downloads=mod.unique_downloads,
+                    mod_total_downloads=mod.total_downloads,
+                    mod_picture_url=mod.picture_url,
+                    mod_summary=mod.summary,
+                    file_id=target_file.file_id,
+                    file_name=target_file.name,
+                    file_version=target_file.version,
+                    file_size_kb=target_file.size_kb,
+                    file_category=target_file.category_name,
+                    file_uploaded_timestamp=target_file.uploaded_timestamp,
+                    nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
+                    mod_root_path=sidebar.get_mod_root_path() if sidebar else None,
+                )
 
             self._update_status(
                 tr("nexus_selected_mod_status", mod_name=mod.name or str(mod.mod_id))
@@ -601,18 +733,130 @@ class GamePage(QWidget):
         except Exception:
             pass
 
+    def on_sidebar_file_selected(self, file_id: int):
+        """Handle sidebar file selection change: update details to show the specific file."""
+        try:
+            sidebar = getattr(self, "nexus_details_sidebar", None)
+            if not sidebar:
+                return
+
+            mod = sidebar.current_mod()
+            if not mod:
+                return
+
+            if not self.nexus_service.has_api_key:
+                return
+
+            try:
+                files = self.nexus_service.get_mod_files(mod.game_domain, mod.mod_id)
+                target_file = next((f for f in files if f.file_id == file_id), None)
+
+                if target_file:
+                    sidebar.set_details(mod, target_file)
+
+                    # Check if this file is the one installed AND an update is available
+                    meta = self.nexus_metadata.get_cached_for_mod(
+                        mod.game_domain, mod.mod_id
+                    )
+                    if meta and meta.update_available and meta.file_id == file_id:
+                        sidebar.set_update_mode(True)
+            except Exception:
+                pass
+
+        except Exception:
+            pass
+
+    def on_sidebar_mod_root_changed(self, new_root: str):
+        """Handle manual edit of mod folder path in sidebar."""
+        sidebar = getattr(self, "nexus_details_sidebar", None)
+        if not sidebar:
+            return
+        mod = sidebar.current_mod()
+        if not mod:
+            return
+
+        try:
+            self.nexus_metadata.set_mod_root_path(
+                mod.game_domain, mod.mod_id, new_root or None
+            )
+        except Exception:
+            pass
+
     def download_selected_nexus_mod(
-        self, mod=None, load_mods=True, mod_root_path: str | None = None
+        self,
+        mod=None,
+        load_mods=True,
+        mod_root_path: str | None = None,
+        file_category: str | None = None,
+        file_id: int | None = None,
+        file_name: str | None = None,
+        install_name: str | None = None,
+        ignore_sidebar: bool = False,
     ):
-        """Download and install a Nexus mod (zip only)."""
-        import logging
+        """Download and install a Nexus mod (zip only).
+
+        Args:
+            mod: Optional mod object. If None, uses sidebar's current mod.
+            load_mods: Whether to refresh mod list after install.
+            mod_root_path: Optional path within archive to use as mod root.
+            file_category: Optional category preference (e.g. "MAIN", "UPDATE").
+            file_id: Optional specific file ID to download. Takes precedence.
+            file_name: Optional file name pattern to match (case-insensitive substring).
+            install_name: Optional name for the installed folder (destination name).
+            ignore_sidebar: If True, do not pull state (mod, file selection, rules) from the sidebar.
+        """
 
         sidebar = getattr(self, "nexus_details_sidebar", None)
+        if hasattr(self, "nexus_details_sidebar") and not ignore_sidebar:
+            sidebar = self.nexus_details_sidebar
+        else:
+            sidebar = None
+
+        # Ensure API key is up-to-date (handles case where user just logged in)
+        self.nexus_service.set_api_key(self.config_manager.get_nexus_api_key())
+
         if mod is None:
             mod = sidebar.current_mod() if sidebar else None
 
         if not mod:
             return
+
+        # If file_id not explicit, check from sidebar
+        target_file_id = file_id
+        if target_file_id is None and sidebar:
+            target_file_id = sidebar.current_selected_file_id()
+
+            # Smart Update: If the user has just clicked "Install" with the current installed file selected,
+            # but we know there's an update available, we should install the UPDATE, not the old file again.
+            try:
+                if self.nexus_service.has_api_key:
+                    # Check metadata for this mod
+                    meta = self.nexus_metadata.get_cached_for_mod(
+                        mod.game_domain, mod.mod_id
+                    )
+                    if (
+                        meta
+                        and meta.update_available
+                        and meta.update_latest_file_id
+                        and meta.file_id  # We have an installed file known
+                    ):
+                        # If the dropdown is still selecting the OLD installed file
+                        if target_file_id == meta.file_id:
+                            log.info(
+                                "Smart Update: User selected installed file %s, but update %s is available. Switching target to update.",
+                                target_file_id,
+                                meta.update_latest_file_id,
+                            )
+                            target_file_id = meta.update_latest_file_id
+            except Exception as e:
+                log.warning("Smart Update check failed: %s", e)
+
+        if not file_category and sidebar and not target_file_id:
+            # Fallback to category if no specific file selected (shouldn't happen with new sidebar)
+            # But let's keep it safe.
+            # sidebar.current_category() existed before? Now it's gone.
+            # So we rely on target_file_id.
+            pass
 
         if not self.nexus_service.has_api_key:
             self._update_status(tr("nexus_api_key_missing_status"))
@@ -620,13 +864,28 @@ class GamePage(QWidget):
                 sidebar.set_status(tr("nexus_api_key_missing_status"))
             return
 
-        log = logging.getLogger(__name__)
-
         try:
             files = self.nexus_service.get_mod_files(mod.game_domain, mod.mod_id)
-            # Always download the latest file - don't use cached file as that's the
-            # currently installed version, not the update we want to install
-            chosen = self.nexus_service.pick_latest_main_file(files)
+
+            chosen = None
+            if target_file_id:
+                chosen = next((f for f in files if f.file_id == target_file_id), None)
+
+            # If file_name provided, try to match by name pattern
+            if not chosen and file_name:
+                pattern = file_name.lower()
+                for f in files:
+                    if f.name and pattern in f.name.lower():
+                        chosen = f
+                        break
+
+            if not chosen:
+                # Fallback to picking by category or latest main
+                # Since we removed current_category() from sidebar, we only have file_category arg
+                chosen = self.nexus_service.pick_file(
+                    files, category_preference=file_category or "MAIN"
+                )
+
             if not chosen:
                 raise NexusError("No downloadable files found for this mod.")
 
@@ -745,11 +1004,20 @@ class GamePage(QWidget):
                         file_category=chosen.category_name,
                         file_uploaded_timestamp=chosen.uploaded_timestamp,
                         nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
+                        mod_root_path=mod_root_path
+                        or (sidebar.get_mod_root_path() if sidebar else None),
+                        update_available=False,
                     )
 
                     self._update_status(tr("nexus_install_success_status"))
                     if sidebar:
                         # Refresh sidebar details with updated file info
+                        # Also refresh the file list so the dropdown selects the new file
+                        try:
+                            # Re-fetch files just in case, but usually 'files' from outer scope is fine
+                            sidebar.populate_files(files, chosen.file_id)
+                        except Exception:
+                            pass
                         sidebar.set_details(mod, chosen)
                         sidebar.set_cached_text(tr("nexus_cached_just_now"))
                         sidebar.set_status(tr("nexus_install_success_status"))
@@ -818,10 +1086,15 @@ class GamePage(QWidget):
                 if sidebar:
                     sidebar.set_status(tr("nexus_installing_status"))
 
-                # Use Nexus mod name as folder name
-                mod_name_hint = (
-                    mod.name or chosen.name or f"nexus_{mod.mod_id}_{chosen.file_id}"
-                ).strip()
+                # Use Nexus mod name as folder name, or override if install_name provided
+                if install_name:
+                    mod_name_hint = install_name.strip()
+                else:
+                    mod_name_hint = (
+                        mod.name
+                        or chosen.name
+                        or f"nexus_{mod.mod_id}_{chosen.file_id}"
+                    ).strip()
 
                 mod_root_path = mod_root_path or (
                     sidebar.get_mod_root_path() if sidebar else None
@@ -866,9 +1139,6 @@ class GamePage(QWidget):
                     )
                     folder_path = mods_dir / installed_name
 
-                    import logging
-
-                    log = logging.getLogger(__name__)
                     log.debug(
                         "Metadata tracking: installed_name=%s, folder_path=%s",
                         installed_name,
@@ -901,11 +1171,19 @@ class GamePage(QWidget):
                         file_category=chosen.category_name,
                         file_uploaded_timestamp=chosen.uploaded_timestamp,
                         nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
+                        mod_root_path=mod_root_path
+                        or (sidebar.get_mod_root_path() if sidebar else None),
+                        update_available=False,
                     )
                     log.debug("Metadata saved successfully")
                     self._update_status(tr("nexus_install_success_status"))
                     if sidebar:
                         # Refresh sidebar details with updated file info
+                        # Also refresh the file list so the dropdown selects the new file
+                        try:
+                            sidebar.populate_files(files, chosen.file_id)
+                        except Exception:
+                            pass
                         sidebar.set_details(mod, chosen)
                         sidebar.set_cached_text(tr("nexus_cached_just_now"))
                         sidebar.set_status(tr("nexus_install_success_status"))
@@ -938,36 +1216,28 @@ class GamePage(QWidget):
         is_package_mod = False
         try:
             # Check recursively for any acceptable folder
-            # We check 2 levels deep to catch standard structures
-            def start_scan(p):
-                yield str(p), [d.name for d in p.iterdir() if d.is_dir()], []
-                for d in p.iterdir():
-                    if d.is_dir():
-                        yield (
-                            str(d),
-                            [sub.name for sub in d.iterdir() if sub.is_dir()],
-                            [],
-                        )
-
-            for _, dirs, _ in start_scan(folder_path):
-                if any(d in ACCEPTABLE_FOLDERS for d in dirs):
+            # If we find any standard mod folder anywhere inside, treat it as a Package Mod (Folder)
+            # This covers standard mods, nested mods, and containers.
+            for path in folder_path.rglob("*"):
+                if path.is_dir() and path.name in ACCEPTABLE_FOLDERS:
                     is_package_mod = True
                     break
 
-            if not is_package_mod:
-                if any(
-                    d.name in ACCEPTABLE_FOLDERS
-                    for d in folder_path.iterdir()
-                    if d.is_dir()
-                ):
-                    is_package_mod = True
-
-            # Check for regulation.bin
+            # Check for regulation.bin (also recursive to be safe, though usually near root)
             if not is_package_mod:
                 if (folder_path / "regulation.bin").exists() or (
                     folder_path / "regulation.bin.disabled"
                 ).exists():
                     is_package_mod = True
+                # Fallback check for nested regulation.bin if root check failed
+                if not is_package_mod:
+                    for bin_file in folder_path.rglob("regulation.bin*"):
+                        if bin_file.name in (
+                            "regulation.bin",
+                            "regulation.bin.disabled",
+                        ):
+                            is_package_mod = True
+                            break
         except Exception:
             pass
 
@@ -998,6 +1268,59 @@ class GamePage(QWidget):
             return
         PlatformUtils.open_url(url)
 
+    def perform_update_check(
+        self,
+        game_domain: str,
+        mod_id: int,
+        current_file_id: int | None = None,
+        category_preference: str | None = None,
+        current_version: str | None = None,
+    ) -> tuple[any, bool, str | None]:
+        """
+        Shared update check logic.
+        Returns (latest_file, update_available, error_message).
+        """
+        try:
+            files = self.nexus_service.get_mod_files(game_domain, mod_id)
+            # Respect stored file category preference (e.g. keep Optional mods updating as Optional)
+            pref = category_preference or "MAIN"
+            if pref in ("OLD_VERSION", "ARCHIVED"):
+                pref = "MAIN"
+
+            latest = self.nexus_service.pick_file(files, category_preference=pref)
+
+            is_update = False
+            if latest and current_file_id and latest.file_id > current_file_id:
+                is_update = True
+
+                # Safety check: ensure version is truly newer if we have version strings
+                if current_version and latest.version:
+                    try:
+                        import re
+
+                        def _ver_tuple(v):
+                            return tuple(int(x) for x in re.findall(r"\d+", str(v)))
+
+                        v_curr = _ver_tuple(current_version)
+                        v_new = _ver_tuple(latest.version)
+
+                        # Only reject if we consistently parsed numbers and new is known to be <= old
+                        if v_curr and v_new and v_new <= v_curr:
+                            is_update = False
+                            log.info(
+                                "Ignored potential update (ID %s > %s) because version %s <= %s",
+                                latest.file_id,
+                                current_file_id,
+                                latest.version,
+                                current_version,
+                            )
+                    except Exception:
+                        pass  # Fallback to trusting ID if parsing fails
+
+            return latest, is_update, None
+        except Exception as e:
+            return None, False, str(e)
+
     def check_update_selected_mod(self):
         """
         Check if an update exists for the currently selected local-linked mod.
@@ -1023,18 +1346,24 @@ class GamePage(QWidget):
                     self.selected_local_mod_path
                 )
 
-            files = self.nexus_service.get_mod_files(mod.game_domain, mod.mod_id)
-            latest = self.nexus_service.pick_latest_main_file(files)
-            # NOTE: Do NOT update sidebar details or cache here - checking for updates
-            # should only notify about availability without modifying displayed info.
-            # Details are updated only after user installs the update.
+            # Check for update
+            latest, is_update, error = self.perform_update_check(
+                game_domain=mod.game_domain,
+                mod_id=mod.mod_id,
+                current_file_id=tracked.file_id if tracked else None,
+                category_preference=tracked.file_category if tracked else None,
+                current_version=tracked.file_version if tracked else None,
+            )
 
-            if (
-                tracked
-                and latest
-                and tracked.file_id
-                and latest.file_id != tracked.file_id
-            ):
+            if error:
+                self.nexus_metadata.set_update_check_error(
+                    local_mod_path=self.selected_local_mod_path, error=error
+                )
+                sidebar.set_status(tr("nexus_update_check_failed_status", error=error))
+                sidebar.set_update_mode(False)  # Ensure we reset if error
+                return
+
+            if is_update:
                 if self.selected_local_mod_path:
                     self.nexus_metadata.set_update_check_result(
                         local_mod_path=self.selected_local_mod_path,
@@ -1043,9 +1372,16 @@ class GamePage(QWidget):
                         latest_version=latest.version,
                         error=None,
                     )
+
+                    # Update the list item UI immediately
+                    if hasattr(self, "mod_widgets_map"):
+                        widget = self.mod_widgets_map.get(self.selected_local_mod_path)
+                        if widget:
+                            widget.set_update_available(latest.version)
                 sidebar.set_status(
                     tr("nexus_update_available_status", version=latest.version or "")
                 )
+                sidebar.set_update_mode(True)
             else:
                 if self.selected_local_mod_path and tracked:
                     self.nexus_metadata.set_update_check_result(
@@ -1055,7 +1391,14 @@ class GamePage(QWidget):
                         latest_version=latest.version if latest else None,
                         error=None,
                     )
+
+                    # Update the list item UI immediately to clear badge
+                    if hasattr(self, "mod_widgets_map"):
+                        widget = self.mod_widgets_map.get(self.selected_local_mod_path)
+                        if widget:
+                            widget.set_update_available(None)
                 sidebar.set_status(tr("nexus_up_to_date_status"))
+                sidebar.set_update_mode(False)
         except Exception as e:
             if self.selected_local_mod_path:
                 self.nexus_metadata.set_update_check_error(
@@ -1115,11 +1458,19 @@ class GamePage(QWidget):
             def run(self):
                 for t in self.mods:
                     try:
-                        files = self.gp.nexus_service.get_mod_files(
-                            t.game_domain, int(t.mod_id)
+                        latest, is_update, error = self.gp.perform_update_check(
+                            game_domain=t.game_domain,
+                            mod_id=int(t.mod_id),
+                            current_file_id=t.file_id,
+                            category_preference=t.file_category,
+                            current_version=t.file_version,
                         )
-                        latest = self.gp.nexus_service.pick_latest_main_file(files)
-                        if latest and t.file_id and latest.file_id != t.file_id:
+
+                        if error:
+                            self.gp.nexus_metadata.set_update_check_error(
+                                local_mod_path=str(t.local_mod_path), error=error
+                            )
+                        elif is_update:
                             self.gp.nexus_metadata.set_update_check_result(
                                 local_mod_path=str(t.local_mod_path),
                                 update_available=True,
@@ -1214,6 +1565,8 @@ class GamePage(QWidget):
                 sidebar = getattr(self, "nexus_details_sidebar", None)
                 if sidebar:
                     sidebar.show_animated()
+                    self._collapse_terminal()
+                    self._expand_window_for_sidebar()
                     sidebar.set_details(mod, latest)
                     sidebar.set_status(tr("nexus_linked_status"))
             self._update_status(tr("nexus_linked_status"))
@@ -1282,12 +1635,39 @@ class GamePage(QWidget):
             )
             sidebar.set_details(cached_mod, cached_file)
             sidebar.set_status(tr("nexus_linked_status"))
+
+            # Check for update availability
+            if linked.update_available:
+                sidebar.set_update_mode(True)
+                sidebar.set_status(
+                    tr(
+                        "nexus_update_available_status",
+                        version=linked.update_latest_version or "",
+                    )
+                )
+
             sidebar.set_cached_text(self._fmt_cached_age(linked.cached_at))
             sidebar.set_nexus_url(
                 linked.nexus_url
                 or f"https://www.nexusmods.com/{linked.game_domain}/mods/{linked.mod_id}"
             )
             sidebar.set_link_mode(linked=True)
+
+            # Load saved folder path if any
+            saved_root = self.nexus_metadata.get_mod_root_path(
+                linked.game_domain, linked.mod_id
+            )
+            sidebar.set_mod_root_path(saved_root)
+
+            # Populate files list with just the installed file for now (offline view)
+            # If user wants more files, they can "Check Update" or we could auto-fetch if we wanted.
+            # But primarily we must clear the old list.
+            files_list = []
+            if cached_file:
+                files_list.append(cached_file)
+            sidebar.populate_files(
+                files_list, cached_file.file_id if cached_file else None
+            )
 
             # Load thumbnail before showing sidebar
             try:
@@ -1299,6 +1679,8 @@ class GamePage(QWidget):
 
             # Show with animation
             sidebar.show_animated()
+            self._collapse_terminal()
+            self._expand_window_for_sidebar()
         except Exception:
             # Keep sidebar hidden if anything fails
             return
@@ -1388,13 +1770,6 @@ class GamePage(QWidget):
 
     def _group_mods_for_tree_display(self, mod_items):
         return self.mod_list_handler._group_mods_for_tree_display(mod_items)
-
-    def _create_mod_widget(
-        self, mod_path, info, is_nested=False, has_children=False, is_expanded=False
-    ):
-        return self.mod_list_handler._create_mod_widget(
-            mod_path, info, is_nested, has_children, is_expanded
-        )
 
     def _on_mod_expand_requested(self, mod_path: str, expanded: bool):
         self.mod_list_handler._on_mod_expand_requested(mod_path, expanded)

@@ -16,9 +16,10 @@ from me3_manager.utils.path_utils import PathUtils
 
 
 class ModType(Enum):
-    DLL = "dll"
-    PACKAGE = "package"
-    NESTED = "nested"  # Mods that are inside package mods (like DLLs in subfolders)
+    """Simplified mod types: all mods live in folders."""
+
+    DLL = "dll"  # Individual DLL files within mod folders
+    FOLDER = "folder"  # Mod folders (can contain DLLs, game assets, both, or configs)
 
 
 class ModStatus(Enum):
@@ -39,7 +40,9 @@ class ModInfo:
     has_regulation: bool = False
     regulation_active: bool = False
     advanced_options: dict[str, Any] = None
-    parent_package: str | None = None  # For nested mods, the parent package name
+    parent_package: str | None = None
+    is_container: bool = False
+    child_count: int = 0
 
     def __post_init__(self):
         if self.advanced_options is None:
@@ -59,12 +62,62 @@ class ImprovedModManager:
         self.config_manager = config_manager
         self.acceptable_folders = ACCEPTABLE_FOLDERS
 
+    def _ensure_package_entry(
+        self,
+        config_data: dict,
+        mod_name: str,
+        normalized_path: str,
+        initial_enabled: bool = True,
+    ) -> dict:
+        """
+        Ensure a package entry exists in the config data.
+        Returns the existing or newly created entry.
+        """
+        packages = config_data.get("packages", [])
+
+        # Check for existing entry
+        for package in packages:
+            if isinstance(package, dict):
+                if package.get("id") == mod_name:
+                    return package
+                path = package.get("path") or package.get("source")
+                if path and self._normalize_path(path) == normalized_path:
+                    return package
+
+        # Create new entry
+        entry = {
+            "id": mod_name,
+            "path": normalized_path,
+        }
+        if not initial_enabled:
+            entry["enabled"] = False
+
+        packages.append(entry)
+        config_data["packages"] = packages
+        return entry
+
     def _normalize_path(self, path_str: str) -> str:
         """
         Normalize path to use forward slashes consistently.
         This fixes the path consistency issue between enable/disable operations.
         """
         return PathUtils.normalize(path_str)
+
+    def _analyze_folder_content(self, folder_path: Path) -> tuple[bool, bool]:
+        """
+        Analyze folder content to determine properties.
+        Returns: (has_regulation, has_mod_content)
+        """
+        has_regulation = (folder_path / "regulation.bin").exists() or (
+            folder_path / "regulation.bin.disabled"
+        ).exists()
+
+        has_mod_content = has_regulation or any(
+            (folder_path / acceptable).exists()
+            for acceptable in self.acceptable_folders
+        )
+
+        return has_regulation, has_mod_content
 
     def get_all_mods(self, game_name: str) -> dict[str, ModInfo]:
         """
@@ -234,29 +287,8 @@ class ImprovedModManager:
         enabled_status: dict,
         advanced_options: dict,
     ) -> dict[str, ModInfo]:
-        """Scan filesystem for internal mods (DLLs and packages)"""
+        """Scan filesystem for mods."""
         mods = {}
-
-        # Scan for DLL mods
-        for dll_file in mods_dir.glob("*.dll"):
-            mod_path = str(dll_file)
-
-            # Use helper function for consistent config key generation
-            config_key = self._get_config_key_for_mod(mod_path, game_name)
-
-            mod_info = ModInfo(
-                path=mod_path,
-                name=dll_file.stem,
-                mod_type=ModType.DLL,
-                status=ModStatus.ENABLED
-                if enabled_status.get(config_key, False)
-                else ModStatus.DISABLED,
-                is_external=False,
-                advanced_options=advanced_options.get(config_key, {}),
-            )
-            mods[mod_path] = mod_info
-
-        # Scan for package mods (unchanged)
         active_regulation_mod = self._get_active_regulation_mod(mods_dir)
 
         for folder in mods_dir.iterdir():
@@ -266,110 +298,113 @@ class ImprovedModManager:
             ):
                 continue
 
-            is_valid = self._is_valid_mod_folder(folder)
-
-            # Skip DLL-only folders - they should only have their DLLs registered as nested mods
-            if is_valid and self._is_dll_only_folder(folder):
+            if folder.name.lower() in [f.lower() for f in self.acceptable_folders]:
                 continue
 
-            if is_valid:
-                mod_path = str(folder)
-                has_regulation = (folder / "regulation.bin").exists() or (
-                    folder / "regulation.bin.disabled"
-                ).exists()
-                regulation_active = (
-                    has_regulation and folder.name == active_regulation_mod
-                )
+            mod_path = str(folder)
+            has_regulation, has_mod_content = self._analyze_folder_content(folder)
+            regulation_active = has_regulation and folder.name == active_regulation_mod
 
-                mod_info = ModInfo(
-                    path=mod_path,
-                    name=folder.name,
-                    mod_type=ModType.PACKAGE,
-                    status=ModStatus.ENABLED
-                    if enabled_status.get(folder.name, False)
-                    else ModStatus.DISABLED,
-                    is_external=False,
-                    has_regulation=has_regulation,
-                    regulation_active=regulation_active,
-                    advanced_options=advanced_options.get(folder.name, {}),
-                )
-                mods[mod_path] = mod_info
+            folder_mod_info = ModInfo(
+                path=mod_path,
+                name=folder.name,
+                mod_type=ModType.FOLDER,
+                status=ModStatus.ENABLED
+                if enabled_status.get(folder.name, False)
+                else ModStatus.DISABLED,
+                is_external=False,
+                has_regulation=has_regulation,
+                regulation_active=regulation_active,
+                is_container=not has_mod_content,
+                advanced_options=advanced_options.get(folder.name, {}),
+            )
+            mods[mod_path] = folder_mod_info
 
-        return mods
-
-    def _is_dll_only_folder(self, folder: Path) -> bool:
-        """
-        Check if a folder is primarily a container for DLL mods with their configs.
-        Such folders should not be registered as package mods - only their DLLs
-        should be registered as native mods.
-
-        Returns True if:
-        - Folder contains DLLs
-        - Does NOT contain acceptable game asset folders (parts, chr, etc.)
-        """
-        try:
-            children = list(folder.iterdir())
-        except (PermissionError, OSError):
-            return False
-
-        # Must have at least one DLL
-        has_dll = any(c.is_file() and c.suffix.lower() == ".dll" for c in children)
-        if not has_dll:
-            # Check recursively for nested DLLs
             try:
-                has_dll = any(folder.rglob("*.dll"))
+                for subfolder in folder.rglob("*"):
+                    if not subfolder.is_dir():
+                        continue
+
+                    if subfolder.name.lower() in [
+                        f.lower() for f in self.acceptable_folders
+                    ]:
+                        continue
+
+                    has_acceptable_content = any(
+                        child.is_dir()
+                        and child.name.lower()
+                        in [f.lower() for f in self.acceptable_folders]
+                        for child in subfolder.iterdir()
+                    )
+
+                    if has_acceptable_content:
+                        subfolder_path = str(subfolder)
+
+                        if subfolder_path == mod_path:
+                            continue
+
+                        rel_path = subfolder.relative_to(folder)
+                        display_name = (
+                            f"{folder.name}/{str(rel_path).replace(chr(92), '/')}"
+                        )
+
+                        has_regulation, _ = self._analyze_folder_content(subfolder)
+                        regulation_active = (
+                            has_regulation and (subfolder / "regulation.bin").exists()
+                        )
+
+                        subfolder_mod_info = ModInfo(
+                            path=subfolder_path,
+                            name=display_name,
+                            mod_type=ModType.FOLDER,
+                            status=ModStatus.ENABLED
+                            if enabled_status.get(display_name, False)
+                            else ModStatus.DISABLED,
+                            is_external=False,
+                            has_regulation=has_regulation,
+                            regulation_active=regulation_active,
+                            parent_package=folder.name,
+                            advanced_options=advanced_options.get(display_name, {}),
+                        )
+                        mods[subfolder_path] = subfolder_mod_info
             except (PermissionError, OSError):
                 pass
-        if not has_dll:
-            return False
 
-        # If folder contains acceptable game asset folders, it's a package mod
-        for child in children:
-            if child.is_dir() and child.name in self.acceptable_folders:
-                return False
+            try:
+                for dll_file in folder.rglob("*.dll"):
+                    dll_path = str(dll_file)
+                    config_key = self._get_config_key_for_mod(dll_path, game_name)
+                    display_name = f"{folder.name}/{dll_file.stem}"
 
-        # Has DLLs, no game asset folders -> it's a DLL container
-        return True
+                    dll_mod_info = ModInfo(
+                        path=dll_path,
+                        name=display_name,
+                        mod_type=ModType.DLL,
+                        status=ModStatus.ENABLED
+                        if enabled_status.get(config_key, False)
+                        else ModStatus.DISABLED,
+                        is_external=False,
+                        parent_package=folder.name,
+                        advanced_options=advanced_options.get(config_key, {}),
+                    )
+                    mods[dll_path] = dll_mod_info
+            except (PermissionError, OSError):
+                continue
 
-    def _is_valid_mod_folder(self, folder: Path) -> bool:
-        """Check if a folder is a valid mod folder"""
-        # Check if folder name is in acceptable folders
-        if folder.name in self.acceptable_folders:
-            return True
+        # Calculate child count for all mods
+        parent_children_map = {}
+        for mod in mods.values():
+            if mod.parent_package:
+                parent_children_map[mod.parent_package] = (
+                    parent_children_map.get(mod.parent_package, 0) + 1
+                )
 
-        # Check if it contains acceptable subfolders
-        try:
-            if any(
-                sub.is_dir() and sub.name in self.acceptable_folders
-                for sub in folder.iterdir()
-            ):
-                return True
-        except (PermissionError, OSError):
-            # Skip folders we cannot read (e.g., system junctions like AppData)
-            return False
+        # Update child_count in mod infos
+        for _path, mod in mods.items():
+            if mod.mod_type == ModType.FOLDER and mod.name in parent_children_map:
+                mod.child_count = parent_children_map[mod.name]
 
-        # Check if it has regulation files
-        if (folder / "regulation.bin").exists() or (
-            folder / "regulation.bin.disabled"
-        ).exists():
-            return True
-
-        # Check if it contains DLL files (native mods, including nested in subfolders)
-        try:
-            # Use rglob to find DLLs at any depth (e.g., ModName/SeamlessCoop/nrsc.dll)
-            if any(folder.rglob("*.dll")):
-                return True
-        except (PermissionError, OSError):
-            pass
-
-        return False
-
-    def _get_active_regulation_mod(self, mods_dir: Path) -> str | None:
-        """Find which mod currently has the active regulation.bin file"""
-        for folder in mods_dir.iterdir():
-            if folder.is_dir() and (folder / "regulation.bin").exists():
-                return folder.name
-        return None
+        return mods
 
     def _scan_nested_mods(
         self,
@@ -378,58 +413,18 @@ class ImprovedModManager:
         enabled_status: dict,
         advanced_options: dict,
     ) -> dict[str, ModInfo]:
-        """Scan for nested mods within package folders."""
-        nested_mods = {}
+        """Deprecated - merged into _scan_internal_mods.
 
-        # Scan through all package folders
+        Kept for compatibility but returns empty dict.
+        """
+        return {}
+
+    def _get_active_regulation_mod(self, mods_dir: Path) -> str | None:
+        """Find which mod currently has the active regulation.bin file"""
         for folder in mods_dir.iterdir():
-            if (
-                not folder.is_dir()
-                or folder.name == self.config_manager.games[game_name]["mods_dir"]
-            ):
-                continue
-
-            if not self._is_valid_mod_folder(folder):
-                continue
-
-            # Check if this folder is a DLL-only container (not a package mod)
-            is_dll_only = self._is_dll_only_folder(folder)
-
-            # Recursively scan for DLL files within this package
-            for dll_file in folder.rglob("*.dll"):
-                try:
-                    # Use helper function for consistent config key generation
-                    nested_mod_path = str(dll_file)
-                    config_key = self._get_config_key_for_mod(
-                        nested_mod_path, game_name
-                    )
-
-                    # For DLL-only folders, use just the folder name as display name
-                    # This prevents redundant names like "StormControl/StormControl"
-                    # For package mods with nested DLLs, use "folder/dll_stem" format
-                    if is_dll_only:
-                        display_name = folder.name
-                    else:
-                        display_name = f"{folder.name}/{dll_file.stem}"
-
-                    mod_info = ModInfo(
-                        path=nested_mod_path,
-                        name=display_name,
-                        mod_type=ModType.NESTED,
-                        status=ModStatus.ENABLED
-                        if enabled_status.get(config_key, False)
-                        else ModStatus.DISABLED,
-                        is_external=False,
-                        parent_package=folder.name,
-                        advanced_options=advanced_options.get(config_key, {}),
-                    )
-
-                    nested_mods[nested_mod_path] = mod_info
-
-                except Exception:
-                    continue
-
-        return nested_mods
+            if folder.is_dir() and (folder / "regulation.bin").exists():
+                return folder.name
+        return None
 
     def _get_external_mods(
         self, game_name: str, enabled_status: dict, advanced_options: dict
@@ -459,12 +454,15 @@ class ImprovedModManager:
 
             if path_exists:
                 if is_directory:
-                    mod_type = ModType.PACKAGE
+                    mod_type = ModType.FOLDER
                     mod_name = path_obj.name
-                    has_regulation = (path_obj / "regulation.bin").exists() or (
-                        path_obj / "regulation.bin.disabled"
-                    ).exists()
+
+                    has_regulation, has_mod_content = self._analyze_folder_content(
+                        path_obj
+                    )
                     regulation_active = (path_obj / "regulation.bin").exists()
+                    is_container = not has_mod_content
+
                     enabled = enabled_status.get(
                         normalized_path, False
                     ) or enabled_status.get(mod_name, False)
@@ -476,13 +474,15 @@ class ImprovedModManager:
                     mod_name = path_obj.stem
                     has_regulation = False
                     regulation_active = False
+                    is_container = False
                     enabled = enabled_status.get(normalized_path, False)
                     advanced = advanced_options.get(normalized_path, {})
             else:
-                mod_type = ModType.DLL if is_dll else ModType.PACKAGE
+                mod_type = ModType.DLL if is_dll else ModType.FOLDER
                 mod_name = path_obj.stem if mod_type == ModType.DLL else path_obj.name
                 has_regulation = False
                 regulation_active = False
+                is_container = False  # Default missing to false
                 enabled = enabled_status.get(
                     normalized_path, False
                 ) or enabled_status.get(mod_name, False)
@@ -504,6 +504,7 @@ class ImprovedModManager:
                 is_external=True,
                 has_regulation=has_regulation,
                 regulation_active=regulation_active,
+                is_container=is_container,
                 advanced_options=advanced,
             )
 
@@ -553,6 +554,29 @@ class ImprovedModManager:
                     normalized_path = self._normalize_path(str(raw_path))
                     if Path(normalized_path).is_absolute():
                         enabled_status[normalized_path] = True
+
+        # Special case: If a folder is NOT in packages but contains enabled natives,
+        # it should be considered enabled for UI purposes (display as green).
+        # This handles native-only mods that aren't registered as packages.
+        mods_dir = self.config_manager.get_mods_dir(game_name)
+        if mods_dir.exists():
+            for folder in mods_dir.iterdir():
+                if not folder.is_dir():
+                    continue
+
+                folder_name = folder.name
+                if folder_name not in enabled_status:
+                    # Check for child DLLs
+                    try:
+                        for dll in folder.rglob("*.dll"):
+                            config_key = self._get_config_key_for_mod(
+                                str(dll), game_name
+                            )
+                            if enabled_status.get(config_key):
+                                enabled_status[folder_name] = True
+                                break
+                    except (PermissionError, OSError):
+                        pass
 
         return enabled_status
 
@@ -611,11 +635,17 @@ class ImprovedModManager:
 
         for mod_path, mod_info in current_mods.items():
             if mod_info.is_external:
-                current_external_paths.add(self._normalize_path(mod_path))
-            elif mod_info.mod_type in [ModType.DLL, ModType.NESTED]:
+                norm_path = self._normalize_path(mod_path)
+                current_external_paths.add(norm_path)
+                # For external DLLs, also track as config key
+                if mod_info.mod_type == ModType.DLL:
+                    config_key = self._get_config_key_for_mod(mod_path, game_name)
+                    current_config_keys.add(config_key)
+            elif mod_info.mod_type == ModType.DLL:
+                # Internal nested DLLs
                 config_key = self._get_config_key_for_mod(mod_path, game_name)
                 current_config_keys.add(config_key)
-            else:  # PACKAGE
+            else:  # FOLDER mods
                 current_package_names.add(mod_info.name)
 
         # Clean up natives using normalized path comparison
@@ -653,7 +683,14 @@ class ImprovedModManager:
                     or pkg_id in current_package_names
                     or (
                         normalized_path is not None
-                        and normalized_path in current_external_paths
+                        and (
+                            normalized_path in current_external_paths
+                            or normalized_path in current_config_keys
+                            or any(
+                                p.lower() == normalized_path.lower()
+                                for p in current_external_paths
+                            )
+                        )
                     )
                 ):
                     valid_packages.append(package)
@@ -679,10 +716,36 @@ class ImprovedModManager:
             config_data = self.config_manager._parse_toml_config(profile_path)
 
             if mod_path_obj.is_dir():
-                # Handle package mod
-                success, msg = self._set_package_enabled(
-                    config_data, str(mod_path_obj), enabled, game_name
+                # IMPROVEMENT: If the folder is a "container" (native-only mod),
+                # toggling it should toggle its child DLLs instead of adding it to packages.
+                has_regulation, has_mod_content = self._analyze_folder_content(
+                    mod_path_obj
                 )
+
+                if not has_mod_content:
+                    # Native-only mod: toggle all contained DLLs
+                    modified = False
+                    try:
+                        for dll in mod_path_obj.rglob("*.dll"):
+                            self._set_native_enabled(
+                                config_data, str(dll), enabled, game_name
+                            )
+                            modified = True
+                    except (PermissionError, OSError):
+                        pass
+
+                    if modified:
+                        success, msg = (
+                            True,
+                            f"Toggled native mods in {mod_path_obj.name}",
+                        )
+                    else:
+                        success, msg = False, "No native mods found to toggle"
+                else:
+                    # Regular package mod: add/remove from packages
+                    success, msg = self._set_package_enabled(
+                        config_data, str(mod_path_obj), enabled, game_name
+                    )
             else:
                 # Handle DLL mod
                 success, msg = self._set_native_enabled(
@@ -802,7 +865,18 @@ class ImprovedModManager:
             config_data["packages"] = packages
 
         mod_path_obj = Path(mod_path)
+
+        # Check if this is a nested folder by looking it up in current mods
+        # to get its display name (which includes parent path)
         mod_name = mod_path_obj.name
+        all_mods = self.get_all_mods(game_name)
+        if mod_path in all_mods:
+            mod_info = all_mods[mod_path]
+            # For nested folders, use the display name which includes parent path
+            # e.g., "ERR - ELDEN RING Reforged/ERRv2.1.2.3/mod"
+            if mod_info.parent_package and mod_info.mod_type == ModType.FOLDER:
+                mod_name = mod_info.name
+            # Otherwise use the simple folder name
 
         # Use the shared helper to generate the consistent config key/path
         # This handles custom profiles (relative path) vs default profiles (prefix)
@@ -900,6 +974,138 @@ class ImprovedModManager:
                 return True, "Disabled package entry"
             else:
                 return True, "Package was already disabled"
+
+    def set_container_enabled(
+        self, game_name: str, container_path: str, enabled: bool
+    ) -> tuple[bool, str]:
+        """
+        Enable/Disable a container (package) mod and all its children.
+        When disabling, it remembers which children were enabled.
+        When enabling, it restores the previous state (or enables all if no history).
+        """
+        try:
+            mod_path_obj = Path(container_path)
+            profile_path = self.config_manager.get_profile_path(game_name)
+            config_data = self.config_manager._parse_toml_config(profile_path)
+
+            # Find the container entry in packages
+            mod_name = mod_path_obj.name
+            normalized_path = self._get_config_key_for_mod(
+                str(mod_path_obj.resolve()), game_name
+            )
+
+            container_entry = None
+            packages = config_data.get("packages", [])
+
+            for pkg in packages:
+                if pkg.get("id") == mod_name or pkg.get("path") == normalized_path:
+                    container_entry = pkg
+                    break
+
+            # Get all mods to identify children
+            all_mods = self.get_all_mods(game_name)
+            children = []
+
+            for _path, mod_info in all_mods.items():
+                if mod_info.parent_package == mod_name:
+                    children.append(mod_info)
+
+            # if not children:
+            #     return False, "Container has no children"
+
+            if not enabled:
+                # DISABLE: Save state of currently enabled children
+                enabled_children = []
+                for child in children:
+                    if child.status == ModStatus.ENABLED:
+                        # Store relative path or ID
+                        enabled_children.append(child.name)
+
+                # Update container entry with saved state
+                # Update container entry with saved state
+                if container_entry is None:
+                    container_entry = self._ensure_package_entry(
+                        config_data, mod_name, normalized_path, initial_enabled=False
+                    )
+
+                container_entry["saved_child_state"] = enabled_children
+                container_entry["enabled"] = False  # Mark container as disabled
+
+                # Disable all children (BATCH UPDATE on shared config_data)
+                for child in children:
+                    child_path_obj = Path(child.path)
+                    if child_path_obj.is_dir():
+                        self._set_package_enabled(
+                            config_data, child.path, False, game_name
+                        )
+                    else:
+                        self._set_native_enabled(
+                            config_data, child.path, False, game_name
+                        )
+
+                self._write_improved_config(profile_path, config_data, game_name)
+                return True, f"Disabled container and {len(children)} children"
+
+            else:
+                # ENABLE: Restore state
+
+                # Ensure container entry exists in config
+                # Ensure container entry exists in config
+                if container_entry is None:
+                    container_entry = self._ensure_package_entry(
+                        config_data, mod_name, normalized_path, initial_enabled=True
+                    )
+
+                # Mark container as explicitly enabled (remove disabled flag)
+                if isinstance(container_entry, dict) or hasattr(container_entry, "pop"):
+                    container_entry.pop("enabled", None)
+
+                saved_state = container_entry.get("saved_child_state", None)
+                container_enabled_count = 0
+
+                if saved_state is not None:
+                    # Restore specific children (BATCH UPDATE)
+                    for child in children:
+                        should_enable = child.name in saved_state
+                        child_path_obj = Path(child.path)
+
+                        if child_path_obj.is_dir():
+                            self._set_package_enabled(
+                                config_data, child.path, should_enable, game_name
+                            )
+                        else:
+                            self._set_native_enabled(
+                                config_data, child.path, should_enable, game_name
+                            )
+
+                        if should_enable:
+                            container_enabled_count += 1
+                    msg = f"Restored container with {container_enabled_count} enabled mods"
+                else:
+                    # Enable ALL children (default behavior) (BATCH UPDATE)
+                    for child in children:
+                        child_path_obj = Path(child.path)
+                        if child_path_obj.is_dir():
+                            self._set_package_enabled(
+                                config_data, child.path, True, game_name
+                            )
+                        else:
+                            self._set_native_enabled(
+                                config_data, child.path, True, game_name
+                            )
+                        container_enabled_count += 1
+
+                    if not children:
+                        msg = "Enabled container (empty)"
+                    else:
+                        msg = f"Enabled container and all {container_enabled_count} children"
+
+                # Update config to save container enabled state
+                self._write_improved_config(profile_path, config_data, game_name)
+                return True, msg
+
+        except Exception as e:
+            return False, f"Error toggling container: {str(e)}"
 
     def _get_tracked_external_package_paths(self, game_name: str) -> list[Path]:
         """Return tracked external mod paths that are directories."""
@@ -1007,7 +1213,8 @@ class ImprovedModManager:
             candidate_folders: list[Path] = []
 
             if mods_dir.exists():
-                for folder in mods_dir.iterdir():
+                # Recursively search for ALL folders (including nested) that might have regulation.bin
+                for folder in mods_dir.rglob("*"):
                     if folder.is_dir():
                         candidate_folders.append(folder)
 
@@ -1066,10 +1273,14 @@ class ImprovedModManager:
         no active regulation.
         """
         try:
-            # Collect both internal and tracked external package folders
-            candidate_folders = self._candidate_regulation_folders(game_name)
+            mods_dir = self.config_manager.get_mods_dir(game_name)
+            if not mods_dir or not mods_dir.exists():
+                return False, "Mods directory not found"
 
-            for folder in candidate_folders:
+            disabled_count = 0
+
+            # Recursively search for ALL folders with regulation.bin (including nested)
+            for folder in mods_dir.rglob("*"):
                 try:
                     if not folder.is_dir():
                         continue
@@ -1077,12 +1288,27 @@ class ImprovedModManager:
                     disabled_file = folder / "regulation.bin.disabled"
                     if regulation_file.exists():
                         regulation_file.rename(disabled_file)
+                        disabled_count += 1
                 except Exception:
                     # Ignore failures on a single folder and continue
                     continue
 
+            # Also check tracked external mods
+            external_paths = self._get_tracked_external_package_paths(game_name)
+            for folder in external_paths:
+                try:
+                    if not folder.is_dir():
+                        continue
+                    regulation_file = folder / "regulation.bin"
+                    disabled_file = folder / "regulation.bin.disabled"
+                    if regulation_file.exists():
+                        regulation_file.rename(disabled_file)
+                        disabled_count += 1
+                except Exception:
+                    continue
+
             # Even if nothing changed, it's a successful no-op
-            return True, "Regulation disabled for all mods"
+            return True, f"Regulation disabled ({disabled_count} file(s))"
         except Exception as e:
             return False, f"Error disabling regulation: {str(e)}"
 
@@ -1394,14 +1620,33 @@ class ImprovedModManager:
             elif mod_path_obj.is_dir():
                 # Handle folder mod
                 if mod_path_obj.parent == mods_dir:
-                    # Internal folder mod - delete from filesystem
+                    # Top-level folder mod - delete from filesystem
                     shutil.rmtree(mod_path_obj, onerror=self._remove_readonly)
-                    _remove_meta(mod_path_obj)  # Remove metadata for the folder
+                    _remove_meta(mod_path_obj)
                     return True, f"Deleted folder mod: {mod_path_obj.name}"
+                elif mods_dir in mod_path_obj.parents:
+                    # Nested folder mod inside mods directory - delete from filesystem
+                    shutil.rmtree(mod_path_obj, onerror=self._remove_readonly)
+                    _remove_meta(mod_path_obj)
+
+                    # Clean up empty parent folders
+                    parent = mod_path_obj.parent
+                    while parent != mods_dir and parent.is_relative_to(mods_dir):
+                        try:
+                            remaining = list(parent.iterdir())
+                            if not remaining:
+                                parent.rmdir()
+                                parent = parent.parent
+                            else:
+                                break
+                        except (PermissionError, OSError):
+                            break
+
+                    return True, f"Deleted nested folder mod: {mod_path_obj.name}"
                 else:
                     # External folder mod - just untrack it
                     self.config_manager.untrack_external_mod(game_name, mod_path)
-                    _remove_meta(mod_path_obj)  # Remove metadata for the external mod
+                    _remove_meta(mod_path_obj)
                     return True, f"Untracked external mod: {mod_path_obj.name}"
             else:
                 # Handle DLL mod

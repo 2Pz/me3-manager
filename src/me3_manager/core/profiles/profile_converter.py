@@ -18,6 +18,7 @@ This module does NOT do TOML I/O; it only transforms dicts.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 
@@ -83,6 +84,8 @@ class ProfileConverter:
 
                 if nexus_link:
                     entry["nexus_link"] = nexus_link
+                    if nat.get("nexus_category"):
+                        entry["nexus_category"] = nat.get("nexus_category")
 
                 # Copy known optional fields
                 for k in (
@@ -95,9 +98,23 @@ class ProfileConverter:
                     "load_before",
                     "load_after",
                     "mod_folder",
+                    "mod_folder",
+                    "nexus_id",
+                    "nexus_file_id",
+                    "nexus_file_name",
+                    "nexus_name",
+                    "version",
+                    "config",
+                    "config_overrides",
+                    "user_prompts",
                 ):
                     if k in nat and nat[k] not in (None, []):
                         entry[k] = nat[k]
+
+                # Support mod_root_path alias
+                if "mod_root_path" in nat and nat["mod_root_path"]:
+                    entry["mod_folder"] = nat["mod_root_path"]
+
                 result["natives"].append(entry)
             elif isinstance(nat, str):
                 result["natives"].append({"path": nat})
@@ -129,10 +146,29 @@ class ProfileConverter:
 
                     if nexus_link:
                         entry["nexus_link"] = nexus_link
+                        if pkg.get("nexus_category"):
+                            entry["nexus_category"] = pkg.get("nexus_category")
 
-                    for k in ("load_before", "load_after", "mod_folder"):
+                    for k in (
+                        "load_before",
+                        "load_after",
+                        "mod_folder",
+                        "nexus_id",
+                        "nexus_file_id",
+                        "nexus_file_name",
+                        "nexus_name",
+                        "version",
+                        "config",
+                        "config_overrides",
+                        "user_prompts",
+                    ):
                         if k in pkg and pkg[k] not in (None, []):
                             entry[k] = pkg[k]
+
+                    # Support mod_root_path alias
+                    if "mod_root_path" in pkg and pkg["mod_root_path"]:
+                        entry["mod_folder"] = pkg["mod_root_path"]
+
                     result["packages"].append(entry)
 
         return result
@@ -209,10 +245,31 @@ class ProfileConverter:
                         entry["finalizer"] = table.get("finalizer")
                     if table.get("config"):
                         entry["config"] = table.get("config")
+                    if table.get("nexus_link"):
+                        entry["nexus_link"] = table.get("nexus_link")
+                    if table.get("nexus_category"):
+                        entry["nexus_category"] = table.get("nexus_category")
                     # Map load order arrays if present
-                    for k in ("load_before", "load_after", "mod_folder"):
+                    for k in (
+                        "load_before",
+                        "load_after",
+                        "mod_folder",
+                        "nexus_id",
+                        "nexus_file_id",
+                        "nexus_file_name",
+                        "nexus_name",
+                        "version",
+                        "config",
+                        "config_overrides",
+                        "user_prompts",
+                    ):
                         if k in table and table[k] not in (None, []):
                             entry[k] = table[k]
+
+                    # Support mod_root_path alias
+                    if "mod_root_path" in table and table["mod_root_path"]:
+                        entry["mod_folder"] = table["mod_root_path"]
+
                     result["natives"].append(entry)
                 else:
                     # Treat everything else as a package-like dependency
@@ -223,9 +280,30 @@ class ProfileConverter:
                     if table.get("enabled") is False:
                         entry["enabled"] = False
                     # Disabled flag is v2-specific; we omit entirely if False to match current schema
-                    for k in ("load_before", "load_after", "mod_folder"):
+                    for k in (
+                        "load_before",
+                        "load_after",
+                        "mod_folder",
+                        "nexus_id",
+                        "nexus_file_id",
+                        "nexus_file_name",
+                        "nexus_name",
+                        "version",
+                        "config",
+                        "config_overrides",
+                        "user_prompts",
+                    ):
                         if k in table and table[k] not in (None, []):
                             entry[k] = table[k]
+
+                    # Support mod_root_path alias
+                    if "mod_root_path" in table and table["mod_root_path"]:
+                        entry["mod_folder"] = table["mod_root_path"]
+
+                    if table.get("nexus_link"):
+                        entry["nexus_link"] = table.get("nexus_link")
+                    if table.get("nexus_category"):
+                        entry["nexus_category"] = table.get("nexus_category")
                     result["packages"].append(entry)
 
         # Fallback: if [mods] is absent but legacy sections exist, keep them
@@ -286,6 +364,7 @@ class ProfileConverter:
 
         # [mods]
         deps: dict[str, Any] = {}
+        implicit_package_roots = set()
 
         # Natives as mods with path and optional advanced options
         for nat in data.get("natives", []) or []:
@@ -297,6 +376,12 @@ class ProfileConverter:
             )
             # Build inline table with possible dotted nested fields
             inline: dict[str, Any] = {"path": nat["path"]}
+
+            # Track implicit package root
+            path_parts = Path(nat["path"]).parts
+            if len(path_parts) > 1:
+                implicit_package_roots.add(path_parts[0])
+
             if nat.get("enabled") is False:
                 inline["enabled"] = False
             if nat.get("optional") is True:
@@ -307,10 +392,18 @@ class ProfileConverter:
                 inline["initializer"] = nat["initializer"]
             if nat.get("finalizer") is not None:
                 inline["finalizer"] = nat["finalizer"]
-            if nat.get("config"):
-                inline["config"] = nat["config"]
+            if nat.get("nexus_category"):
+                inline["nexus_category"] = nat["nexus_category"]
             # Load order arrays
-            for k in ("load_before", "load_after", "mod_folder"):
+            for k in (
+                "load_before",
+                "load_after",
+                "nexus_id",
+                "nexus_file_id",
+                "nexus_file_name",
+                "nexus_name",
+                "version",
+            ):
                 if k in nat and nat[k] not in (None, []):
                     inline[k] = nat[k]
             # Store as whole inline table under key
@@ -320,13 +413,35 @@ class ProfileConverter:
         for pkg in data.get("packages", []) or []:
             if not isinstance(pkg, dict) or not pkg.get("id") or not pkg.get("path"):
                 continue
+
+            # Check for redundancy
+            pkg_path = pkg.get("path")
+            if (
+                pkg_path
+                and pkg_path in implicit_package_roots
+                and pkg.get("enabled", True) is not False
+                and not pkg.get("load_before")
+                and not pkg.get("load_after")
+            ):
+                continue
+
             ident = str(pkg["id"])
             inline = {"path": pkg["path"]}
             if pkg.get("enabled") is False:
                 inline["enabled"] = False
-            for k in ("load_before", "load_after", "mod_folder"):
+            for k in (
+                "load_before",
+                "load_after",
+                "nexus_id",
+                "nexus_file_id",
+                "nexus_file_name",
+                "nexus_name",
+                "version",
+            ):
                 if k in pkg and pkg[k] not in (None, []):
                     inline[k] = pkg[k]
+            if pkg.get("nexus_category"):
+                inline["nexus_category"] = pkg["nexus_category"]
             deps[ident] = inline
 
         if deps:

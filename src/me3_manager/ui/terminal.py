@@ -1,7 +1,13 @@
 import re
 import shlex
 
-from PySide6.QtCore import QProcess, QSize, QTimer
+from PySide6.QtCore import (
+    QEasingCurve,
+    QProcess,
+    QPropertyAnimation,
+    QSize,
+    QTimer,
+)
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -24,6 +30,9 @@ class EmbeddedTerminal(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.process = None
+        self._collapsed = False
+        self._animation: QPropertyAnimation | None = None
+        self._expanded_height = 200
         self.init_ui()
 
     def init_ui(self):
@@ -48,10 +57,8 @@ class EmbeddedTerminal(QWidget):
         header.addWidget(title)
         header.addStretch()
 
-        # Copy button
-        copy_btn = QPushButton(tr("copy_button"))
-        copy_btn.setFixedSize(60, 25)
-        copy_btn.setStyleSheet("""
+        # Common button style
+        button_style = """
             QPushButton {
                 background-color: #4d4d4d;
                 color: white;
@@ -62,27 +69,41 @@ class EmbeddedTerminal(QWidget):
             QPushButton:hover {
                 background-color: #5d5d5d;
             }
-        """)
-        copy_btn.clicked.connect(self.copy_output)
-        header.addWidget(copy_btn)
+        """
+
+        # Copy button
+        self.copy_btn = QPushButton(tr("copy_button"))
+        self.copy_btn.setFixedSize(60, 25)
+        self.copy_btn.setStyleSheet(button_style)
+        self.copy_btn.clicked.connect(self.copy_output)
+        header.addWidget(self.copy_btn)
 
         # Clear button
-        clear_btn = QPushButton(tr("clear_button"))
-        clear_btn.setFixedSize(60, 25)
-        clear_btn.setStyleSheet("""
+        self.clear_btn = QPushButton(tr("clear_button"))
+        self.clear_btn.setFixedSize(60, 25)
+        self.clear_btn.setStyleSheet(button_style)
+        self.clear_btn.clicked.connect(self.clear_output)
+        header.addWidget(self.clear_btn)
+
+        # Toggle collapse button
+        self.toggle_btn = QPushButton("▼")
+        self.toggle_btn.setFixedSize(25, 25)
+        self.toggle_btn.setToolTip(tr("terminal_toggle_tooltip"))
+        self.toggle_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4d4d4d;
                 color: white;
                 border: none;
                 border-radius: 4px;
-                font-size: 10px;
+                font-size: 12px;
+                font-weight: bold;
             }
             QPushButton:hover {
                 background-color: #5d5d5d;
             }
         """)
-        clear_btn.clicked.connect(self.clear_output)
-        header.addWidget(clear_btn)
+        self.toggle_btn.clicked.connect(self.toggle_collapse)
+        header.addWidget(self.toggle_btn)
 
         layout.addLayout(header)
 
@@ -99,7 +120,8 @@ class EmbeddedTerminal(QWidget):
                 padding: 8px;
             }
         """)
-        self.output.setMaximumHeight(200)
+        self.output.setMaximumHeight(self._expanded_height)
+        self.output.setMinimumHeight(0)
         layout.addWidget(self.output)
 
         self.setLayout(layout)
@@ -118,6 +140,44 @@ class EmbeddedTerminal(QWidget):
 
         # Reset button text after 1 second
         QTimer.singleShot(1000, lambda: copy_btn.setText(original_text))
+
+    def toggle_collapse(self):
+        """Toggle the terminal output visibility with smooth animation."""
+        if (
+            self._animation
+            and self._animation.state() == QPropertyAnimation.State.Running
+        ):
+            return  # Don't interrupt running animation
+
+        self._collapsed = not self._collapsed
+
+        # Update button icon
+        self.toggle_btn.setText("▲" if self._collapsed else "▼")
+
+        # Animate the height change
+        start_height = self.output.maximumHeight()
+        end_height = 0 if self._collapsed else self._expanded_height
+
+        self._animation = QPropertyAnimation(self.output, b"maximumHeight")
+        self._animation.setDuration(200)
+        self._animation.setStartValue(start_height)
+        self._animation.setEndValue(end_height)
+        self._animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self._animation.start()
+
+        # Hide/show Copy and Clear buttons when collapsed
+        self.copy_btn.setVisible(not self._collapsed)
+        self.clear_btn.setVisible(not self._collapsed)
+
+    def collapse(self):
+        """Collapse the terminal (external API for auto-collapse on sidebar open)."""
+        if not self._collapsed:
+            self.toggle_collapse()
+
+    def expand(self):
+        """Expand the terminal (external API for auto-expand on sidebar close)."""
+        if self._collapsed:
+            self.toggle_collapse()
 
     def parse_ansi_to_html(self, text: str) -> str:
         """Converts text with ANSI escape codes to HTML for display in QTextEdit."""

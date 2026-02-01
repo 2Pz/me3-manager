@@ -43,9 +43,23 @@ class ModActionHandler:
 
     def toggle_mod(self, mod_path: str, enabled: bool):
         """Toggles a mod's enabled state."""
-        success, message = self.mod_manager.set_mod_enabled(
-            self.game_page.game_name, mod_path, enabled
+        # Check if it is a container mod
+        mod_info = self.game_page.mod_infos.get(mod_path)
+
+        # Treat strict containers OR any mod with children as a group for toggling.
+        # This ensures that if a content mod has nested parts (e.g. DLLs), they are toggled with it.
+        is_group_toggle = mod_info and (
+            mod_info.is_container or getattr(mod_info, "child_count", 0) > 0
         )
+
+        if is_group_toggle:
+            success, message = self.mod_manager.set_container_enabled(
+                self.game_page.game_name, mod_path, enabled
+            )
+        else:
+            success, message = self.mod_manager.set_mod_enabled(
+                self.game_page.game_name, mod_path, enabled
+            )
         self._handle_result(success, message, "toggle_mod_error_title")
 
     def delete_mod(self, mod_path: str):

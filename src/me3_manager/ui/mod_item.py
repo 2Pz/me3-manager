@@ -1,9 +1,94 @@
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QFont, QIcon, QPainter, QPixmap
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
+
+
+class TreeConnector(QWidget):
+    """Widget that draws tree connection lines."""
+
+    def __init__(self, is_last_child: bool, parent=None):
+        super().__init__(parent)
+        self.is_last_child = is_last_child
+        self.setFixedWidth(30)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+
+    def sizeHint(self):
+        return QSize(30, 0)  # Width 30, Height variable
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Line color
+        color = QColor("#666666")
+        pen = QPen(color)
+        pen.setWidth(1)
+        painter.setPen(pen)
+
+        # Geometry
+        rect = self.rect()
+        center_x = rect.width() // 2
+        center_y = rect.height() // 2
+
+        # Draw vertical line
+        # From top to center (or bottom if not last child)
+        if self.is_last_child:
+            painter.drawLine(center_x, 0, center_x, center_y)
+        else:
+            painter.drawLine(center_x, 0, center_x, rect.height())
+
+        # Draw horizontal line
+        # From center to right
+        painter.drawLine(center_x, center_y, rect.width(), center_y)
+
+        painter.end()
+
+
+class TreeExpandButton(QPushButton):
+    """Custom paint button for tree expansion."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(24, 24)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.is_expanded = False
+
+    def set_expanded(self, expanded: bool):
+        self.is_expanded = expanded
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Draw arrow
+        # Match tree connector color or slightly brighter for button
+        pen = QPen(QColor("#cccccc"))
+        pen.setWidth(2)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+
+        rect = self.rect()
+        center_x = rect.width() // 2
+        center_y = rect.height() // 2
+        offset = 4
+
+        if self.is_expanded:
+            # Down arrow (Chevron)
+            painter.drawLine(center_x - offset, center_y - 2, center_x, center_y + 3)
+            painter.drawLine(center_x, center_y + 3, center_x + offset, center_y - 2)
+        else:
+            # Right arrow (Chevron)
+            painter.drawLine(center_x - 2, center_y - offset, center_x + 3, center_y)
+            painter.drawLine(center_x + 3, center_y, center_x - 2, center_y + offset)
+
+        painter.end()
 
 
 class ModItem(QWidget):
@@ -36,7 +121,9 @@ class ModItem(QWidget):
         is_nested: bool = False,
         has_children: bool = False,
         is_expanded: bool = False,
+        is_container: bool = False,
         update_available_version: str | None = None,
+        is_last_child: bool = False,
     ):
         super().__init__()
         self.mod_path = mod_path
@@ -51,7 +138,9 @@ class ModItem(QWidget):
         self.is_nested = is_nested
         self.has_children = has_children
         self.is_expanded = is_expanded
+        self.is_container = is_container
         self.update_available_version = update_available_version
+        self.is_last_child = is_last_child
 
         self._setup_styling(item_bg_color, is_nested)
         self._create_layout(text_color, has_advanced_options)
@@ -119,20 +208,21 @@ class ModItem(QWidget):
     def _setup_styling(self, item_bg_color, is_nested):
         """Setup widget styling based on mod type"""
         if is_nested:
-            # Nested mod styling - heavily indented to the right under parent
+            # Nested mod styling - indented nicely under parent
+            # The tree ASCII art will handle the rest of the visual indentation
             self.setStyleSheet("""
-                ModItem {{
+                ModItem {
                     background-color: rgba(45, 45, 45, 0.3);
                     border: none;
-                    border-left: 2px solid #555555;
+                    border-left: 2px solid transparent; 
                     border-radius: 0px;
-                    padding: 4px 8px;
-                    margin: 1px 0px 1px 80px;
-                }}
-                ModItem:hover {{
+                    padding: 0px 8px 0px 0px;
+                    margin: 0px 0px 0px 30px; 
+                }
+                ModItem:hover {
                     background-color: rgba(61, 61, 61, 0.5);
                     border-left: 2px solid #0078d4;
-                }}
+                }
             """)
         else:
             # Parent mod styling - aligned with other main mods (no indentation)
@@ -154,25 +244,33 @@ class ModItem(QWidget):
     def _create_layout(self, text_color, has_advanced_options):
         """Create the main layout with all components"""
         layout = QHBoxLayout()
+        # Reduce vertical padding for nested items to connect the lines better
         layout.setContentsMargins(
+            0 if self.is_nested else 12,
+            0 if self.is_nested else 8,
             6 if self.is_nested else 12,
-            4 if self.is_nested else 8,
-            6 if self.is_nested else 12,
-            4 if self.is_nested else 8,
+            0 if self.is_nested else 8,
         )
 
         # Left side: Icon + Name + Status Icons
         left_layout = QHBoxLayout()
-        left_layout.setSpacing(6 if self.is_nested else 8)
+        # Remove spacing for connector to touch the icon/content
+        left_layout.setSpacing(0 if self.is_nested else 8)
 
-        # For nested items - show connection indicator
+        # For nested items - show connection indicator (Tree style)
         if self.is_nested:
-            connector_label = QLabel()
-            arrow_icon = QIcon(resource_path("resources/icon/arrow.svg"))
-            connector_label.setPixmap(arrow_icon.pixmap(QSize(14, 14)))
-            connector_label.setFixedWidth(50)
-            connector_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            left_layout.addWidget(connector_label)
+            connector = TreeConnector(self.is_last_child)
+            left_layout.addWidget(connector)
+
+            # Add a small spacer after the connector for visual padding before the icon
+            # container_widget = QWidget()
+            # container_widget.setFixedWidth(5)
+            # left_layout.addWidget(container_widget)
+
+            # Actually, standard spacing might be fine if we want a gap.
+            # But "tree command" usually has the line touch the item name/icon.
+            # Let's add a small fixed gap.
+            left_layout.addSpacing(5)
 
         # Mod icon
         icon_label = QLabel()
@@ -198,18 +296,17 @@ class ModItem(QWidget):
         left_layout.addWidget(name_label)
 
         # Update available badge (only for main mods)
-        if (not self.is_nested) and self.update_available_version:
-            update_label = QLabel(
-                tr(
-                    "nexus_update_available_status",
-                    version=str(self.update_available_version),
-                )
-            )
-            update_label.setStyleSheet(
+        # Update available badge (only for main mods)
+        if not self.is_nested:
+            self.update_label = QLabel()
+            self.update_label.setStyleSheet(
                 "color: #ffb020; font-size: 10px; padding: 2px 0px 2px 6px;"
             )
-            update_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-            left_layout.addWidget(update_label)
+            self.update_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+            left_layout.addWidget(self.update_label)
+
+            # Use setter to handle visibility/text to avoid duplication
+            self.set_update_available(self.update_available_version)
 
         # Status indicators with icons (only for main mods)
         if not self.is_nested:
@@ -221,7 +318,7 @@ class ModItem(QWidget):
         # Right side: Expand button + Action buttons
         # Expand/collapse button for parent mods with children (on the right side)
         if self.has_children and not self.is_nested:
-            self.expand_btn = QPushButton()
+            self.expand_btn = TreeExpandButton()
             self.expand_btn.setFixedSize(24, 24)
             self.expand_btn.setStyleSheet(self._get_expand_button_style())
             self.expand_btn.clicked.connect(self._on_expand_clicked)
@@ -264,7 +361,7 @@ class ModItem(QWidget):
         layout.addWidget(self.toggle_btn)
 
         # Config button (only for DLL mods)
-        if not self.is_folder_mod and not self.is_regulation:
+        if not self.is_folder_mod and not self.is_regulation and not self.is_container:
             config_btn = QPushButton()
             config_btn.setIcon(QIcon(resource_path("resources/icon/settings.svg")))
             config_btn.setFixedSize(button_size, button_size)
@@ -276,7 +373,7 @@ class ModItem(QWidget):
             layout.addWidget(config_btn)
 
         # Open folder button for external mods
-        if self.is_external:
+        if self.is_external and not self.is_container:
             open_btn = QPushButton()
             open_btn.setIcon(QIcon(resource_path("resources/icon/folder.svg")))
             open_btn.setToolTip(tr("open_containing_folder_tooltip"))
@@ -286,24 +383,25 @@ class ModItem(QWidget):
             )
             layout.addWidget(open_btn)
 
-        # Advanced options button
-        advanced_btn = QPushButton()
-        advanced_btn.setIcon(
-            QIcon(resource_path("resources/icon/advanced_options.svg"))
-        )
-        advanced_btn.setToolTip(tr("advanced_options_tooltip"))
+        # Advanced options button (skip for parent containers)
+        if not self.is_container:
+            advanced_btn = QPushButton()
+            advanced_btn.setIcon(
+                QIcon(resource_path("resources/icon/advanced_options.svg"))
+            )
+            advanced_btn.setToolTip(tr("advanced_options_tooltip"))
 
-        if has_advanced_options:
-            advanced_btn.setStyleSheet(self._get_active_advanced_button_style())
-        else:
-            advanced_btn.setStyleSheet(self._get_action_button_style())
+            if has_advanced_options:
+                advanced_btn.setStyleSheet(self._get_active_advanced_button_style())
+            else:
+                advanced_btn.setStyleSheet(self._get_action_button_style())
 
-        advanced_btn.clicked.connect(
-            lambda: self.advanced_options_requested.emit(self.mod_path)
-        )
-        layout.addWidget(advanced_btn)
+            advanced_btn.clicked.connect(
+                lambda: self.advanced_options_requested.emit(self.mod_path)
+            )
+            layout.addWidget(advanced_btn)
 
-        # Delete button (hidden for nested mods)
+        # Delete button (skip only for nested mods)
         if not self.is_nested:
             delete_btn = QPushButton()
             delete_btn.setIcon(QIcon(resource_path("resources/icon/delete.svg")))
@@ -315,8 +413,8 @@ class ModItem(QWidget):
             )
             layout.addWidget(delete_btn)
 
-        # Regulation activation button
-        if self.is_regulation and not self.is_nested:
+        # Regulation button (show for any folder with regulation)
+        if self.is_regulation:
             self.activate_regulation_btn = QPushButton()
             self.activate_regulation_btn.setIcon(
                 QIcon(resource_path("resources/icon/regulation.svg"))
@@ -324,7 +422,6 @@ class ModItem(QWidget):
             self.activate_regulation_btn.setFixedSize(button_size, button_size)
 
             if self.is_regulation_active:
-                # Allow disabling regulation when this mod is the active one
                 self.activate_regulation_btn.setToolTip(tr("click_to_disable_tooltip"))
                 self.activate_regulation_btn.setStyleSheet(
                     self._get_active_regulation_button_style()
@@ -351,7 +448,6 @@ class ModItem(QWidget):
                 border: none;
                 border-radius: {radius}px;
                 color: #cccccc;
-
                 font-weight: bold;
             }}
             QPushButton:hover {{
@@ -429,17 +525,7 @@ class ModItem(QWidget):
     def _update_expand_button(self):
         """Update expand button icon based on state"""
         if hasattr(self, "expand_btn"):
-            icon_size = QSize(24, 24)
-            if self.is_expanded:
-                self.expand_btn.setIcon(
-                    QIcon(resource_path("resources/icon/chevron-down.svg"))
-                )
-            else:
-                self.expand_btn.setIcon(
-                    QIcon(resource_path("resources/icon/chevron-right.svg"))
-                )
-            self.expand_btn.setIconSize(icon_size)
-            self.expand_btn.setText("")  # Clear any text
+            self.expand_btn.set_expanded(self.is_expanded)
 
     def _on_expand_clicked(self):
         """Handle expand/collapse button click"""
@@ -463,22 +549,16 @@ class ModItem(QWidget):
                 tr("mod_path_tooltip", mod_path=self.mod_path),
             ]
             if self.has_children:
-                # Read SVG file and convert to base64
-                svg_path = resource_path("resources/icon/chevron-right.svg")
-                with open(svg_path, "r") as f:
-                    svg_content = f.read()
-                import base64
-
-                svg_b64 = base64.b64encode(svg_content.encode()).decode()
-                icon_html = f'<img src="data:image/svg+xml;base64,{svg_b64}" width="12" height="12">'
-
-                tooltip_parts.append(f"Click {icon_html} to expand nested mods")
+                tooltip_parts.append("Click > to expand nested mods")
 
             tooltip_html = "<br>".join(tooltip_parts)
             self.setToolTip(tooltip_html)
 
     def update_toggle_button_ui(self):
         """Update toggle button appearance based on enabled state"""
+        if not hasattr(self, "toggle_btn"):
+            return
+
         radius = 12 if not self.is_nested else 10
 
         if self.is_enabled:
@@ -533,6 +613,20 @@ class ModItem(QWidget):
         """Programmatically set expanded state"""
         self.is_expanded = expanded
         self._update_expand_button()
+
+    def set_update_available(self, version: str | None):
+        """Update the update available badge dynamically."""
+        if self.is_nested or not hasattr(self, "update_label"):
+            return
+
+        self.update_available_version = version
+        if version:
+            self.update_label.setText(
+                tr("nexus_update_available_status", version=str(version))
+            )
+            self.update_label.show()
+        else:
+            self.update_label.hide()
 
     def contextMenuEvent(self, event):
         """Show context menu on right-click"""

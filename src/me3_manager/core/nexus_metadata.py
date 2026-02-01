@@ -389,6 +389,21 @@ class NexusMetadataManager:
             items = self.load_game("unknown")
             if local_mod_path in items:
                 return items[local_mod_path]
+
+            # Fallback: Check if any tracked item is a child of the requested path
+            # This handles container mods where metadata is attached to a nested file
+            local_path_obj = Path(local_mod_path)
+            for key, item in items.items():
+                if key.startswith("__cache__:"):
+                    continue
+                try:
+                    # check if 'key' (the file path in metadata) is relative to 'local_mod_path' (the container)
+                    # strict=False allows matching the path itself too, but we handled exact match above
+                    Path(key).relative_to(local_path_obj)
+                    return item
+                except ValueError:
+                    continue
+
         except Exception:
             return None
         return None
@@ -454,6 +469,8 @@ class NexusMetadataManager:
         file_uploaded_timestamp: int | None = None,
         nexus_url: str | None = None,
         custom_name: str | None = None,
+        mod_root_path: str | None = None,
+        update_available: bool | None = None,
     ) -> None:
         """
         Update cached details for a mod.
@@ -545,13 +562,24 @@ class NexusMetadataManager:
             tracked.file_category = file_category
         if file_uploaded_timestamp is not None:
             tracked.file_uploaded_timestamp = int(file_uploaded_timestamp)
+        if mod_root_path is not None:
+            tracked.mod_root_path = mod_root_path
+
+        if update_available is not None:
+            tracked.update_available = update_available
+            if not update_available:
+                tracked.update_latest_file_id = None
+                tracked.update_latest_version = None
+                tracked.update_error = None
+                tracked.update_checked_at = TrackedNexusMod.now_iso()
 
         # If we just installed/updated a file (file_id written), any previously cached
-        # "update available" state should be cleared so the UI badge disappears.
+        # "update available" state should be cleared only if update_available arg wasn't explicit
         if (
             is_installed_mod
             and (file_id is not None)
             and (tracked.file_id != prev_file_id)
+            and update_available is None
         ):
             tracked.update_available = False
             tracked.update_latest_file_id = None
