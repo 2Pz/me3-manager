@@ -27,6 +27,51 @@ def get_downloads_dir() -> Path:
     - Linux: XDG user-dirs if available, else ~/Downloads
     """
     if os.name == "nt":
+        try:
+            import ctypes
+            import uuid
+            from ctypes import wintypes
+
+            # FOLDERID_Downloads
+            FOLDERID_Downloads = "{374DE290-123F-4565-9164-39C4925E467B}"
+
+            class GUID(ctypes.Structure):
+                _fields_ = [
+                    ("Data1", wintypes.DWORD),
+                    ("Data2", wintypes.WORD),
+                    ("Data3", wintypes.WORD),
+                    ("Data4", wintypes.BYTE * 8),
+                ]
+
+            SHGetKnownFolderPath = ctypes.windll.shell32.SHGetKnownFolderPath
+            SHGetKnownFolderPath.argtypes = [
+                ctypes.POINTER(GUID),
+                wintypes.DWORD,
+                wintypes.HANDLE,
+                ctypes.POINTER(ctypes.c_wchar_p),
+            ]
+
+            u = uuid.UUID(FOLDERID_Downloads)
+            guid = GUID()
+            guid.Data1 = u.time_low
+            guid.Data2 = u.time_mid
+            guid.Data3 = u.time_hi_version
+            for i in range(8):
+                guid.Data4[i] = u.bytes[8 + i]
+
+            path_ptr = ctypes.c_wchar_p()
+            if (
+                SHGetKnownFolderPath(
+                    ctypes.byref(guid), 0, None, ctypes.byref(path_ptr)
+                )
+                == 0
+            ):
+                path = path_ptr.value
+                ctypes.windll.ole32.CoTaskMemFree(path_ptr)
+                return Path(path)
+        except Exception as e:
+            log.warning("Failed to resolve Windows Downloads folder via API: %s", e)
+
         home = os.environ.get("USERPROFILE") or str(Path.home())
         return Path(home) / "Downloads"
 
