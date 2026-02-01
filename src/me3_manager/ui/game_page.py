@@ -812,6 +812,9 @@ class GamePage(QWidget):
         else:
             sidebar = None
 
+        # Ensure API key is up-to-date (handles case where user just logged in)
+        self.nexus_service.set_api_key(self.config_manager.get_nexus_api_key())
+
         if mod is None:
             mod = sidebar.current_mod() if sidebar else None
 

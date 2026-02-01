@@ -1069,6 +1069,11 @@ class ModInstaller:
 
         # Check if we have nexus service available
         nexus_service = getattr(self.game_page, "nexus_service", None)
+
+        # Ensure API key is up-to-date (handles case where user just logged in)
+        if nexus_service:
+            nexus_service.set_api_key(self.config_manager.get_nexus_api_key())
+
         if not nexus_service or not nexus_service.has_api_key:
             QMessageBox.warning(
                 self.game_page,
