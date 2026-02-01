@@ -3,6 +3,99 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.0
+**Released:** February 01, 2026
+
+
+### ✨ New Features
+
+- Add Nexus Mods dependency support via profile imports `[profiles]` ([28e544c](https://github.com/2Pz/me3-manager/commit/28e544cea3b0e89c07aac6b4160eac762b89d3fa))
+
+- Preserve shipped configs and support uninstalled Nexus mods ([47d5a7c](https://github.com/2Pz/me3-manager/commit/47d5a7c41370e2326f5dbec9fe3d49dd5dc7306f))
+
+- Notify user if restart is required after ME3 installation ([1bb8c03](https://github.com/2Pz/me3-manager/commit/1bb8c033983989f579110c1868df72601f5a250d))
+
+- Add support for multiple config files in native mods `[confing editor]` ([0824866](https://github.com/2Pz/me3-manager/commit/0824866732269cbf37a3a555995b9cbd7f4554d2))
+
+- Add Community Profiles ([e9da1e5](https://github.com/2Pz/me3-manager/commit/e9da1e5acbc7ec2019e892b3e0492a55793a2500))
+
+- Python scripting to help with installing complex mods ([9cf2c77](https://github.com/2Pz/me3-manager/commit/9cf2c77190850f7e4fd906255e148c6fe2508cb7))
+
+- Native INI config overrides with comment preservation ([e5bae6a](https://github.com/2Pz/me3-manager/commit/e5bae6a50c1776bfc93a84035f5b859cf3960f17))
+
+- Parse Nexus filenames on drag-drop to save mod metadata `[nexus]` ([e326135](https://github.com/2Pz/me3-manager/commit/e326135957d6713db8cfc784434e973e623b3e83))
+
+- Feat(profiles): Add user-configurable settings via user_prompts
+- Add UserPromptsDialog for collecting user input during installation
+- Support string, password, number, and boolean prompt types
+- Integrate prompts into profile import flow
+- Merge user values into config_overrides before applying ([bf246c6](https://github.com/2Pz/me3-manager/commit/bf246c65c60ed1645a533217aa6c173bf4678154))
+
+
+
+### 🔧 Bug Fixes
+
+- UI text readability at low scale factors ([8fa6473](https://github.com/2Pz/me3-manager/commit/8fa6473dbabe1f5878ba6d85d40b16343faee251))
+
+- Fix(ci) resolve broken pipe in changelog extraction and partial version matching ([98c9218](https://github.com/2Pz/me3-manager/commit/98c9218669f40e9b9afcd6c068a0b5d098c8373a))
+
+- Nested mod duplication and nexus metadata ([1371af7](https://github.com/2Pz/me3-manager/commit/1371af70c800c79f037d4ac87258eed6f1e727da))
+
+- Prevent silent recursion loop if app is renamed to 'me3.exe' ([be6cb7c](https://github.com/2Pz/me3-manager/commit/be6cb7cdb5ad639c6a91cf1bafcc03ae9a46975e))
+
+- Standardize profile path generation and deduplicate package logic ([4ab97b3](https://github.com/2Pz/me3-manager/commit/4ab97b316924973baf48a07fa54d78697d8cc0e7))
+
+- Fix Correctly prefix config paths for default profile layouts ([9aa36c5](https://github.com/2Pz/me3-manager/commit/9aa36c5f64f0d150c7d94430b53092e6fe325280))
+
+- Fix container mod enablement and simplify detection
+- Fix external folder mods defaulting to 'content' instead of 'container'.
+- Fix TomlProfileWriter dropping valid package entries during save.
+- Deduplicate mod content analysis and package entry creation logic.
+- Ensure container entries persist in profile config. ([44410fc](https://github.com/2Pz/me3-manager/commit/44410fc8e2ad1ba508e25965b20f665519d5ac1c))
+
+- Refresh API key before downloads to prevent restart after login `[nexus]` ([bf36b26](https://github.com/2Pz/me3-manager/commit/bf36b26998acf4e5e3149ae08877af4811851bf5))
+
+
+
+### ♻️ Code Refactoring
+
+- Simplify mod installation and unified container handling ([cc52ac5](https://github.com/2Pz/me3-manager/commit/cc52ac5c242f5ede54b8480fd4819a01da849a47))
+
+
+
+### 🧹 Maintenance
+
+- Bump version to 1.4.0 ([f01770f](https://github.com/2Pz/me3-manager/commit/f01770f22a3da8da3dd2c74a60a3d619012723cc))
+
+
+
+### Fix
+
+- Use Windows API to correctly resolve Downloads folder path ([3dfc1e6](https://github.com/2Pz/me3-manager/commit/3dfc1e65ec11a3d28e43495c93c1a346d6444f9a))
+
+
+
+### UI
+
+- Implement granular file-level progress for mod installation ([f3e8e81](https://github.com/2Pz/me3-manager/commit/f3e8e8148beecc0eb9420b6e7960855edb71d5ca))
+
+- Improve alt save detection logic ([08d93e9](https://github.com/2Pz/me3-manager/commit/08d93e925145d73f8e9d2b385068f6b46bf09097))
+
+
+
+### Fiix
+
+- Handle long text in mod details sidebar `[ui]` ([d1d6b15](https://github.com/2Pz/me3-manager/commit/d1d6b159dcf01629d0e2a1b39121b549985b9d38))
+
+
+
+### I18n
+
+- Add missing translation key `profile_settings_saved_status` ([9b69936](https://github.com/2Pz/me3-manager/commit/9b69936cd7079e50894e264394192fc4a523fd5e))
+
+
+
+---
 ## 📦 Release 1.3.0
 **Released:** January 18, 2026
 
@@ -633,6 +726,7 @@
 
 
 ---
+[1.4.0]: https://github.com/2Pz/me3-manager/compare/1.3.0..1.4.0
 [1.3.0]: https://github.com/2Pz/me3-manager/compare/1.2.3..1.3.0
 [1.2.3]: https://github.com/2Pz/me3-manager/compare/1.2.2..1.2.3
 [1.2.2]: https://github.com/2Pz/me3-manager/compare/1.2.1..1.2.2
