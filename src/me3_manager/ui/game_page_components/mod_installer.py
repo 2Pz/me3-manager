@@ -224,15 +224,24 @@ class InstallWorker(QThread):
                     # Ensure parent directory exists
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-                    # Atomic replace
+                    # Atomic replace or Merge
                     try:
+                        # try atomic move first (works for new folders)
                         tmp_dst.replace(dest_path)
                     except OSError:
-                        if dest_path.is_dir():
-                            shutil.rmtree(dest_path)
-                        elif dest_path.exists():
-                            dest_path.unlink()
-                        tmp_dst.replace(dest_path)
+                        if dest_path.exists() and dest_path.is_dir():
+                            # Destination exists and is a directory -> MERGE
+                            # We move contents from tmp_dst to dest_path
+                            self._merge_directories(tmp_dst, dest_path)
+                            # Cleanup temp source dir
+                            shutil.rmtree(tmp_dst)
+                        else:
+                            # Not a directory or some other error -> Overwrite
+                            if dest_path.is_dir():
+                                shutil.rmtree(dest_path)
+                            elif dest_path.exists():
+                                dest_path.unlink()
+                            tmp_dst.replace(dest_path)
 
                     # Restore configs if they were backed up
                     if backup_dir.exists():
@@ -245,6 +254,24 @@ class InstallWorker(QThread):
                 )
 
         self.finished_signal.emit(self.installed_count, self.errors)
+
+    def _merge_directories(self, src: Path, dst: Path):
+        """Recursively merge src directory into dst directory."""
+        if not dst.exists():
+            dst.mkdir(parents=True, exist_ok=True)
+
+        for item in src.iterdir():
+            dst_path = dst / item.name
+            if item.is_dir():
+                self._merge_directories(item, dst_path)
+            else:
+                # Force overwrite files
+                if dst_path.exists() or dst_path.is_symlink():
+                    try:
+                        dst_path.unlink()
+                    except IsADirectoryError:
+                        shutil.rmtree(dst_path)
+                shutil.move(str(item), str(dst_path))
 
     def _copy_recursive_with_progress(
         self, src: Path, dst: Path, start_idx: int, total: int
@@ -547,7 +574,13 @@ class ModInstaller:
         load_mods: bool = True,
     ) -> list[str]:
         """Extract archive and install contents."""
-        with TemporaryDirectory() as tmp:
+        # Use a temp dir on the main disk (near mods dir) to avoid running out of space in /tmp
+        # which is often a small RAM disk.
+        mods_dir = self._get_mods_dir()
+        temp_root = mods_dir.parent / ".me3_temp_extraction"
+        temp_root.mkdir(parents=True, exist_ok=True)
+
+        with TemporaryDirectory(dir=str(temp_root)) as tmp:
             extract_dir = Path(tmp) / "extract"
             extract_dir.mkdir(parents=True, exist_ok=True)
 
@@ -665,7 +698,12 @@ class ModInstaller:
         if not items_to_install:
             return False
 
-        with TemporaryDirectory() as tmp_dir:
+        # Use a temp dir on the main disk (near mods dir)
+        mods_dir = self._get_mods_dir()
+        temp_root = mods_dir.parent / ".me3_temp_extraction"
+        temp_root.mkdir(parents=True, exist_ok=True)
+
+        with TemporaryDirectory(dir=str(temp_root)) as tmp_dir:
             staged_items = []
 
             for src, dest_rel in items_to_install:
@@ -1157,7 +1195,8 @@ class ModInstaller:
                             file_category=file_category,
                             file_id=file_id,
                             file_name=file_name,
-                            install_name=None,  # Destination folder name (was incorrectly mod_folder)
+                            install_name=dep["settings"].get("install_name")
+                            or file_name,  # Destination folder name
                             ignore_sidebar=True,
                         )
 
