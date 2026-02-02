@@ -1157,7 +1157,7 @@ class GamePage(QWidget):
                         mod_id=mod.mod_id,
                         local_mod_path=local_path,
                         file_id=chosen.file_id,
-                        mod_name=mod.name,
+                        mod_name=mod_name_hint,  # Use custom name (e.g. "Cinders Main") instead of Nexus name
                         mod_version=chosen.version,
                         mod_author=mod.author,
                         mod_endorsements=mod.endorsement_count,
