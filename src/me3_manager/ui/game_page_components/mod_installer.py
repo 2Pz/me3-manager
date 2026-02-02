@@ -789,48 +789,39 @@ class ModInstaller:
 
             # Collect packages
             for i, pkg in enumerate(profile_data.get("packages", [])):
-                if isinstance(pkg, dict) and (pkg.get("source") or pkg.get("path")):
-                    pkg_rel = Path(pkg.get("source") or pkg.get("path"))
-                    pkg_abs = self._safe_join(profile_base, pkg_rel)
-                    if pkg_abs and pkg_abs.is_dir():
-                        dest_name = (
-                            mod_name_override
-                            if mod_name_override and i == 0
-                            else pkg_abs.name
-                        )
-                        if _validate_mod_name(dest_name):
-                            if pkg_abs and pkg_abs.is_dir():
-                                items_to_install.append((pkg_abs, dest_name))
-                                final_folder_names.append(dest_name)
-                            else:
-                                # If the package source doesn't exist (e.g. community profile),
-                                # we just track the folder name so we can register it later.
-                                # The assumption is that it will be filled by Nexus downloads or exists already.
-                                final_folder_names.append(dest_name)
+                pkg_abs = self._resolve_package_source(pkg, profile_base)
+                if pkg_abs and pkg_abs.is_dir():
+                    dest_name = (
+                        mod_name_override
+                        if mod_name_override and i == 0
+                        else pkg_abs.name
+                    )
+                    if _validate_mod_name(dest_name):
+                        if pkg_abs and pkg_abs.is_dir():
+                            items_to_install.append((pkg_abs, dest_name))
+                            final_folder_names.append(dest_name)
+                        else:
+                            # If the package source doesn't exist (e.g. community profile),
+                            # we just track the folder name so we can register it later.
+                            # The assumption is that it will be filled by Nexus downloads or exists already.
+                            final_folder_names.append(dest_name)
 
             # Collect natives not in packages
             # We need to map package source paths to their destination names (folder IDs)
             # so we can redirect natives to point inside the installed package.
             package_source_map = {}
             for i, pkg in enumerate(profile_data.get("packages", [])):
-                if isinstance(pkg, dict) and (pkg.get("source") or pkg.get("path")):
-                    pkg_rel = Path(pkg.get("source") or pkg.get("path"))
-                    pkg_abs = self._safe_join(profile_base, pkg_rel)
+                pkg_abs = self._resolve_package_source(pkg, profile_base)
 
+                if pkg_abs and pkg_abs.is_dir():
                     # Determine the destination name (same logic as above loop)
                     dest_name = (
                         mod_name_override
                         if mod_name_override and i == 0
                         else pkg_abs.name
                     )
-                    # If ID is present and valid, it takes precedence in the loop above?
-                    # Wait, the loop above used `pkg_abs.name` as default dest_name unless overridden.
-                    # It didn't explicitly use pkg['id'] unless mod_name_override logic covers it.
-                    # Actually, `items_to_install.append((pkg_abs, dest_name))` uses `dest_name`.
-                    # Let's ensure we use the exact same `dest_name` logic.
 
-                    if pkg_abs and pkg_abs.is_dir():
-                        package_source_map[pkg_abs] = dest_name
+                    package_source_map[pkg_abs] = dest_name
 
             # Stage and install
             for native in profile_data.get("natives", []):
@@ -1162,11 +1153,11 @@ class ModInstaller:
                         installed = self.game_page.download_selected_nexus_mod(
                             mod,
                             load_mods=False,
-                            mod_root_path=None,
+                            mod_root_path=mod_folder,  # Source path within archive (was incorrectly None)
                             file_category=file_category,
                             file_id=file_id,
                             file_name=file_name,
-                            install_name=mod_folder,  # Destination folder name
+                            install_name=None,  # Destination folder name (was incorrectly mod_folder)
                             ignore_sidebar=True,
                         )
 
@@ -1404,6 +1395,18 @@ class ModInstaller:
     def _get_mods_dir(self) -> Path:
         """Get the mods directory for the current game."""
         return self.config_manager.get_mods_dir(self.game_page.game_name)
+
+    def _resolve_package_source(self, pkg: dict, profile_base: Path) -> Path | None:
+        """Resolve absolute source path for a package, handling mod_folder."""
+        if not isinstance(pkg, dict) or not (pkg.get("source") or pkg.get("path")):
+            return None
+
+        pkg_rel_path = pkg.get("source") or pkg.get("path")
+        # Handle mod_folder if present
+        if pkg.get("mod_folder"):
+            pkg_rel_path = str(Path(pkg_rel_path) / pkg.get("mod_folder"))
+
+        return self._safe_join(profile_base, Path(pkg_rel_path))
 
     def _safe_join(self, base: Path, child: Path) -> Path | None:
         """Safely join paths, preventing traversal attacks."""
