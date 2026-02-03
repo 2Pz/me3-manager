@@ -32,10 +32,6 @@ class ConfigApplicator:
         Returns:
             True if changes were made and saved, False otherwise.
         """
-        if not config_path.exists():
-            log.warning("Config file not found: %s", config_path)
-            return False
-
         if not overrides:
             return False
 
@@ -66,13 +62,19 @@ class ConfigApplicator:
 
         try:
             updater = ConfigUpdater()
+            file_exists = config_path.exists()
 
-            # Read file with appropriate encoding
-            # Try utf-8 first, fallback to latin-1
-            try:
-                updater.read(str(config_path), encoding="utf-8")
-            except UnicodeDecodeError:
-                updater.read(str(config_path), encoding="latin-1")
+            if file_exists:
+                # Read file with appropriate encoding
+                # Try utf-8 first, fallback to latin-1
+                try:
+                    updater.read(str(config_path), encoding="utf-8")
+                except UnicodeDecodeError:
+                    updater.read(str(config_path), encoding="latin-1")
+            else:
+                # Ensure parent directory exists
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                log.info("Creating new config file: %s", config_path)
 
             changed = False
 
@@ -111,7 +113,11 @@ class ConfigApplicator:
                         changed = True
 
             if changed:
-                updater.update_file()
+                if file_exists:
+                    updater.update_file()
+                else:
+                    with open(config_path, "w", encoding="utf-8") as f:
+                        updater.write(f)
                 return True
 
             return False
