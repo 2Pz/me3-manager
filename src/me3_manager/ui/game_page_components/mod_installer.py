@@ -9,6 +9,7 @@ Simplified mod installation system that handles:
 All installations flow through a single entry point: install_mod()
 """
 
+import copy
 import logging
 import re
 import shutil
@@ -981,20 +982,68 @@ class ModInstaller:
                         and entry.get("config")
                         and entry.get("config_overrides")
                     ):
-                        # path is relative to mods_dir
-                        config_rel = entry["config"]
-                        config_path = mods_dir / config_rel
-                        # Simple security check to prevent escaping mods_dir
-                        try:
-                            config_path.resolve().relative_to(mods_dir.resolve())
-                            ConfigApplicator.apply_ini_overrides(
-                                config_path, entry["config_overrides"]
-                            )
-                        except Exception:
-                            self._log.warning(
-                                "Invalid config override path (security check failed): %s",
-                                config_rel,
-                            )
+                        # Handle both single string and list of strings
+                        configs = entry["config"]
+                        if isinstance(configs, str):
+                            configs = [configs]
+
+                        raw_overrides = entry["config_overrides"]
+
+                        # Separate Global vs Specific overrides
+                        # Global: Keys that do NOT match any of the config file paths
+                        # Specific: Keys that match a config file path
+                        global_overrides = {}
+                        specific_overrides = {}
+
+                        for k, v in raw_overrides.items():
+                            if k in configs:
+                                specific_overrides[k] = v
+                            else:
+                                global_overrides[k] = v
+
+                        for config_rel in configs:
+                            # path is relative to mods_dir
+                            config_path = mods_dir / config_rel
+
+                            # Prepare merged overrides for this specific file
+                            # Start with global overrides (DEEP COPY to avoid sharing mutable inner dicts)
+                            merged_overrides = copy.deepcopy(global_overrides)
+
+                            # Apply specific overrides for this file if they exist
+                            if config_rel in specific_overrides:
+                                spec_content = specific_overrides[config_rel]
+                                if isinstance(spec_content, dict):
+                                    for (
+                                        section,
+                                        section_content,
+                                    ) in spec_content.items():
+                                        if section not in merged_overrides:
+                                            merged_overrides[section] = {}
+
+                                        # Merge keys into the section (don't replace the whole section)
+                                        if isinstance(
+                                            section_content, dict
+                                        ) and isinstance(
+                                            merged_overrides[section], dict
+                                        ):
+                                            merged_overrides[section].update(
+                                                section_content
+                                            )
+                                        else:
+                                            # Fallback/Overwrite if structure mismatch
+                                            merged_overrides[section] = section_content
+
+                            # Simple security check to prevent escaping mods_dir
+                            try:
+                                config_path.resolve().relative_to(mods_dir.resolve())
+                                ConfigApplicator.apply_ini_overrides(
+                                    config_path, merged_overrides
+                                )
+                            except Exception:
+                                self._log.warning(
+                                    "Invalid config override path (security check failed): %s",
+                                    config_rel,
+                                )
 
             _apply_configs(profile_data.get("natives", []))
             _apply_configs(profile_data.get("packages", []))
@@ -1350,6 +1399,10 @@ class ModInstaller:
                 if not config_path or not user_prompts:
                     continue
 
+                # Ensure config_path is hashable (tuple) if it's a list
+                if isinstance(config_path, list):
+                    config_path = tuple(config_path)
+
                 for prompt in user_prompts:
                     if isinstance(prompt, dict) and prompt.get("key"):
                         # Attach the config path to each prompt
@@ -1378,7 +1431,15 @@ class ModInstaller:
                 if not isinstance(entry, dict):
                     continue
                 config_path = entry.get("config")
-                if not config_path or config_path not in user_values:
+                if not config_path:
+                    continue
+
+                # Normalize to tuple for lookup if list
+                lookup_key = (
+                    tuple(config_path) if isinstance(config_path, list) else config_path
+                )
+
+                if lookup_key not in user_values:
                     continue
 
                 # Initialize config_overrides if not present
@@ -1386,7 +1447,7 @@ class ModInstaller:
                     entry["config_overrides"] = {}
 
                 # Merge user values
-                for key, value in user_values[config_path].items():
+                for key, value in user_values[lookup_key].items():
                     entry["config_overrides"][key] = value
 
         _merge_into_entries(profile_data.get("natives", []))
