@@ -132,7 +132,22 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions"
           git add pyproject.toml uv.lock CHANGELOG.md
-          git commit -m "🚀 Release: Prepare Me3 Manager $NEXT_VERSION"
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "ℹ️ No changes to commit."
+            
+            # Verify changelog has the target version (idempotency check)
+            if grep -q "^## 📦 Release $NEXT_VERSION" CHANGELOG.md; then
+              echo "✅ Changelog already contains version $NEXT_VERSION. Proceeding..."
+            else
+              echo "❌ Error: No changes to commit but CHANGELOG.md does not contain version $NEXT_VERSION."
+              exit 1
+            fi
+          else
+            git commit -m "🚀 Release: Prepare Me3 Manager $NEXT_VERSION"
+          fi
+          
           git push origin "HEAD:refs/heads/release-$NEXT_VERSION" --force
 
   # ---------------------------------------------------------------------------
