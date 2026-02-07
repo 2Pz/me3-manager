@@ -3,8 +3,10 @@ Profile Settings Dialog for ME3 Manager.
 Provides a user-friendly interface for configuring profile-level settings like savefile and start_online.
 """
 
+import os
 import shutil
 import sys
+from pathlib import Path as _Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QKeyEvent
@@ -312,20 +314,33 @@ class ProfileSettingsDialog(QDialog):
             # Build non-Steam shortcut launching through me3 CLI
             appname = f"{self.game_name} ({profile_path.stem})"
             # Prefer absolute path to 'me3' if we can resolve it, else rely on PATH
-            exe = "me3"
-            try:
-                bin_dir = self.config_manager.path_manager.get_me3_binary_path()
-                exe_candidate = bin_dir / (
-                    "me3.exe" if sys.platform == "win32" else "me3"
-                )
-                if exe_candidate.exists():
-                    exe = str(exe_candidate)
-            except Exception:
-                pass
-            startdir = str(profile_path.parent)
-            launch_options = f'launch --game {cli_id} -p "{profile_path}"'
+            # Build Steam shortcut pointing to Manager executable (AppImage or Python)
+            # ensuring correct environment setup (libraries) on Steam Deck/Linux.
 
-            from pathlib import Path as _Path
+            # 1. Determine executable (AppImage or sys.executable)
+            appimage_path = os.environ.get("APPIMAGE")
+            if appimage_path and os.path.exists(appimage_path):
+                exe = appimage_path
+            else:
+                exe = sys.executable
+
+            # 2. Construct launch options (script path if running from source)
+            if not getattr(sys, "frozen", False) and not appimage_path:
+                try:
+                    root_dir = _Path(__file__).parent.parent.parent
+                    main_script = root_dir / "main.py"
+                    launch_wrapper = (
+                        f'"{main_script}"'
+                        if main_script.exists()
+                        else "-m me3_manager.main"
+                    )
+                    launch_options = f'{launch_wrapper} --launch-game {cli_id} --profile "{profile_path}"'
+                except Exception:
+                    launch_options = f'-m me3_manager.main --launch-game {cli_id} --profile "{profile_path}"'
+            else:
+                launch_options = f'--launch-game {cli_id} --profile "{profile_path}"'
+
+            startdir = str(profile_path.parent)
 
             from me3_manager.services.steam_shortcuts import (
                 SteamShortcuts,

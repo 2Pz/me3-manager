@@ -63,6 +63,12 @@ def main():
     setup_ssl_certificates()
     setup_logging()
 
+    # Check for CLI arguments first
+    from me3_manager.core.cli import handle_cli_args
+
+    if handle_cli_args():
+        sys.exit(0)
+
     # Check for forbidden executable names (e.g. "me3.exe")
     # This prevents infinite recursion if the manager is renamed to "me3.exe"
     # and tries to call the "me3" CLI tool.
