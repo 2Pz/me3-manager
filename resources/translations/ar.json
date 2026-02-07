@@ -171,7 +171,7 @@
   "save_error_msg": "ما فيه مسار ملف إعدادات محدد. استخدم 'تصفح...' عشان تختار ملف.",
   "could_not_save_msg": "ما قدرت أحفظ الملف:\n{path}\n\nالخطأ: {error}",
   "select_config_file": "اختر ملف إعدادات المود",
-  "ini_files_filter": "ملفات INI (*.ini);;كل الملفات (*)",
+  "ini_files_filter": "ملفات الإعدادات (*.ini *.toml *.json *.xml *.yml *.yaml *.cfg *.txt);;كل الملفات (*)",
   "game_options_title": "خيارات اللعبة  {game_name}",
   "open_path_error": "خطأ في فتح المسار",
   "open_path_error_msg": "فشل فتح المسار:\n{path}\n\nالخطأ: {e}",
