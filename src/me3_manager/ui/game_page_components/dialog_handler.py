@@ -72,11 +72,19 @@ class DialogHandler:
                 raise ValueError(tr("mod_info_not_found_error"))
 
             is_folder_mod = mod_info.mod_type == ModType.FOLDER
-            available_mod_names = [
-                info.name
-                for path, info in self.game_page.mod_infos.items()
-                if (info.mod_type == mod_info.mod_type) and (path != mod_path)
-            ]
+            available_mod_names = []
+            for path, info in self.game_page.mod_infos.items():
+                if (info.mod_type == mod_info.mod_type) and (path != mod_path):
+                    if info.mod_type == ModType.DLL:
+                        # For DLL mods, we MUST use the filename (e.g. Mod.dll) as the ID
+                        # because that's what ModEngine expects in the config
+                        available_mod_names.append(Path(info.path).name)
+                    else:
+                        # For Package mods (folders), we should exclude "containers" (folders that only exist to hold DLLs)
+                        # because they have no assets to override, so ordering against them is clutter.
+                        if info.is_container:
+                            continue
+                        available_mod_names.append(info.name)
             dialog = AdvancedModOptionsDialog(
                 mod_path=mod_path,
                 mod_name=mod_name,
