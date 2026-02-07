@@ -171,7 +171,7 @@
   "save_error_msg": "未设置配置文件路径。使用“浏览...”选择文件。",
   "could_not_save_msg": "无法保存文件:\n{path}\n\n错误: {error}",
   "select_config_file": "选择模组配置文件",
-  "ini_files_filter": "INI 文件 (*.ini);;所有文件 (*)",
+  "ini_files_filter": "配置文件 (*.ini *.toml *.json *.xml *.yml *.yaml *.cfg *.txt);;所有文件 (*)",
   "game_options_title": "游戏选项 {game_name}",
   "open_path_error": "打开路径错误",
   "open_path_error_msg": "无法打开路径:\n{path}\n\n错误: {e}",

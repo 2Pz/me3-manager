@@ -171,7 +171,7 @@
   "save_error_msg": "No config file path is set. Use 'Browse...' to select a file.",
   "could_not_save_msg": "Could not save file:\n{path}\n\nError: {error}",
   "select_config_file": "Select Mod Config File",
-  "ini_files_filter": "INI Files (*.ini);;All Files (*)",
+  "ini_files_filter": "Config Files (*.ini *.toml *.json *.xml *.yml *.yaml *.cfg *.txt);;All Files (*)",
   "game_options_title": "Game Options  {game_name}",
   "open_path_error": "Open Path Error",
   "open_path_error_msg": "Failed to open path:\n{path}\n\nError: {e}",
