@@ -922,15 +922,19 @@ class GamePage(QWidget):
                     PlatformUtils.open_url(base)
 
                 downloads_dir = get_downloads_dir()
+                # Pass expected file size for progress tracking
+                expected_size_kb = chosen.size_kb if chosen.size_kb else 0
                 watcher = DownloadWatcher(
-                    directory=downloads_dir, allowed_exts=tuple(ARCHIVE_EXTENSIONS)
+                    directory=downloads_dir,
+                    allowed_exts=tuple(ARCHIVE_EXTENSIONS),
+                    expected_size_kb=expected_size_kb,
                 )
 
                 progress = QProgressDialog(
                     tr("nexus_browser_download_waiting"),
                     tr("cancel_button"),
                     0,
-                    0,
+                    100 if expected_size_kb > 0 else 0,
                     self,
                 )
                 progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -946,8 +950,12 @@ class GamePage(QWidget):
                     found_path["error"] = msg
                     progress.close()
 
+                def _on_progress(pct: int):
+                    progress.setValue(pct)
+
                 watcher.found.connect(_on_found)
                 watcher.failed.connect(_on_failed)
+                watcher.progress.connect(_on_progress)
                 progress.canceled.connect(watcher.requestInterruption)
                 watcher.start()
                 progress.exec()

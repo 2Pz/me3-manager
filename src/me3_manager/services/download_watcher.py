@@ -99,11 +99,13 @@ class DownloadWatcher(QThread):
     Emits:
       - found(file_path)
       - status(text)
+      - progress(percentage) - for real-time progress tracking (0-100)
       - failed(error_text)
     """
 
     found = Signal(str)
     status = Signal(str)
+    progress = Signal(int)  # percentage (0-100)
     failed = Signal(str)
 
     def __init__(
@@ -111,7 +113,8 @@ class DownloadWatcher(QThread):
         *,
         directory: Path,
         allowed_exts: tuple[str, ...] | None = None,
-        timeout_s: int = 600,
+        expected_size_kb: int = 0,
+        timeout_s: int = 0,
         parent=None,
     ):
         super().__init__(parent)
@@ -121,6 +124,9 @@ class DownloadWatcher(QThread):
             self._allowed_exts = tuple(e.lower() for e in ARCHIVE_EXTENSIONS)
         else:
             self._allowed_exts = tuple(e.lower() for e in allowed_exts)
+        # Expected file size in bytes (for progress reporting)
+        self._expected_size = int(expected_size_kb) * 1024 if expected_size_kb else 0
+        # timeout_s <= 0 means no timeout (wait indefinitely)
         self._timeout_s = int(timeout_s)
 
     def run(self) -> None:
@@ -142,7 +148,8 @@ class DownloadWatcher(QThread):
                 self.failed.emit("Cancelled.")
                 return
 
-            if time.time() - start > self._timeout_s:
+            # Only check timeout if a positive timeout was configured
+            if self._timeout_s > 0 and time.time() - start > self._timeout_s:
                 self.failed.emit("Timed out waiting for browser download.")
                 return
 
@@ -155,15 +162,29 @@ class DownloadWatcher(QThread):
             # Ignore temp/in-progress extensions used by common browsers.
             in_progress_exts = {".crdownload", ".part", ".tmp"}
             completed = []
+            in_progress_files = []
             for p in files:
                 if p.name in baseline:
                     continue
                 suf = p.suffix.lower()
                 if suf in in_progress_exts:
+                    in_progress_files.append(p)
                     continue
                 if self._allowed_exts and suf not in self._allowed_exts:
                     continue
                 completed.append(p)
+
+            # Track progress from in-progress temp files
+            if in_progress_files and self._expected_size > 0:
+                try:
+                    # Get the largest temp file (most likely our download)
+                    in_progress_files.sort(key=lambda p: p.stat().st_size, reverse=True)
+                    current_size = in_progress_files[0].stat().st_size
+                    # Emit percentage to avoid overflow with large files
+                    pct = min(99, int((current_size / self._expected_size) * 100))
+                    self.progress.emit(pct)
+                except Exception:
+                    pass
 
             # Prefer newest completed file.
             if completed:
