@@ -311,36 +311,47 @@ class ProfileSettingsDialog(QDialog):
                 )
                 return
 
-            # Build non-Steam shortcut launching through me3 CLI
+            # Build non-Steam shortcut
             appname = f"{self.game_name} ({profile_path.stem})"
-            # Prefer absolute path to 'me3' if we can resolve it, else rely on PATH
-            # Build Steam shortcut pointing to Manager executable (AppImage or Python)
-            # ensuring correct environment setup (libraries) on Steam Deck/Linux.
-
-            # 1. Determine executable (AppImage or sys.executable)
-            appimage_path = os.environ.get("APPIMAGE")
-            if appimage_path and os.path.exists(appimage_path):
-                exe = appimage_path
-            else:
-                exe = sys.executable
-
-            # 2. Construct launch options (script path if running from source)
-            if not getattr(sys, "frozen", False) and not appimage_path:
-                try:
-                    root_dir = _Path(__file__).parent.parent.parent
-                    main_script = root_dir / "main.py"
-                    launch_wrapper = (
-                        f'"{main_script}"'
-                        if main_script.exists()
-                        else "-m me3_manager.main"
-                    )
-                    launch_options = f'{launch_wrapper} --launch-game {cli_id} --profile "{profile_path}"'
-                except Exception:
-                    launch_options = f'-m me3_manager.main --launch-game {cli_id} --profile "{profile_path}"'
-            else:
-                launch_options = f'--launch-game {cli_id} --profile "{profile_path}"'
-
             startdir = str(profile_path.parent)
+
+            if sys.platform == "win32":
+                # On Windows, point directly to me3.exe CLI
+                exe = "me3"
+                try:
+                    bin_dir = self.config_manager.path_manager.get_me3_binary_path()
+                    exe_candidate = bin_dir / "me3.exe"
+                    if exe_candidate.exists():
+                        exe = str(exe_candidate)
+                except Exception:
+                    pass
+                launch_options = f'launch --game {cli_id} -p "{profile_path}"'
+            else:
+                # On Linux/Steam Deck, use the Manager as a wrapper (handles environment)
+                # 1. Determine executable (AppImage or sys.executable)
+                appimage_path = os.environ.get("APPIMAGE")
+                if appimage_path and os.path.exists(appimage_path):
+                    exe = appimage_path
+                else:
+                    exe = sys.executable
+
+                # 2. Construct launch options (script path if running from source)
+                if not getattr(sys, "frozen", False) and not appimage_path:
+                    try:
+                        root_dir = _Path(__file__).parent.parent.parent
+                        main_script = root_dir / "main.py"
+                        launch_wrapper = (
+                            f'"{main_script}"'
+                            if main_script.exists()
+                            else "-m me3_manager.main"
+                        )
+                        launch_options = f'{launch_wrapper} --launch-game {cli_id} --profile "{profile_path}"'
+                    except Exception:
+                        launch_options = f'-m me3_manager.main --launch-game {cli_id} --profile "{profile_path}"'
+                else:
+                    launch_options = (
+                        f'--launch-game {cli_id} --profile "{profile_path}"'
+                    )
 
             from me3_manager.services.steam_shortcuts import (
                 SteamShortcuts,
