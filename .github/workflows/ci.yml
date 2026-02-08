@@ -27,7 +27,7 @@ jobs:
     # Wait for checks to pass before building
     needs: checks
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version-file: ".python-version"
@@ -35,7 +35,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --dev
       - name: Get me3-manager version from pyproject.toml
-        run: echo "version=$(uv version --short)" >> "$GITHUB_ENV"
+        id: get_version
+        run: echo "version=$(uv version --short)" >> "$GITHUB_OUTPUT"
       - name: Build Linux with pyinstaller
         run: uv run ./build-linux.sh
       - name: Package as AppImage
@@ -46,14 +47,14 @@ jobs:
           name: me3-manager-linux
           # Since Linux build is a single file, we just zip the file without a
           # containing folder.
-          path: dist/linux-${{ env.version }}/Me3_Manager.AppImage
+          path: dist/linux-${{ steps.get_version.outputs.version }}/Me3_Manager.AppImage
   build-windows:
     name: Build Windows
     runs-on: windows-latest
     # Wait for checks to pass before building
     needs: checks
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version-file: ".python-version"
@@ -61,8 +62,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --dev
       - name: Get me3-manager version from pyproject.toml
+        id: get_version
         # Note the PowerShell syntax for env vars
-        run: echo "version=$(uv version --short)" >> $env:GITHUB_ENV
+        run: echo "version=$(uv version --short)" >> $env:GITHUB_OUTPUT
       - name: Build Windows with cx_Freeze
         run: uv run ./build-windows.py build
       - name: Upload artifacts
@@ -72,4 +74,4 @@ jobs:
           # Windows exe and supporting files are under "dist/windows-$version/Me3_Manager_$version/".
           # We package the whole Me3_Manager_$version folder so that users won't
           # accidentally dump a bunch of loose files when they extract the zip.
-          path: dist/windows-${{ env.version }}
+          path: dist/windows-${{ steps.get_version.outputs.version }}
