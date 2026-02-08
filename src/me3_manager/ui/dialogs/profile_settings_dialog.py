@@ -322,6 +322,15 @@ class ProfileSettingsDialog(QDialog):
                     exe = str(exe_candidate)
             except Exception:
                 pass
+
+            # On Linux (e.g., Steam Deck), ensure we have a full path since Steam
+            # launches shortcuts without a proper PATH environment
+            if sys.platform == "linux" and exe == "me3":
+                from me3_manager.utils.platform_utils import PlatformUtils
+
+                resolved = PlatformUtils._find_me3_executable_linux()
+                if resolved:
+                    exe = resolved
             startdir = str(profile_path.parent)
             launch_options = f'launch --game {cli_id} -p "{profile_path}"'
 
