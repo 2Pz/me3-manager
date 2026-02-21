@@ -30,6 +30,7 @@ pyinstaller --clean --noconfirm \
 	--onefile \
 	--copy-metadata me3-manager \
 	--collect-all patoolib \
+	--collect-data certifi \
 	--add-data resources:resources \
 	--optimize 2 \
 	--strip \
