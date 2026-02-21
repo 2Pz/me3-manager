@@ -53,8 +53,10 @@ def setup_ssl_certificates():
         try:
             import certifi
 
-            os.environ.setdefault("SSL_CERT_FILE", certifi.where())
-            os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+            ca_bundle = certifi.where()
+            if os.path.isfile(ca_bundle):
+                os.environ["SSL_CERT_FILE"] = ca_bundle
+                os.environ["REQUESTS_CA_BUNDLE"] = ca_bundle
         except ImportError:
             pass  # certifi not available, rely on system certificates
 
