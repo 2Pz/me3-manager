@@ -7,7 +7,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
 from me3_manager.ui.main_window import ModEngine3Manager
-from me3_manager.utils.translator import translator
+from me3_manager.utils.translator import tr, translator
 
 log = logging.getLogger(__name__)
 
@@ -134,6 +134,23 @@ def main():
     # Create and show main window
     window = ModEngine3Manager()
     window.show()
+
+    # Check for Administrator privileges on Windows
+    if sys.platform == "win32":
+        import ctypes
+
+        from PySide6.QtWidgets import QMessageBox
+
+        try:
+            if ctypes.windll.shell32.IsUserAnAdmin():
+                log.warning("Application is running as Administrator.")
+                QMessageBox.warning(
+                    window,
+                    tr("admin_warning_title"),
+                    tr("admin_warning_msg"),
+                )
+        except Exception as e:
+            log.debug("Failed to check administrator status: %s", e)
 
     sys.exit(app.exec())
 

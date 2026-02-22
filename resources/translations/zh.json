@@ -516,5 +516,7 @@
   "user_prompts_required_note": "* 必填字段",
   "user_prompts_required_error_title": "必填字段缺失",
   "user_prompts_required_error": "请填写所有必填字段：",
-  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。"
+  "profile_settings_saved_status": "{game_name} 的配置文件设置已保存。",
+  "admin_warning_title": "检测到管理员模式",
+  "admin_warning_msg": "以管理员身份运行 Mod Engine 3 管理器可能会导致一些功能（例如拖放文件）停止工作。\n\n除非必要，否则建议正常运行应用程序。"
 }

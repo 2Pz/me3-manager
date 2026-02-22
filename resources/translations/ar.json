@@ -516,5 +516,7 @@
   "user_prompts_required_note": "* الحقول المطلوبة",
   "user_prompts_required_error_title": "حقول مطلوبة ناقصة",
   "user_prompts_required_error": "لو سمحت عبّي كل الحقول المطلوبة:",
-  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}."
+  "profile_settings_saved_status": "تم حفظ إعدادات البروفايل لـ {game_name}.",
+  "admin_warning_title": "تم اكتشاف وضع المسؤول",
+  "admin_warning_msg": "تشغيل مدير Mod Engine 3 كمسؤول ممكن يخلي بعض الميزات، زي سحب وإفلات الملفات، توقف عن العمل.\n\nمن الأفضل تشغيل التطبيق بشكل عادي إلا إذا كان ضروري."
 }
