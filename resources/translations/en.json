@@ -516,5 +516,7 @@
   "user_prompts_required_note": "* Required fields",
   "user_prompts_required_error_title": "Missing Required Fields",
   "user_prompts_required_error": "Please fill in all required fields:",
-  "profile_settings_saved_status": "Profile settings saved for {game_name}."
+  "profile_settings_saved_status": "Profile settings saved for {game_name}.",
+  "admin_warning_title": "Administrator Mode Detected",
+  "admin_warning_msg": "Running Mod Engine 3 Manager as Administrator can cause some features, like dragging and dropping files, to stop working.\n\nIt is recommended to run the application normally unless required."
 }
