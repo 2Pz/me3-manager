@@ -3,6 +3,42 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.3
+**Released:** February 22, 2026
+
+
+### 🔧 Bug Fixes
+
+- Bundle certifi CA certificates in Linux PyInstaller build ([9c64dff](https://github.com/2Pz/me3-manager/commit/9c64dfff4ebde6f8baba62c8a28ea868535011b1))
+
+- Add warning dialog when running as administrator on Windows `[ui]` ([bd15182](https://github.com/2Pz/me3-manager/commit/bd15182ee87abb1f2e5cfdd90a5bbcc1f5c778a9))
+
+
+
+---
+## 📦 Release 1.4.2
+**Released:** February 08, 2026
+
+
+### 🔧 Bug Fixes
+
+- Use correct mod IDs for load order and filter containers `[ui]` ([f51be83](https://github.com/2Pz/me3-manager/commit/f51be83e64d7311673170a02fa92c2a75f5955cb))
+
+- Update config file browser filter to include all supported types ([752182c](https://github.com/2Pz/me3-manager/commit/752182ccb22c19aea4242b635627b472bf50e1f0))
+
+- Remove download timeout and add real-time progress tracking for browser downloads ([da26ee1](https://github.com/2Pz/me3-manager/commit/da26ee1efe031d683b302629a3cc6dcdb441495b))
+
+- Use full path for me3 executable in Steam shortcuts on Linux ([1834b1d](https://github.com/2Pz/me3-manager/commit/1834b1d06e27e84c5edefb27302eeeb9b3518c52))
+
+
+
+### 🧹 Maintenance
+
+- Bump version to 1.4.2. ([b9e9bc3](https://github.com/2Pz/me3-manager/commit/b9e9bc31769930fe47386cb931a52a90b305bc09))
+
+
+
+---
 ## 📦 Release 1.4.1
 **Released:** February 03, 2026
 
@@ -747,6 +783,8 @@
 
 
 ---
+[1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
+[1.4.2]: https://github.com/2Pz/me3-manager/compare/1.4.1..1.4.2
 [1.4.1]: https://github.com/2Pz/me3-manager/compare/v1.4.0..1.4.1
 [1.4.0]: https://github.com/2Pz/me3-manager/compare/1.3.0..v1.4.0
 [1.3.0]: https://github.com/2Pz/me3-manager/compare/1.2.3..1.3.0
