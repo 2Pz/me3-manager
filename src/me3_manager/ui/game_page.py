@@ -908,6 +908,16 @@ class GamePage(QWidget):
                     get_downloads_dir,
                 )
 
+                # Use Nexus mod name as folder name, or override if install_name provided
+                if install_name:
+                    mod_name_hint = install_name.strip()
+                else:
+                    mod_name_hint = (
+                        mod.name
+                        or chosen.name
+                        or f"nexus_{mod.mod_id}_{chosen.file_id}"
+                    ).strip()
+
                 base = f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}"
                 candidates = [
                     f"{base}?tab=files&file_id={chosen.file_id}",
@@ -970,11 +980,7 @@ class GamePage(QWidget):
                 dl_file = Path(found_path["path"])
                 installed = self.mod_installer.install_mod(
                     dl_file,
-                    mod_name_hint=(
-                        mod.name
-                        or chosen.name
-                        or f"nexus_{mod.mod_id}_{chosen.file_id}"
-                    ),
+                    mod_name_hint=mod_name_hint,
                     load_mods=load_mods,
                     mod_root_path=mod_root_path,
                 )
@@ -998,7 +1004,7 @@ class GamePage(QWidget):
                         mod_id=mod.mod_id,
                         local_mod_path=local_path,
                         file_id=chosen.file_id,
-                        mod_name=mod.name,
+                        mod_name=mod_name_hint,
                         mod_version=chosen.version,
                         mod_author=mod.author,
                         mod_endorsements=mod.endorsement_count,
@@ -1093,16 +1099,6 @@ class GamePage(QWidget):
 
                 if sidebar:
                     sidebar.set_status(tr("nexus_installing_status"))
-
-                # Use Nexus mod name as folder name, or override if install_name provided
-                if install_name:
-                    mod_name_hint = install_name.strip()
-                else:
-                    mod_name_hint = (
-                        mod.name
-                        or chosen.name
-                        or f"nexus_{mod.mod_id}_{chosen.file_id}"
-                    ).strip()
 
                 mod_root_path = mod_root_path or (
                     sidebar.get_mod_root_path() if sidebar else None
