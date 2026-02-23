@@ -3,6 +3,17 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.4
+**Released:** February 23, 2026
+
+
+### 🔧 Bug Fixes
+
+- Use install_name for nexus free account split mod downloads ([35380e4](https://github.com/2Pz/me3-manager/commit/35380e4e551f0ea03e0a1ab783edfd479f5c57f4))
+
+
+
+---
 ## 📦 Release 1.4.3
 **Released:** February 22, 2026
 
@@ -783,6 +794,7 @@
 
 
 ---
+[1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
 [1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
 [1.4.2]: https://github.com/2Pz/me3-manager/compare/1.4.1..1.4.2
 [1.4.1]: https://github.com/2Pz/me3-manager/compare/v1.4.0..1.4.1
