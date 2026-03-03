@@ -3,6 +3,30 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.4
+**Released:** March 03, 2026
+
+
+### 🔧 Bug Fixes
+
+- Use install_name for nexus free account split mod downloads ([35380e4](https://github.com/2Pz/me3-manager/commit/35380e4e551f0ea03e0a1ab783edfd479f5c57f4))
+
+- Fix(mod-installer): implement smart config merging
+- Fix mod_name_hint UnboundLocalError for premium downloads
+- Add _merge_ini_files, _merge_json_files, _merge_toml_files to mod_installer
+- Update _restore_configs to smartly merge user configs rather than indiscriminately overwrite them ([b9525cd](https://github.com/2Pz/me3-manager/commit/b9525cde275909493d5e1aea1aae35ae64d16d28))
+
+- Add missing _is_valid_mod_folder to ImprovedModManager ([638cf36](https://github.com/2Pz/me3-manager/commit/638cf36c320e76786ff0fc9ab68a60ec0ea9cb75))
+
+
+
+### 🎨 User Interface
+
+- Add warning banner when profile has multiple regulation.bin files ([1f65aa7](https://github.com/2Pz/me3-manager/commit/1f65aa75342af7c55ffd4eb51628ba83ba2b352c))
+
+
+
+---
 ## 📦 Release 1.4.3
 **Released:** February 22, 2026
 
@@ -783,6 +807,7 @@
 
 
 ---
+[1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
 [1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
 [1.4.2]: https://github.com/2Pz/me3-manager/compare/1.4.1..1.4.2
 [1.4.1]: https://github.com/2Pz/me3-manager/compare/v1.4.0..1.4.1
