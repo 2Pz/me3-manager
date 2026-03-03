@@ -1761,6 +1761,10 @@ class GamePage(QWidget):
             self.update_custom_savefile_warning()
         except Exception:
             pass
+        try:
+            self.update_multiple_regulation_warning()
+        except Exception:
+            pass
 
     def apply_filters(
         self, reset_page: bool = True, source_mods: dict[str, Any] | None = None
@@ -2003,6 +2007,29 @@ class GamePage(QWidget):
 
         # Show banner only when no custom savefile AND seamless co-op not enabled
         banner.setVisible((not bool(savefile_value)) and (not seamless_enabled))
+
+    def update_multiple_regulation_warning(self):
+        """Show banner if multiple enabled mods provide a regulation.bin file."""
+        banner = getattr(self, "multiple_reg_banner", None)
+        if banner is None:
+            return
+
+        try:
+            mods_data = getattr(self, "all_mods_data", {}) or {}
+            enabled_reg_mods_count = 0
+
+            for _, info in mods_data.items():
+                is_enabled = info.get("enabled", False)
+                has_regulation = info.get("has_regulation", False)
+                if is_enabled and has_regulation:
+                    enabled_reg_mods_count += 1
+
+            if enabled_reg_mods_count > 1:
+                banner.setVisible(True)
+            else:
+                banner.setVisible(False)
+        except Exception:
+            banner.setVisible(False)
 
     def _get_filter_definitions(self) -> dict[str, tuple]:
         """Provides filter button text and tooltips to the UI builder."""

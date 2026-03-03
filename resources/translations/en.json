@@ -407,6 +407,7 @@
   "add_to_steam_button": "Add profile to Steam",
   "add_to_steam_info": "Adds a non-Steam shortcut to your Steam library that launches this game's current profile via ME3. Restart Steam to see the shortcut.",
   "gamepage_savefile_warning": "Your current profile does not use a custom save file. To protect your vanilla saves, configure a unique save file name in Profile Settings.",
+  "gamepage_multiple_reg_warning": "This profile has multiple regulation.bin files. You can only activate one. Mods with a disabled reg file will not work as expected.",
   "gamepage_configure_savefile_button": "Configure Save File...",
   "profile_compare_title": "Compare Profiles - {game_name}",
   "profile_compare_header": "Select two profiles to compare their enabled DLLs and packages.",
