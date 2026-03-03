@@ -49,6 +49,7 @@ class UiBuilder:
         # Build UI sections in logical order
         self._create_header_section()
         self._create_custom_savefile_warning_banner()
+        self._create_multiple_reg_warning_banner()
         self._create_search_section()
         self._create_filter_section()
         self._create_drop_zone()
@@ -219,6 +220,39 @@ class UiBuilder:
 
         # Store on game_page and hide by default; GamePage controls visibility
         self.game_page.custom_savefile_banner = banner
+        banner.setVisible(False)
+        self.game_page.main_layout.addWidget(banner)
+
+    def _create_multiple_reg_warning_banner(self):
+        """Create a prominent banner warning when multiple mods provide regulation.bin."""
+        banner = QWidget()
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(12)
+
+        icon_label = QLabel("⚠")
+        icon_label.setStyleSheet("color: #ff5555; font-size: 18px;")
+        layout.addWidget(icon_label)
+
+        text_label = QLabel(tr("gamepage_multiple_reg_warning"))
+        text_label.setWordWrap(True)
+        text_label.setStyleSheet("color: #ffffff; font-size: 13px;")
+        layout.addWidget(text_label, 1)
+
+        action_btn = QPushButton(tr("filter_with_regulation"))
+        action_btn.setFixedHeight(32)
+        action_btn.clicked.connect(lambda: self.game_page.set_filter("with_regulation"))
+        layout.addWidget(action_btn)
+
+        banner.setStyleSheet(
+            """
+            QWidget { background-color: #3a1a1a; border: 1px solid #7a2a2a; border-radius: 8px; }
+            QPushButton { background: #d43b3b; color: white; border: none; border-radius: 6px; padding: 6px 12px; }
+            QPushButton:hover { background: #be2e2e; }
+            """
+        )
+
+        self.game_page.multiple_reg_banner = banner
         banner.setVisible(False)
         self.game_page.main_layout.addWidget(banner)
 
