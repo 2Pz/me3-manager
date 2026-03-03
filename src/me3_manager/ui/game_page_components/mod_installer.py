@@ -321,7 +321,7 @@ class InstallWorker(QThread):
             pass
 
     def _restore_configs(self, backup_root: Path, target: Path):
-        """Restore backed up config files, overwriting fresh ones."""
+        """Restore backed up config files, overwriting or merging with fresh ones."""
         try:
             for path in backup_root.rglob("*"):
                 if path.is_file():
@@ -330,11 +330,131 @@ class InstallWorker(QThread):
                         target_path = target / rel_path
                         # Ensure target dir exists (should, but safe check)
                         target_path.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(path, target_path)
+
+                        if target_path.exists():
+                            ext = path.suffix.lower()
+                            if ext == ".ini":
+                                self._merge_ini_files(path, target_path)
+                            elif ext == ".json":
+                                self._merge_json_files(path, target_path)
+                            elif ext == ".toml":
+                                self._merge_toml_files(path, target_path)
+                            else:
+                                shutil.copy2(path, target_path)
+                        else:
+                            shutil.copy2(path, target_path)
                     except Exception:
                         pass
         except Exception:
             pass
+
+    def _merge_ini_files(self, old_ini: Path, new_ini: Path):
+        """Merge old INI settings into the new INI file, preserving new structure & comments."""
+        try:
+            old_settings = {}
+            with open(old_ini, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith((";", "#")):
+                        continue
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        old_settings[k.strip()] = v.strip()
+
+            if not old_settings:
+                shutil.copy2(old_ini, new_ini)
+                return
+
+            merged_lines = []
+            with open(new_ini, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if (
+                        stripped
+                        and not stripped.startswith((";", "#"))
+                        and "=" in stripped
+                    ):
+                        k, v = stripped.split("=", 1)
+                        k_strip = k.strip()
+                        if k_strip in old_settings:
+                            eq_idx = line.find("=")
+                            key_part = line[:eq_idx]
+                            # Preserve newline from original line
+                            newline = ""
+                            if line.endswith("\r\n"):
+                                newline = "\r\n"
+                            elif line.endswith("\n"):
+                                newline = "\n"
+
+                            merged_line = f"{key_part}={old_settings[k_strip]}{newline}"
+                            if not merged_line.endswith("\n"):
+                                merged_line += "\n"
+                            merged_lines.append(merged_line)
+                            continue
+                    merged_lines.append(line)
+
+            with open(new_ini, "w", encoding="utf-8") as f:
+                f.writelines(merged_lines)
+
+        except Exception:
+            # Fallback to copy if merge fails
+            shutil.copy2(old_ini, new_ini)
+
+    def _merge_json_files(self, old_json: Path, new_json: Path):
+        """Merge old JSON settings into new JSON file (shallow merge)."""
+        import json
+
+        try:
+            with open(old_json, "r", encoding="utf-8") as f:
+                old_data = json.load(f)
+            with open(new_json, "r", encoding="utf-8") as f:
+                new_data = json.load(f)
+
+            if isinstance(old_data, dict) and isinstance(new_data, dict):
+
+                def deep_merge(src, dst):
+                    for k, v in src.items():
+                        if (
+                            k in dst
+                            and isinstance(dst[k], dict)
+                            and isinstance(v, dict)
+                        ):
+                            deep_merge(v, dst[k])
+                        else:
+                            dst[k] = v
+
+                deep_merge(old_data, new_data)
+
+                with open(new_json, "w", encoding="utf-8") as f:
+                    json.dump(new_data, f, indent=4)
+            else:
+                shutil.copy2(old_json, new_json)
+        except Exception:
+            shutil.copy2(old_json, new_json)
+
+    def _merge_toml_files(self, old_toml: Path, new_toml: Path):
+        """Merge old TOML settings into new TOML file."""
+        import tomlkit
+
+        try:
+            with open(old_toml, "r", encoding="utf-8") as f:
+                old_data = tomlkit.parse(f.read())
+            with open(new_toml, "r", encoding="utf-8") as f:
+                new_data = tomlkit.parse(f.read())
+
+            def deep_merge(src, dst):
+                for k, v in src.items():
+                    if k in dst and isinstance(dst[k], dict) and isinstance(v, dict):
+                        deep_merge(v, dst[k])
+                    else:
+                        dst[k] = v
+
+            deep_merge(old_data, new_data)
+
+            with open(new_toml, "w", encoding="utf-8") as f:
+                f.write(tomlkit.dumps(new_data))
+        except Exception:
+            shutil.copy2(old_toml, new_toml)
 
 
 class ModInstaller:
