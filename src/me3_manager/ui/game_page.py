@@ -901,22 +901,20 @@ class GamePage(QWidget):
                 log.info("API download_link blocked; falling back to WebView: %s", e)
                 url = None
 
+            # Use Nexus mod name as folder name, or override if install_name provided
+            if install_name:
+                mod_name_hint = install_name.strip()
+            else:
+                mod_name_hint = (
+                    mod.name or chosen.name or f"nexus_{mod.mod_id}_{chosen.file_id}"
+                ).strip()
+
             if not url:
                 # Compliant fallback for free users: open system browser and watch Downloads.
                 from me3_manager.services.download_watcher import (
                     DownloadWatcher,
                     get_downloads_dir,
                 )
-
-                # Use Nexus mod name as folder name, or override if install_name provided
-                if install_name:
-                    mod_name_hint = install_name.strip()
-                else:
-                    mod_name_hint = (
-                        mod.name
-                        or chosen.name
-                        or f"nexus_{mod.mod_id}_{chosen.file_id}"
-                    ).strip()
 
                 base = f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}"
                 candidates = [
