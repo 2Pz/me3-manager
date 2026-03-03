@@ -1312,6 +1312,22 @@ class ImprovedModManager:
         except Exception as e:
             return False, f"Error disabling regulation: {str(e)}"
 
+    def _is_valid_mod_folder(self, folder: Path) -> bool:
+        """
+        Checks if a folder contains valid mod contents.
+        """
+        if folder.name in ACCEPTABLE_FOLDERS:
+            return True
+        if any(
+            sub.is_dir() and sub.name in ACCEPTABLE_FOLDERS for sub in folder.iterdir()
+        ):
+            return True
+        if (folder / "regulation.bin").exists() or (
+            folder / "regulation.bin.disabled"
+        ).exists():
+            return True
+        return False
+
     def add_external_mod(self, game_name: str, mod_path: str) -> tuple[bool, str]:
         """
         Add an external mod with robust error handling.
