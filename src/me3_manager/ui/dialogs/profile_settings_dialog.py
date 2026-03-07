@@ -115,6 +115,7 @@ class ProfileSettingsDialog(QDialog):
         self.extension_combo.setStyleSheet(self._get_combobox_style())
         self.extension_combo.setEnabled(False)
         self.extension_combo.setMinimumWidth(150)
+        self.extension_combo.hide()  # Hidden until .co2 is supported
         savefile_input_layout.addWidget(self.extension_combo)
 
         savefile_layout.addRow(tr("savefile_name_label"), savefile_input_layout)

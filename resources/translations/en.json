@@ -387,7 +387,7 @@
   "savefile_placeholder": "Enter custom save file name (without extension)",
   "extension_sl2_vanilla": ".sl2 (Vanilla)",
   "extension_co2_seamless": ".co2 (Seamless Co-op)",
-  "savefile_info": "💡 Custom save file names allow you to use different save files for different mod setups. Choose .sl2 for vanilla gameplay or .co2 for seamless co-op mod.",
+  "savefile_info": "💡 Specifies a custom save file to use instead of the default one. It's extremely handy for compartmentalizing modded content to avoid save corruption and multiplayer bans.",
   "savefile_warning_recommend_custom": "⚠️ This profile is using the game's default save file. To avoid overwriting your vanilla saves, enable 'Use custom save file name' and set a unique name.",
   "online_settings_group": "Online Settings",
   "compatibility_settings_group": "Compatibility Settings",

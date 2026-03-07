@@ -387,7 +387,7 @@
   "savefile_placeholder": "输入自定义存档文件名（不带扩展名）",
   "extension_sl2_vanilla": ".sl2 (原版)",
   "extension_co2_seamless": ".co2 (无缝联机)",
-  "savefile_info": "💡 自定义存档文件名允许您为不同的模组配置使用不同的存档文件。选择 .sl2 用于原版游戏，或选择 .co2 用于无缝联机模组。",
+  "savefile_info": "💡 指定使用的自定义存档文件而非默认存档。这对于隔离模组内容非常有用，可避免存档损坏和多人游戏封禁。",
   "savefile_warning_recommend_custom": "⚠️ 当前配置文件正在使用游戏默认存档。为避免覆盖原版存档，请启用“使用自定义存档文件名”并设置一个唯一名称。",
   "online_settings_group": "在线设置",
   "compatibility_settings_group": "兼容性设置",
