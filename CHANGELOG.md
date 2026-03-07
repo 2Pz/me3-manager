@@ -3,6 +3,29 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.5
+**Released:** March 07, 2026
+
+
+### 🔧 Bug Fixes
+
+- Use PlatformUtils for reliable external links on Linux `[ui]` ([3f08315](https://github.com/2Pz/me3-manager/commit/3f083153c9be08e051497bd7492007fa278c8daf))
+
+
+
+### 🎨 User Interface
+
+- Simplify custom savefile dialog and update tooltips ([2a63b5f](https://github.com/2Pz/me3-manager/commit/2a63b5ff460412ba6f5b6cd31c3ca0ae8a94c789))
+
+
+
+### Ui
+
+- Implement dynamic remote tutorial links ([e673637](https://github.com/2Pz/me3-manager/commit/e673637748efa24f8680152363d8c9aba59ddcc5))
+
+
+
+---
 ## 📦 Release 1.4.4
 **Released:** March 03, 2026
 
@@ -807,6 +830,7 @@
 
 
 ---
+[1.4.5]: https://github.com/2Pz/me3-manager/compare/1.4.4..1.4.5
 [1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
 [1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
 [1.4.2]: https://github.com/2Pz/me3-manager/compare/1.4.1..1.4.2
