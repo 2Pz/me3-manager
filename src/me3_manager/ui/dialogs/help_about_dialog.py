@@ -105,7 +105,7 @@ class HelpAboutDialog(QDialog):
                 f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>'
             )
         video_link.setObjectName("VideoLinkLabel")
-        video_link.setOpenExternalLinks(True)
+        video_link.linkActivated.connect(PlatformUtils.open_url)
         video_link.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextBrowserInteraction
         )
@@ -116,7 +116,7 @@ class HelpAboutDialog(QDialog):
             '<a href="https://me3-manager.github.io/me3-manager-help/">ME3 Manager Help</a>'
         )
         doc_link.setObjectName("VideoLinkLabel")
-        doc_link.setOpenExternalLinks(True)
+        doc_link.linkActivated.connect(PlatformUtils.open_url)
         doc_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         layout.addWidget(doc_link)
 
