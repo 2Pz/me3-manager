@@ -1,6 +1,10 @@
+import json
+import logging
+import os
 import sys
 
-from PySide6.QtCore import Qt
+import requests
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
@@ -12,8 +16,28 @@ from PySide6.QtWidgets import (
 
 from me3_manager import __version__ as VERSION
 from me3_manager.utils.platform_utils import PlatformUtils
+from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.status import Status
 from me3_manager.utils.translator import tr
+
+log = logging.getLogger(__name__)
+
+
+class FetchLinksThread(QThread):
+    links_fetched = Signal(list)
+
+    def run(self):
+        # We use the raw github content URL for the remote links
+        url = "https://raw.githubusercontent.com/2Pz/me3-manager/main/resources/remote_links.json"
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                self.links_fetched.emit(data.get("tutorials", []))
+            else:
+                self.links_fetched.emit([])
+        except Exception:
+            self.links_fetched.emit([])
 
 
 class HelpAboutDialog(QDialog):
@@ -96,29 +120,12 @@ class HelpAboutDialog(QDialog):
         video_header.setObjectName("HeaderLabel")
         layout.addWidget(video_header)
 
-        if sys.platform == "win32":
-            video_link = QLabel(
-                f'<a href="https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX">{tr("win_tutorial_title")}</a>'
-            )
-        else:
-            video_link = QLabel(
-                f'<a href="https://www.youtube.com/watch?v=gMvBdP3TGDg">{tr("linux_tutorial_title")}</a>'
-            )
-        video_link.setObjectName("VideoLinkLabel")
-        video_link.linkActivated.connect(PlatformUtils.open_url)
-        video_link.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextBrowserInteraction
-        )
-        layout.addWidget(video_link)
+        self.tutorials_layout = QVBoxLayout()
+        self.tutorials_layout.setSpacing(5)
+        layout.addLayout(self.tutorials_layout)
 
-        # Documentation link
-        doc_link = QLabel(
-            '<a href="https://me3-manager.github.io/me3-manager-help/">ME3 Manager Help</a>'
-        )
-        doc_link.setObjectName("VideoLinkLabel")
-        doc_link.linkActivated.connect(PlatformUtils.open_url)
-        doc_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        layout.addWidget(doc_link)
+        # Load links from JSON only
+        self._load_links()
 
         actions_header = QLabel(tr("actions_label"))
         actions_header.setObjectName("HeaderLabel")
@@ -151,6 +158,55 @@ class HelpAboutDialog(QDialog):
 
     def open_kofi_link(self):
         PlatformUtils.open_url("https://ko-fi.com/2pz123")
+
+    def _load_links(self):
+        """Initial load from local JSON, then start remote fetch."""
+        local_path = resource_path("resources/remote_links.json")
+        if os.path.exists(local_path):
+            try:
+                with open(local_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self._display_links(data.get("tutorials", []))
+            except Exception as e:
+                log.error("Failed to load local remote_links.json: %s", e)
+
+        # Start thread to fetch remote links for updates
+        self.fetch_thread = FetchLinksThread()
+        self.fetch_thread.links_fetched.connect(self._on_links_fetched)
+        self.fetch_thread.start()
+
+    def _display_links(self, links):
+        """Clears and displays the provided list of links."""
+        if not links:
+            return
+
+        # Clear existing links
+        while self.tutorials_layout.count():
+            child = self.tutorials_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        # Add links
+        for link in links:
+            platform = link.get("platform", "all")
+            # Only show links for current platform or 'all'
+            if platform == "all" or platform == sys.platform:
+                self._add_tutorial_link(
+                    link.get("title", "Tutorial"), link.get("url", "")
+                )
+
+    def _add_tutorial_link(self, title, url):
+        link_label = QLabel(f'<a href="{url}">{title}</a>')
+        link_label.setObjectName("VideoLinkLabel")
+        link_label.linkActivated.connect(PlatformUtils.open_url)
+        link_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextBrowserInteraction
+        )
+        self.tutorials_layout.addWidget(link_label)
+
+    def _on_links_fetched(self, links):
+        if links:
+            self._display_links(links)
 
     def _setup_windows_buttons(self, layout):
         self.update_cli_button = QPushButton(tr("update_me3_button"))

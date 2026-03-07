@@ -1,0 +1,19 @@
+{
+    "tutorials": [
+        {
+            "title": "How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide",
+            "url": "https://youtu.be/Xtshnmu6Y2o?si=bPdoqJ4RODliYSyX",
+            "platform": "win32"
+        },
+        {
+            "title": "How to Use ME3 Mod Manager | Full Setup & Mod Installation Guide for Linux",
+            "url": "https://www.youtube.com/watch?v=gMvBdP3TGDg",
+            "platform": "linux"
+        },
+        {
+            "title": "ME3 Manager Help",
+            "url": "https://me3-manager.github.io/me3-manager-help/",
+            "platform": "all"
+        }
+    ]
+}
