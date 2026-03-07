@@ -310,7 +310,7 @@ class ModEngine3Manager(QMainWindow):
         self.footer_label.setStyleSheet(
             "color: #888888; font-size: 10px; line-height: 1.4;"
         )
-        self.footer_label.setOpenExternalLinks(True)
+        self.footer_label.linkActivated.connect(PlatformUtils.open_url)
         self.footer_label.setTextFormat(Qt.TextFormat.RichText)
         self.update_footer_text()  # Set initial text
         layout.addWidget(self.footer_label)
