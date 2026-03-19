@@ -62,7 +62,9 @@ class GameLauncher:
             command_args = ["me3", "launch", "--game", cli_id, "-p", str(profile_path)]
             env_overrides = self._get_launch_env_overrides()
             if hasattr(main_window, "terminal"):
-                self._launch_in_terminal(command_args, main_window.terminal, env_overrides)
+                self._launch_in_terminal(
+                    command_args, main_window.terminal, env_overrides
+                )
             else:
                 self._launch_direct(command_args, env_overrides)
 
