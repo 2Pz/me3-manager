@@ -400,21 +400,29 @@ class PlatformUtils:
         return env
 
     @staticmethod
-    def sanitized_env_for_subprocess() -> dict:
+    def sanitized_env_for_subprocess(
+        extra_env: dict[str, str] | None = None,
+    ) -> dict[str, str]:
         """
         Return an environment safe for launching external host processes.
         This strips PyInstaller/Qt variables (e.g., LD_LIBRARY_PATH) that can
         cause symbol conflicts with system binaries (e.g., libreadline).
         """
-        return PlatformUtils._sanitized_env_for_desktop_open()
+        env = PlatformUtils._sanitized_env_for_desktop_open()
+        if extra_env:
+            for key, value in extra_env.items():
+                env[str(key)] = str(value)
+        return env
 
     @staticmethod
-    def build_qprocess_environment() -> QProcessEnvironment:
+    def build_qprocess_environment(
+        extra_env: dict[str, str] | None = None,
+    ) -> QProcessEnvironment:
         """
         Build a sanitized QProcessEnvironment to avoid leaking PyInstaller/Qt
         runtime variables into child processes.
         """
-        env_dict = PlatformUtils.sanitized_env_for_subprocess()
+        env_dict = PlatformUtils.sanitized_env_for_subprocess(extra_env)
         qenv = QProcessEnvironment()
         for k, v in env_dict.items():
             if v is not None:

@@ -205,6 +205,7 @@ class GameManagementDialog(QDialog):
                 profile=game_config["profile"],
                 cli_id=game_config["cli_id"],
                 executable=game_config["executable"],
+                steam_app_id=game_config.get("steam_app_id"),
             )
 
             self.populate_games_list()
@@ -225,7 +226,7 @@ class AddGameDialog(QDialog):
         super().__init__(parent)
         self.config_manager = config_manager
         self.setWindowTitle(tr("add_new_game"))
-        self.setMinimumSize(500, 550)
+        self.setMinimumSize(500, 620)
         self.setStyleSheet("""\
             QLabel { color: #ffffff; }
             #DescriptionLabel { color: #bbbbbb; margin-bottom: 5px; }
@@ -311,6 +312,15 @@ class AddGameDialog(QDialog):
         exe_example.setObjectName("ExampleLabel")
         form_layout.addRow("", exe_example)
 
+        # Steam App ID (optional)
+        self.steam_app_id_input = QLineEdit()
+        self.steam_app_id_input.setPlaceholderText("e.g., 1245620")
+        form_layout.addRow(tr("game_steam_app_id_form"), self.steam_app_id_input)
+
+        steam_app_id_example = QLabel(tr("game_steam_app_id_example_label"))
+        steam_app_id_example.setObjectName("ExampleLabel")
+        form_layout.addRow("", steam_app_id_example)
+
         layout.addLayout(form_layout)
 
         # Auto-fill based on game name
@@ -354,6 +364,7 @@ class AddGameDialog(QDialog):
         profile = self.profile_input.text().strip()
         cli_id = self.cli_id_input.text().strip()
         executable = self.executable_input.text().strip()
+        steam_app_id = self.steam_app_id_input.text().strip()
 
         # Validation
         if not all([name, mods_dir, profile, cli_id, executable]):
@@ -368,6 +379,14 @@ class AddGameDialog(QDialog):
 
         if not profile.endswith(".me3"):
             QMessageBox.warning(self, tr("validation_error"), tr("profile_end_with"))
+            return
+
+        if steam_app_id and not steam_app_id.isdigit():
+            QMessageBox.warning(
+                self,
+                tr("validation_error"),
+                tr("steam_app_id_must_be_numeric"),
+            )
             return
 
         # Check for conflicts with existing games
@@ -402,6 +421,7 @@ class AddGameDialog(QDialog):
                 profile=profile,
                 cli_id=cli_id,
                 executable=executable,
+                steam_app_id=steam_app_id or None,
             )
 
             QMessageBox.information(

@@ -15,6 +15,7 @@ class GameRegistry:
             "profile": "eldenring-default.me3",
             "cli_id": "elden-ring",
             "executable": "eldenring.exe",
+            "steam_app_id": "1245620",
             # Nexus Mods game domain
             "nexus_domain": "eldenring",
         },
@@ -23,6 +24,7 @@ class GameRegistry:
             "profile": "nightreign-default.me3",
             "cli_id": "nightreign",
             "executable": "nightreign.exe",
+            "steam_app_id": "2622380",
             "nexus_domain": "eldenringnightreign",
         },
         "Sekiro": {
@@ -30,6 +32,7 @@ class GameRegistry:
             "profile": "sekiro-default.me3",
             "cli_id": "sekiro",
             "executable": "sekiro.exe",
+            "steam_app_id": "814380",
             "nexus_domain": "sekiro",
         },
         "Dark Souls 3": {
@@ -37,6 +40,7 @@ class GameRegistry:
             "profile": "darksouls3-default.me3",
             "cli_id": "ds3",
             "executable": "DarkSoulsIII.exe",
+            "steam_app_id": "374320",
             "nexus_domain": "darksouls3",
         },
         "Armoredcore6": {
@@ -44,6 +48,7 @@ class GameRegistry:
             "profile": "armoredcore6-default.me3",
             "cli_id": "armoredcore6",
             "executable": "armoredcore6.exe",
+            "steam_app_id": "1888160",
             "nexus_domain": "armoredcore6firesofrubicon",
         },
     }
@@ -139,7 +144,13 @@ class GameRegistry:
         return games.get(game_name, {}).copy() if game_name in games else None
 
     def add_game(
-        self, name: str, mods_dir: str, profile: str, cli_id: str, executable: str
+        self,
+        name: str,
+        mods_dir: str,
+        profile: str,
+        cli_id: str,
+        executable: str,
+        steam_app_id: str | None = None,
     ) -> bool:
         """
         Add a new game configuration.
@@ -165,6 +176,7 @@ class GameRegistry:
             "profile": profile,
             "cli_id": cli_id,
             "executable": executable,
+            "steam_app_id": str(steam_app_id or ""),
             # Optional: Nexus Mods game domain (e.g., "eldenring")
             "nexus_domain": "",
         }
@@ -211,7 +223,14 @@ class GameRegistry:
         games = self.settings_manager.get("games", {})
         if name not in games:
             return False
-        valid_keys = ["mods_dir", "profile", "cli_id", "executable", "nexus_domain"]
+        valid_keys = [
+            "mods_dir",
+            "profile",
+            "cli_id",
+            "executable",
+            "steam_app_id",
+            "nexus_domain",
+        ]
         for key, value in kwargs.items():
             if key in valid_keys:
                 games[name][key] = value
@@ -304,6 +323,22 @@ class GameRegistry:
         """
         game = self.get_game(game_name)
         return game.get("executable") if game else None
+
+    def get_game_steam_app_id(self, game_name: str) -> str | None:
+        """
+        Get Steam app ID for a game.
+
+        Args:
+            game_name: Name of the game
+
+        Returns:
+            Steam app ID or None
+        """
+        game = self.get_game(game_name)
+        if not game:
+            return None
+        val = str(game.get("steam_app_id", "")).strip()
+        return val or None
 
     def get_game_mods_dir(self, game_name: str) -> str | None:
         """

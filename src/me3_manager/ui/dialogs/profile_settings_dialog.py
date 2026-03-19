@@ -3,6 +3,7 @@ Profile Settings Dialog for ME3 Manager.
 Provides a user-friendly interface for configuring profile-level settings like savefile and start_online.
 """
 
+import shlex
 import shutil
 import sys
 
@@ -334,6 +335,33 @@ class ProfileSettingsDialog(QDialog):
                     exe = resolved
             startdir = str(profile_path.parent)
             launch_options = f'launch --game {cli_id} -p "{profile_path}"'
+            steam_app_id = None
+            try:
+                if hasattr(self.config_manager, "get_game_steam_app_id"):
+                    steam_app_id = self.config_manager.get_game_steam_app_id(
+                        self.game_name
+                    )
+            except Exception:
+                steam_app_id = None
+
+            if sys.platform == "linux" and steam_app_id:
+                from pathlib import Path as _Path
+
+                me3_exe = exe
+                env_exe = "/usr/bin/env"
+                exe = env_exe if _Path(env_exe).exists() else "env"
+                steam_env = [
+                    f"SteamAppId={steam_app_id}",
+                    f"SteamGameId={steam_app_id}",
+                    f"SteamOverlayGameId={steam_app_id}",
+                    me3_exe,
+                    "launch",
+                    "--game",
+                    cli_id,
+                    "-p",
+                    str(profile_path),
+                ]
+                launch_options = " ".join(shlex.quote(arg) for arg in steam_env)
 
             from pathlib import Path as _Path
 

@@ -124,6 +124,7 @@ class ConfigFacade:
                 profile=cfg.get("profile", ""),
                 cli_id=cfg.get("cli_id", ""),
                 executable=cfg.get("executable", ""),
+                steam_app_id=cfg.get("steam_app_id", ""),
             )
             for name, cfg in games.items()
         ]
@@ -167,11 +168,17 @@ class ConfigFacade:
         self.settings_manager.save_settings()
 
     def add_game(
-        self, name: str, mods_dir: str, profile: str, cli_id: str, executable: str
+        self,
+        name: str,
+        mods_dir: str,
+        profile: str,
+        cli_id: str,
+        executable: str,
+        steam_app_id: str | None = None,
     ):
         """Add a new game configuration."""
         success = self.game_registry.add_game(
-            name, mods_dir, profile, cli_id, executable
+            name, mods_dir, profile, cli_id, executable, steam_app_id
         )
         if success:
             self._sync_legacy_attributes()
@@ -209,6 +216,10 @@ class ConfigFacade:
     def get_game_executable_name(self, game_name: str) -> str | None:
         """Get executable name for a game."""
         return self.game_registry.get_game_executable_name(game_name)
+
+    def get_game_steam_app_id(self, game_name: str) -> str | None:
+        """Get Steam app ID for a game."""
+        return self.game_registry.get_game_steam_app_id(game_name)
 
     def get_game_exe_path(self, game_name: str) -> str | None:
         """Get custom executable path for a game."""

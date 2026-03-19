@@ -244,13 +244,20 @@ class EmbeddedTerminal(QWidget):
 
         return html_output
 
-    def run_command(self, command, working_dir: str = None, skip_display: bool = False):
+    def run_command(
+        self,
+        command,
+        working_dir: str = None,
+        skip_display: bool = False,
+        env_overrides: dict[str, str] | None = None,
+    ):
         """Run a command in the embedded terminal
 
         Args:
             command: Either a string command or list of arguments
             working_dir: Optional working directory
             skip_display: Skip displaying the command (already displayed elsewhere)
+            env_overrides: Optional environment variables to add for the child process
         """
 
         # Handle both string commands and argument lists
@@ -272,7 +279,9 @@ class EmbeddedTerminal(QWidget):
         self.process = QProcess(self)
         self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         # Sanitize environment to avoid leaking PyInstaller libs to child processes
-        self.process.setProcessEnvironment(PlatformUtils.build_qprocess_environment())
+        self.process.setProcessEnvironment(
+            PlatformUtils.build_qprocess_environment(env_overrides)
+        )
         self.process.readyReadStandardOutput.connect(self.handle_stdout)
         self.process.finished.connect(self.process_finished)
 

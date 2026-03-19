@@ -60,10 +60,11 @@ class GameLauncher:
                 return
 
             command_args = ["me3", "launch", "--game", cli_id, "-p", str(profile_path)]
+            env_overrides = self._get_launch_env_overrides()
             if hasattr(main_window, "terminal"):
-                self._launch_in_terminal(command_args, main_window.terminal)
+                self._launch_in_terminal(command_args, main_window.terminal, env_overrides)
             else:
-                self._launch_direct(command_args)
+                self._launch_direct(command_args, env_overrides)
 
             self.game_page._update_status(
                 tr("launching_game_status", game_name=self.game_name)
@@ -96,15 +97,33 @@ class GameLauncher:
             return main_window.me3_version != tr("not_installed")
         return False
 
+    def _get_launch_env_overrides(self) -> dict[str, str]:
+        """Return per-game environment overrides for launching."""
+        try:
+            steam_app_id = self.config_manager.get_game_steam_app_id(self.game_name)
+        except Exception:
+            steam_app_id = None
+
+        if not steam_app_id:
+            return {}
+
+        return {
+            "SteamAppId": steam_app_id,
+            "SteamGameId": steam_app_id,
+            "SteamOverlayGameId": steam_app_id,
+        }
+
     def _launch_with_custom_exe(self, exe_path: str, cli_id: str, profile_path: str):
         """Handles the specific logic for launching with a custom executable."""
         main_window = self.game_page.window()
+        env_overrides = self._get_launch_env_overrides()
         if hasattr(main_window, "terminal"):
             self.run_me3_with_custom_exe(
                 exe_path,
                 cli_id,
                 profile_path,
                 main_window.terminal,
+                env_overrides,
             )
             self.game_page._update_status(
                 tr("launching_with_custom_exe_status", game_name=self.game_name)
@@ -135,7 +154,12 @@ class GameLauncher:
         terminal.process.finished.connect(terminal.process_finished)
 
     def run_me3_with_custom_exe(
-        self, exe_path: str, cli_id: str, profile_path: str, terminal
+        self,
+        exe_path: str,
+        cli_id: str,
+        profile_path: str,
+        terminal,
+        env_overrides: dict[str, str] | None = None,
     ):
         """Constructs and runs the ME3 command for a custom executable in the terminal."""
         args = [
@@ -152,23 +176,36 @@ class GameLauncher:
         self._setup_terminal_process(terminal, display_command)
         # Sanitize environment to avoid leaking PyInstaller libs to child processes
         terminal.process.setProcessEnvironment(
-            PlatformUtils.build_qprocess_environment()
+            PlatformUtils.build_qprocess_environment(env_overrides)
         )
         # Use centralized list command prep for QProcess
         program, qargs = PlatformUtils.prepare_list_command_for_qprocess(["me3"] + args)
         terminal.process.start(program, qargs)
 
-    def _launch_in_terminal(self, command_args, terminal):
+    def _launch_in_terminal(
+        self,
+        command_args,
+        terminal,
+        env_overrides: dict[str, str] | None = None,
+    ):
         """Launch the game command in the integrated terminal."""
         display_command = " ".join(shlex.quote(arg) for arg in command_args)
         self._setup_terminal_process(terminal, display_command)
-        terminal.run_command(command_args, skip_display=True)
+        terminal.run_command(
+            command_args,
+            skip_display=True,
+            env_overrides=env_overrides,
+        )
 
-    def _launch_direct(self, command_args):
+    def _launch_direct(
+        self,
+        command_args,
+        env_overrides: dict[str, str] | None = None,
+    ):
         """Launch the game command directly via a subprocess."""
         # Use centralized subprocess preparation
         prepared = PlatformUtils.prepare_command(command_args)
         subprocess.Popen(
             prepared,
-            env=PlatformUtils.sanitized_env_for_subprocess(),
+            env=PlatformUtils.sanitized_env_for_subprocess(env_overrides),
         )

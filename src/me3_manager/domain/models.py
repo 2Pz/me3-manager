@@ -11,6 +11,7 @@ class GameConfig:
     profile: str
     cli_id: str
     executable: str
+    steam_app_id: str = ""
 
 
 @dataclass(frozen=True)
