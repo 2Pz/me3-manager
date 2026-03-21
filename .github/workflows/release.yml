@@ -69,8 +69,8 @@ jobs:
           current_version=$(grep -Po '(?<=^version = ")[^"]*' pyproject.toml)
           echo "current_version=v$current_version" >> "$GITHUB_OUTPUT"
           
-          # TEMPORARY OVERRIDE FOR 1.4.5
-          next_version="1.4.5"
+          # Get next version from git-cliff (based on conventional commits)
+          next_version=$(git cliff --bumped-version --unreleased)
           echo "next_version=$next_version" >> "$GITHUB_OUTPUT"
           
           # Also output version without 'v' prefix for artifact naming
