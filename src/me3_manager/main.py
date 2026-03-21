@@ -75,6 +75,7 @@ def main():
     # Apply UI Scaling from settings
     # We must set this before creating the QApplication to ensure it takes effect.
     ui_scale = 1.0
+    saved_lang = "system"
     try:
         from me3_manager.core.paths.profile_paths import get_me3_profiles_root
         from me3_manager.core.settings.settings_manager import SettingsManager
@@ -85,7 +86,9 @@ def main():
         # Use SettingsManager to load configuration safely
         if settings_file.exists():
             settings = SettingsManager(settings_file)
-            ui_scale = settings.get("ui_settings", {}).get("ui_scale", 1.0)
+            ui_settings = settings.get("ui_settings", {})
+            ui_scale = ui_settings.get("ui_scale", 1.0)
+            saved_lang = ui_settings.get("language", "system")
 
             if ui_scale != 1.0:
                 os.environ["QT_SCALE_FACTOR"] = str(ui_scale)
@@ -111,8 +114,11 @@ def main():
             log.debug("Wayland detected - drag-drop compatibility may vary")
             # Could show a user notification about potential drag-drop issues
 
-    # Set language based on system locale
-    translator.set_system_language()
+    # Set language based on setting or system locale
+    if saved_lang and saved_lang != "system":
+        translator.set_language(saved_lang)
+    else:
+        translator.set_system_language()
 
     # Set application properties
     app.setApplicationName("Mod Engine 3 Manager")

@@ -33,6 +33,7 @@ class UISettings:
             "splitter_state": None,
             "default_profile_version": "v1",
             "ui_scale": 1.0,
+            "language": "system",
         }
 
         # Add missing defaults
@@ -267,5 +268,27 @@ class UISettings:
             "theme": "default",
             "window_geometry": None,
             "splitter_state": None,
+            "language": "system",
         }
         self.settings_manager.set("ui_settings", defaults)
+
+    def get_language(self) -> str:
+        """
+        Get the saved language setting.
+
+        Returns:
+            Language code or "system"
+        """
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        return ui_settings.get("language", "system")
+
+    def set_language(self, language: str) -> None:
+        """
+        Set the saved language setting.
+
+        Args:
+            language: Language code or "system"
+        """
+        ui_settings = self.settings_manager.get("ui_settings", {})
+        ui_settings["language"] = language
+        self.settings_manager.set("ui_settings", ui_settings)

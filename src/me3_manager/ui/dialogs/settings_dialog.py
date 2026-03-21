@@ -3,6 +3,7 @@ import sys
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QHBoxLayout,
@@ -29,7 +30,7 @@ class SettingsDialog(QDialog):
         """Initialize the settings dialog UI with tabs"""
         self.setWindowTitle(tr("settings_title"))
         self.setMinimumWidth(520)
-        self.setMinimumHeight(420)
+        self.setMinimumHeight(500)
         self.apply_styles()
 
         layout = QVBoxLayout(self)
@@ -60,6 +61,40 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(16, 20, 16, 16)
         layout.setSpacing(16)
+
+        # Language Section
+        language_header = QLabel(tr("language_header"))
+        language_header.setObjectName("SectionHeader")
+        layout.addWidget(language_header)
+
+        lang_layout = QHBoxLayout()
+        lang_layout.setSpacing(10)
+
+        self.language_combo = QComboBox()
+        from me3_manager.utils.translator import translator
+
+        languages = translator.get_available_languages()
+
+        self.language_combo.addItem(tr("language_system_default"), "system")
+        for lang_code, lang_name in languages.items():
+            self.language_combo.addItem(lang_name, lang_code)
+
+        current_lang = self.config_manager.get_language()
+        index = self.language_combo.findData(current_lang)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
+
+        self.language_combo.currentIndexChanged.connect(self.on_language_changed)
+        self.language_combo.setFixedWidth(160)
+        lang_layout.addWidget(self.language_combo)
+
+        lang_note = QLabel(tr("language_restart_note"))
+        lang_note.setObjectName("StatusInfo")
+        lang_layout.addWidget(lang_note)
+        lang_layout.addStretch()
+
+        layout.addLayout(lang_layout)
+        layout.addSpacing(8)
 
         # UI Scale Section
         ui_scale_header = QLabel(tr("ui_scale_header"))
@@ -266,6 +301,20 @@ class SettingsDialog(QDialog):
                 color: #ffffff;
                 font-size: 13px;
             }
+            QComboBox {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                border-radius: 6px;
+                padding: 5px 10px;
+                color: #ffffff;
+                font-size: 13px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #252525;
+                color: #ffffff;
+                selection-background-color: #0078d4;
+                border: 1px solid #3d3d3d;
+            }
             QLineEdit:focus, QDoubleSpinBox:focus {
                 border-color: #0078d4;
             }
@@ -292,6 +341,12 @@ class SettingsDialog(QDialog):
         """)
 
     # Event Handlers
+    def on_language_changed(self, index):
+        """Handle language setting change"""
+        if hasattr(self, "language_combo"):
+            lang_code = self.language_combo.itemData(index)
+            self.config_manager.set_language(lang_code)
+
     def on_ui_scale_changed(self, value):
         """Handle UI scale setting change"""
         self.config_manager.set_ui_scale(value)
