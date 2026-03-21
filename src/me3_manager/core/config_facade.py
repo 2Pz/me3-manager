@@ -272,6 +272,14 @@ class ConfigFacade:
         """Set auto launch Steam setting."""
         self.ui_settings.set_auto_launch_steam(enabled)
 
+    def get_language(self) -> str:
+        """Get saved language setting."""
+        return self.ui_settings.get_language()
+
+    def set_language(self, language: str):
+        """Set saved language setting."""
+        self.ui_settings.set_language(language)
+
     # Nexus settings (API key now; SSO later)
     def get_nexus_api_key(self) -> str | None:
         try:
