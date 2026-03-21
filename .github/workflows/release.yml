@@ -48,10 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       current_version: ${{ steps.get-versions.outputs.current_version }}
       next_version: ${{ steps.get-versions.outputs.next_version }}
       version_no_v: ${{ steps.get-versions.outputs.version_no_v }}
+      release_pr_exists: ${{ steps.get-versions.outputs.release_pr_exists }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -64,13 +66,28 @@ jobs:
 
       - name: Get current and next versions
         id: get-versions
+        env:
+          GH_TOKEN: ${{ secrets.PUSH_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           # Get current version from pyproject.toml
           current_version=$(grep -Po '(?<=^version = ")[^"]*' pyproject.toml)
           echo "current_version=v$current_version" >> "$GITHUB_OUTPUT"
           
-          # TEMPORARY OVERRIDE FOR 1.4.5
-          next_version="v1.4.5"
+          # 1. Check if a Release PR is already open
+          echo "🔍 Checking for open Release PR..."
+          open_pr=$(gh pr list --state open --search "🚀 Release: Me3 Manager" --json title | jq -r '.[0].title // empty')
+          
+          if [ -n "$open_pr" ] && [ "$open_pr" != "null" ]; then
+            echo "✅ Found open Release PR: $open_pr"
+            version=$(echo "$open_pr" | grep -oP '\d+\.\d+\.\d+')
+            next_version="v$version"
+            echo "release_pr_exists=true" >> "$GITHUB_OUTPUT"
+            echo "📌 Using version from open PR: $next_version"
+          else
+            echo "ℹ️ No open Release PR found. Calculating next version from commits..."
+            echo "release_pr_exists=false" >> "$GITHUB_OUTPUT"
+            next_version=$(git cliff --bumped-version --unreleased)
+          fi
           echo "next_version=$next_version" >> "$GITHUB_OUTPUT"
           
           # Also output version without 'v' prefix for artifact naming
@@ -78,8 +95,7 @@ jobs:
           echo "version_no_v=$version_no_v" >> "$GITHUB_OUTPUT"
           
           echo "📌 Current version: v$current_version"
-          echo "📌 Next version: $next_version"
-
+          echo "📌 Next version: $next_version" 
   # ---------------------------------------------------------------------------
   # Job 2: Create Release Branch
   # ---------------------------------------------------------------------------
@@ -93,7 +109,7 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version
+    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version || needs.plan.outputs.release_pr_exists == 'true' || github.event_name == 'workflow_dispatch'
     env:
       NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
     steps:
@@ -171,7 +187,7 @@ jobs:
             build-name: Windows
             artifact-name: me3-manager-windows-release
     runs-on: ${{ matrix.os }}
-    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version
+    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version || needs.plan.outputs.release_pr_exists == 'true' || github.event_name == 'workflow_dispatch'
     env:
       NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
       VERSION_NO_V: ${{ needs.plan.outputs.version_no_v }}
@@ -229,7 +245,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version
+    if: needs.plan.outputs.current_version != needs.plan.outputs.next_version || needs.plan.outputs.release_pr_exists == 'true' || github.event_name == 'workflow_dispatch'
     env:
       NEXT_VERSION: ${{ needs.plan.outputs.next_version }}
       VERSION_NO_V: ${{ needs.plan.outputs.version_no_v }}
