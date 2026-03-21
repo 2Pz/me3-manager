@@ -71,7 +71,7 @@ jobs:
         run: |
           # Get current version from pyproject.toml
           current_version=$(grep -Po '(?<=^version = ")[^"]*' pyproject.toml)
-          echo "current_version=v$current_version" >> "$GITHUB_OUTPUT"
+          echo "current_version=$current_version" >> "$GITHUB_OUTPUT"
           
           # 1. Check if a Release PR is already open
           echo "🔍 Checking for open Release PR..."
@@ -80,13 +80,14 @@ jobs:
           if [ -n "$open_pr" ] && [ "$open_pr" != "null" ]; then
             echo "✅ Found open Release PR: $open_pr"
             version=$(echo "$open_pr" | grep -oP '\d+\.\d+\.\d+')
-            next_version="v$version"
+            next_version="$version"
             echo "release_pr_exists=true" >> "$GITHUB_OUTPUT"
             echo "📌 Using version from open PR: $next_version"
           else
             echo "ℹ️ No open Release PR found. Calculating next version from commits..."
             echo "release_pr_exists=false" >> "$GITHUB_OUTPUT"
             next_version=$(git cliff --bumped-version --unreleased)
+            next_version="${next_version#v}"
           fi
           echo "next_version=$next_version" >> "$GITHUB_OUTPUT"
           
