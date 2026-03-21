@@ -3,6 +3,39 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.5
+**Released:** March 21, 2026
+
+
+### ✨ New Features
+
+- Community Profiles Guide link to remote_links.json ([12b6ce3](https://github.com/2Pz/me3-manager/commit/12b6ce37cb28b6a4dae5e982f915a15a1eb24f6f))
+
+
+
+### 🔧 Bug Fixes
+
+- Use PlatformUtils for reliable external links on Linux `[ui]` ([3f08315](https://github.com/2Pz/me3-manager/commit/3f083153c9be08e051497bd7492007fa278c8daf))
+
+
+
+### 🎨 User Interface
+
+- Simplify custom savefile dialog and update tooltips ([2a63b5f](https://github.com/2Pz/me3-manager/commit/2a63b5ff460412ba6f5b6cd31c3ca0ae8a94c789))
+
+- Add language selection dropdown ([1b211a6](https://github.com/2Pz/me3-manager/commit/1b211a60bce72a0f6273861a14f74b32390fff71))
+
+- Add language selection dropdown ([58234e0](https://github.com/2Pz/me3-manager/commit/58234e0e960661300c9fdd9f02d1adc79d5dd039))
+
+
+
+### Ui
+
+- Implement dynamic remote tutorial links ([e673637](https://github.com/2Pz/me3-manager/commit/e673637748efa24f8680152363d8c9aba59ddcc5))
+
+
+
+---
 ## 📦 Release 1.4.4
 **Released:** March 03, 2026
 
@@ -807,6 +840,7 @@
 
 
 ---
+[1.4.5]: https://github.com/2Pz/me3-manager/compare/1.4.4..v1.4.5
 [1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
 [1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
 [1.4.2]: https://github.com/2Pz/me3-manager/compare/1.4.1..1.4.2
