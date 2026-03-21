@@ -30,7 +30,7 @@ class SettingsDialog(QDialog):
         """Initialize the settings dialog UI with tabs"""
         self.setWindowTitle(tr("settings_title"))
         self.setMinimumWidth(520)
-        self.setMinimumHeight(420)
+        self.setMinimumHeight(500)
         self.apply_styles()
 
         layout = QVBoxLayout(self)
