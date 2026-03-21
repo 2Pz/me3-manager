@@ -70,7 +70,7 @@ jobs:
           echo "current_version=v$current_version" >> "$GITHUB_OUTPUT"
           
           # TEMPORARY OVERRIDE FOR 1.4.5
-          next_version="v1.4.5"
+          next_version="1.4.5"
           echo "next_version=$next_version" >> "$GITHUB_OUTPUT"
           
           # Also output version without 'v' prefix for artifact naming
