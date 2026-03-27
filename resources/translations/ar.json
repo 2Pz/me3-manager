@@ -160,7 +160,7 @@
   "edit_config_title": "محرر الإعدادات - {mod_name}",
   "browse_button": "تصفح...",
   "save_button": "حفظ",
-  "edit_config_placeholder": "ملف الإعدادات مو موجود في المسار الافتراضي:\n{path}\n\nاستخدم 'حفظ' عشان تسوي ملف جديد في هذا المسار، أو 'تصفح...' عشان تحدد مكانه.",
+  "config_not_found_browse": "ملف الإعدادات مو موجود.\n\nاستخدم 'تصفح...' عشان تحدد مكانه.",
   "config_loaded": "تم تحميل: {path}",
   "config_saved": "تم حفظ: {path}",
   "load_error": "خطأ في التحميل",
