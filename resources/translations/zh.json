@@ -160,7 +160,7 @@
   "edit_config_title": "配置编辑器 - {mod_name}",
   "browse_button": "浏览...",
   "save_button": "保存",
-  "edit_config_placeholder": "在默认位置未找到配置文件:\n{path}\n\n使用“保存”在此路径创建新文件，或使用“浏览...”定位文件。",
+  "config_not_found_browse": "未找到配置文件。\n\n请使用“浏览...”定位文件。",
   "config_loaded": "已加载: {path}",
   "config_saved": "已保存: {path}",
   "load_error": "加载错误",

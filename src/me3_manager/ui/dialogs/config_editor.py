@@ -147,9 +147,9 @@ class ConfigEditorDialog(QDialog):
         button_layout.addWidget(self.status_label)
         button_layout.addStretch()
 
-        save_btn = QPushButton(tr("save_button"))
-        save_btn.clicked.connect(self.save_text_only)
-        button_layout.addWidget(save_btn)
+        self.save_btn = QPushButton(tr("save_button"))
+        self.save_btn.clicked.connect(self.save_text_only)
+        button_layout.addWidget(self.save_btn)
 
         close_btn = QPushButton(tr("close_button"))
         close_btn.clicked.connect(self.finalize_and_close)
@@ -160,9 +160,8 @@ class ConfigEditorDialog(QDialog):
         if self.current_path.is_file():
             self.load_config(self.current_path)
         else:
-            self.editor.setPlaceholderText(
-                tr("edit_config_placeholder", path=self.current_path)
-            )
+            self.save_btn.setEnabled(False)
+            self.editor.setPlaceholderText(tr("config_not_found_browse"))
 
     def on_tab_changed(self, index: int):
         if index < 0 or index >= len(self.all_paths):
@@ -177,11 +176,13 @@ class ConfigEditorDialog(QDialog):
                 with open(path, "r", encoding="utf-8") as f:
                     self.editor.setText(f.read())
                 self.current_path = path
+                self.save_btn.setEnabled(True)
                 self.status_label.setText(tr("config_loaded", path=path))
             else:
                 self.editor.clear()
-                self.editor.setPlaceholderText(tr("edit_config_placeholder", path=path))
+                self.editor.setPlaceholderText(tr("config_not_found_browse"))
                 self.current_path = path
+                self.save_btn.setEnabled(False)
                 self.status_label.setText("")
 
             self._sync_tabs(path)

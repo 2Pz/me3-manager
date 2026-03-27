@@ -160,7 +160,7 @@
   "edit_config_title": "Config Editor - {mod_name}",
   "browse_button": "Browse...",
   "save_button": "Save",
-  "edit_config_placeholder": "Config file not found at default location:\n{path}\n\nUse 'Save' to create a new file at this path, or 'Browse...' to locate it.",
+  "config_not_found_browse": "Config file not found.\n\nUse 'Browse...' to locate it.",
   "config_loaded": "Loaded: {path}",
   "config_saved": "Saved: {path}",
   "load_error": "Load Error",
