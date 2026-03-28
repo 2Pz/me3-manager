@@ -275,16 +275,22 @@ class ProfileSettingsDialog(QDialog):
 
     def on_add_to_steam_clicked(self):
         """Create a Steam shortcut for the current profile."""
+        import logging
+
+        log = logging.getLogger(__name__)
         try:
             # Resolve Steam directory from ME3 info if available
             steam_dir = None
             try:
                 if hasattr(self.config_manager, "get_steam_path"):
                     steam_dir = self.config_manager.get_steam_path()
+                    if steam_dir:
+                        log.debug("Steam path from me3 info: %s", steam_dir)
             except Exception:
                 steam_dir = None
 
             if not steam_dir:
+                log.warning("Could not find Steam directory")
                 QMessageBox.information(
                     self,
                     tr("feature_not_available_title"),
@@ -345,23 +351,24 @@ class ProfileSettingsDialog(QDialog):
                 steam_app_id = None
 
             if sys.platform == "linux" and steam_app_id:
-                from pathlib import Path as _Path
-
-                me3_exe = exe
-                env_exe = "/usr/bin/env"
-                exe = env_exe if _Path(env_exe).exists() else "env"
-                steam_env = [
+                env_prefix = [
                     f"SteamAppId={steam_app_id}",
                     f"SteamGameId={steam_app_id}",
                     f"SteamOverlayGameId={steam_app_id}",
-                    me3_exe,
+                ]
+                args_suffix = [
                     "launch",
                     "--game",
                     cli_id,
                     "-p",
                     str(profile_path),
                 ]
-                launch_options = " ".join(shlex.quote(arg) for arg in steam_env)
+
+                launch_options = " ".join(
+                    [shlex.quote(a) for a in env_prefix]
+                    + ["%command%"]
+                    + [shlex.quote(a) for a in args_suffix]
+                )
 
             from pathlib import Path as _Path
 

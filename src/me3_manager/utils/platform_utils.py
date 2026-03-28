@@ -385,8 +385,6 @@ class PlatformUtils:
         env = os.environ.copy()
         # PyInstaller/Qt variables that can break system apps
         for key in (
-            "LD_LIBRARY_PATH",
-            "LD_PRELOAD",
             "QT_PLUGIN_PATH",
             "QT_QPA_PLATFORM_PLUGIN_PATH",
             "PYTHONHOME",
@@ -394,6 +392,25 @@ class PlatformUtils:
             "PYINSTALLER_BOOTLOADER",
         ):
             env.pop(key, None)
+
+        # For LD_PRELOAD and LD_LIBRARY_PATH, selectively strip PyInstaller
+        # entries while preserving Steam overlay paths (e.g., gameoverlayrenderer.so).
+        # Without this, the Steam overlay won't inject on Steam Deck / Linux
+        # when launching games from the launch button.
+        pyinstaller_markers = ("_MEIPASS", "_MEI", "pyinstaller")
+        for ld_key in ("LD_PRELOAD", "LD_LIBRARY_PATH"):
+            val = env.get(ld_key)
+            if not val:
+                continue
+            filtered = [
+                entry
+                for entry in val.split(":")
+                if entry and not any(marker in entry for marker in pyinstaller_markers)
+            ]
+            if filtered:
+                env[ld_key] = ":".join(filtered)
+            else:
+                env.pop(ld_key, None)
 
         # Ensure XDG_DATA_DIRS is sane for icon/mime resolution
         env.setdefault("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
