@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import logging
 import shutil
 import struct
 import sys
 from pathlib import Path
 from typing import Any
-
-log = logging.getLogger(__name__)
 
 
 class _BinaryKV:
@@ -36,17 +33,10 @@ class _BinaryKV:
         return buf[offset:end].decode("utf-8", errors="ignore"), end + 1
 
     @classmethod
-    def _read_node(
-        cls, buf: bytes, offset: int, is_root: bool = False
-    ) -> tuple[dict[str, Any], int]:
+    def _read_node(cls, buf: bytes, offset: int) -> tuple[dict[str, Any], int]:
         result: dict[str, Any] = {}
         while True:
             if offset >= len(buf):
-                if is_root:
-                    # Tolerate missing trailing TYPE_END at root level.
-                    # Some Steam installations (e.g. SteamOS on Steam Deck)
-                    # may omit the outer terminator byte.
-                    break
                 raise ValueError("Invalid VDF: unexpected EOF")
             t = buf[offset]
             offset += 1
@@ -79,9 +69,8 @@ class _BinaryKV:
 
     @classmethod
     def loads(cls, data: bytes) -> dict[str, Any]:
-        # Root should be a single object (e.g., key 'shortcuts').
-        # Pass is_root=True so EOF without a trailing TYPE_END is tolerated.
-        obj, offset = cls._read_node(data, 0, is_root=True)
+        # Root should be a single object (e.g., key 'shortcuts')
+        obj, offset = cls._read_node(data, 0)
         if offset != len(data):
             # Some files may have trailing bytes; tolerate
             pass
@@ -251,25 +240,19 @@ class SteamShortcuts:
         updated_any = False
         for cfg_dir in user_cfg_dirs:
             shortcuts_path = cfg_dir / "shortcuts.vdf"
-            log.debug("Processing shortcuts: %s", shortcuts_path)
             # Backup existing
             try:
                 if shortcuts_path.exists():
                     backup_path = shortcuts_path.with_suffix(".vdf.bak")
                     if not backup_path.exists():
-                        shutil.copy2(shortcuts_path, backup_path)
-                        log.debug("Backed up shortcuts to %s", backup_path)
-            except Exception as exc:
-                log.warning("Backup of %s failed: %s", shortcuts_path, exc)
+                        shortcuts_path.replace(backup_path)
+                        backup_path.replace(shortcuts_path)
+            except Exception:
                 # Best-effort; continue without blocking if backup fails
+                pass
 
-            try:
-                root = cls._load_shortcuts(shortcuts_path)
-            except Exception as exc:
-                log.error("Failed to parse %s: %s", shortcuts_path, exc)
-                return False, f"Failed to parse existing shortcuts file: {exc}"
+            root = cls._load_shortcuts(shortcuts_path)
             shortcuts: dict[str, Any] = root.get("shortcuts", {})
-            log.debug("Loaded %d existing shortcuts", len(shortcuts))
 
             # Prepare per-user icon path inside Steam's user config dir so Steam can access it
             icon_for_user: str | None = None
@@ -322,7 +305,6 @@ class SteamShortcuts:
                     with open(shortcuts_path, "wb") as f:
                         f.write(data)
                     updated_any = True
-                    log.info("Shortcut '%s' written to %s", appname, shortcuts_path)
                 except Exception as e:
                     return False, f"Failed to write {shortcuts_path}: {e}"
 

@@ -275,51 +275,16 @@ class ProfileSettingsDialog(QDialog):
 
     def on_add_to_steam_clicked(self):
         """Create a Steam shortcut for the current profile."""
-        import logging
-
-        log = logging.getLogger(__name__)
         try:
             # Resolve Steam directory from ME3 info if available
             steam_dir = None
             try:
                 if hasattr(self.config_manager, "get_steam_path"):
                     steam_dir = self.config_manager.get_steam_path()
-                    if steam_dir:
-                        log.debug("Steam path from me3 info: %s", steam_dir)
             except Exception:
                 steam_dir = None
 
-            # Fallback: try common Linux/Steam Deck Steam installation paths
-            if not steam_dir and sys.platform == "linux":
-                from pathlib import Path as _Path
-
-                home = _Path.home()
-                candidates = [
-                    home / ".steam" / "steam",
-                    home / ".local" / "share" / "Steam",
-                    home / ".steam" / "debian-installation",
-                    _Path("/home/deck/.steam/steam"),
-                    _Path("/home/deck/.local/share/Steam"),
-                    home
-                    / ".var"
-                    / "app"
-                    / "com.valvesoftware.Steam"
-                    / "data"
-                    / "Steam",
-                ]
-                for candidate in candidates:
-                    try:
-                        # Resolve symlinks and check for userdata subdir
-                        resolved = candidate.resolve()
-                        if resolved.exists() and (resolved / "userdata").exists():
-                            steam_dir = resolved
-                            log.info("Steam path detected via fallback: %s", steam_dir)
-                            break
-                    except Exception:
-                        continue
-
             if not steam_dir:
-                log.warning("Could not find Steam directory")
                 QMessageBox.information(
                     self,
                     tr("feature_not_available_title"),
