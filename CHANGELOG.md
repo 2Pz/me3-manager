@@ -3,6 +3,17 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.6
+**Released:** April 06, 2026
+
+
+### 🎨 User Interface
+
+- Force terminal output to LTR and English status messages ([88b443d](https://github.com/2Pz/me3-manager/commit/88b443d3986e68fcff75fd345611cdfc42fd1ef8))
+
+
+
+---
 ## 📦 Release 1.4.5
 **Released:** March 27, 2026
 
@@ -848,6 +859,7 @@
 
 
 ---
+[1.4.6]: https://github.com/2Pz/me3-manager/compare/1.4.5..1.4.6
 [1.4.5]: https://github.com/2Pz/me3-manager/compare/1.4.4..1.4.5
 [1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
 [1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
