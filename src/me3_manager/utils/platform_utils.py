@@ -395,6 +395,19 @@ class PlatformUtils:
         ):
             env.pop(key, None)
 
+        # AppImage portable mode overrides $HOME to a .AppImage.home directory.
+        # Restore real HOME so child processes (me3, Proton, game) can find
+        # Steam, configs, etc. (GitHub #231)
+        if os.environ.get("APPIMAGE") and env.get("HOME", "").endswith(
+            ".AppImage.home"
+        ):
+            try:
+                import pwd
+
+                env["HOME"] = pwd.getpwuid(os.getuid()).pw_dir
+            except Exception:
+                pass
+
         # Ensure XDG_DATA_DIRS is sane for icon/mime resolution
         env.setdefault("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
         return env
