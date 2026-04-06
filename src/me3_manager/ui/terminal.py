@@ -6,6 +6,7 @@ from PySide6.QtCore import (
     QProcess,
     QPropertyAnimation,
     QSize,
+    Qt,
     QTimer,
 )
 from PySide6.QtGui import QFont, QIcon
@@ -111,6 +112,7 @@ class EmbeddedTerminal(QWidget):
         self.output = QTextEdit()
         self.output.setReadOnly(True)
         self.output.setFont(QFont("Consolas", 9))
+        self.output.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.output.setStyleSheet("""
             QTextEdit {
                 background-color: #0c0c0c;
@@ -283,7 +285,6 @@ class EmbeddedTerminal(QWidget):
             program, args = PlatformUtils.prepare_string_command_for_qprocess(command)
             self.process.start(program, args)
         else:
-            # Handle new argument list format (use centralized list prep)
             program, args = PlatformUtils.prepare_list_command_for_qprocess(command)
             self.process.start(program, args)
 
@@ -292,7 +293,6 @@ class EmbeddedTerminal(QWidget):
         cursor.movePosition(cursor.MoveOperation.End)
         self.output.setTextCursor(cursor)
 
-        # Since streams are merged, this now reads both stdout and stderr
         data = self.process.readAllStandardOutput()
         stdout = bytes(data).decode("utf8", errors="ignore")
 
@@ -302,13 +302,11 @@ class EmbeddedTerminal(QWidget):
         cursor.movePosition(cursor.MoveOperation.End)
         self.output.setTextCursor(cursor)
 
-    def process_finished(self, exit_code, exit_status):
+    def process_finished(self, exit_code, _exit_status):
         if exit_code == 0:
-            self.output.append(tr("process_success_status"))
+            self.output.append("Process completed successfully.")
         else:
-            self.output.append(
-                tr("process_finished_with_code_status", exit_code=exit_code)
-            )
+            self.output.append(f"Process finished with exit code: {exit_code}")
 
     def clear_output(self):
         self.output.clear()

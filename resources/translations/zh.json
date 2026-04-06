@@ -374,8 +374,6 @@
   "terminal_toggle_tooltip": "显示/隐藏终端输出",
   "copy_button": "复制",
   "copied_feedback": "已复制！",
-  "process_success_status": "进程已成功完成。",
-  "process_finished_with_code_status": "进程已完成，退出代码为: {exit_code}",
   "profile_settings_tooltip": "配置文件设置（自定义存档文件、在线模式、兼容性）",
   "profile_settings_title": "配置文件设置 - {game_name}",
   "profile_settings_description": "配置文件设置，例如自定义存档文件、在线模式和兼容性选项。",

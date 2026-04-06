@@ -374,8 +374,6 @@
   "terminal_toggle_tooltip": "Show/hide terminal output",
   "copy_button": "Copy",
   "copied_feedback": "Copied!",
-  "process_success_status": "Process completed successfully.",
-  "process_finished_with_code_status": "Process finished with exit code: {exit_code}",
   "profile_settings_tooltip": "Configure profile-level settings (custom save files, online mode)",
   "profile_settings_title": "Profile Settings - {game_name}",
   "profile_settings_description": "Configure profile-level settings such as custom save files, online mode, and compatibility options.",
