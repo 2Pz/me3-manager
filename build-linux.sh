@@ -23,9 +23,9 @@ version=$(grep --max-count=1 '^version\s*=' pyproject.toml | cut -d '"' -f2)
 
 echo "Building with PyInstaller..."
 
-# Don't need to generate spec file first with pyi-makespec. We can pass the same
-# arguments directly to pyinstaller; it will generate the spec file then build.
-pyinstaller --clean --noconfirm \
+echo "Generating PyInstaller spec file..."
+# Generate spec file so we can patch it
+pyi-makespec \
 	--name me3-manager \
 	--onefile \
 	--copy-metadata me3-manager \
@@ -34,5 +34,20 @@ pyinstaller --clean --noconfirm \
 	--add-data resources:resources \
 	--optimize 2 \
 	--strip \
-	--distpath "dist/linux-$version" \
 	src/me3_manager/main.py
+
+echo "Patching spec file to exclude libxkbcommon..."
+# Exclude libxkbcommon.so.0 to prevent Linux keyboard crashes on modern distros
+python3 -c "
+with open('me3-manager.spec', 'r') as f:
+    content = f.read()
+patch = \"\n# Exclude libxkbcommon to prevent keyboard crashes on Linux\na.binaries = [x for x in a.binaries if 'libxkbcommon.so.0' not in x[0]]\n\"
+content = content.replace('pyz = PYZ(a.pure)', patch + 'pyz = PYZ(a.pure)')
+with open('me3-manager.spec', 'w') as f:
+    f.write(content)
+"
+
+echo "Building with PyInstaller..."
+pyinstaller --clean --noconfirm \
+	--distpath "dist/linux-$version" \
+	me3-manager.spec

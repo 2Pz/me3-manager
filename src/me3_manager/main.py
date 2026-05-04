@@ -97,10 +97,11 @@ def main():
         log.warning("Failed to apply UI scale from settings: %s", e)
 
     if sys.platform == "linux":
-        if "QT_QPA_PLATFORM" in os.environ:
-            del os.environ["QT_QPA_PLATFORM"]
-
-        os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = ""
+        # Clear specific Qt environment variables that can cause crashes in bundled environments
+        for var in ["QT_QPA_PLATFORM", "QT_IM_MODULE"]:
+            if var in os.environ:
+                del os.environ[var]
+                log.debug("Unset %s to prevent environment conflicts", var)
 
     app = QApplication(sys.argv)
 
