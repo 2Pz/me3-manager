@@ -75,8 +75,7 @@ class PageUtils:
                 if (
                     suffix in {".dll", ".me3"}
                     or suffix in ARCHIVE_EXTENSIONS
-                    or path.name.lower()
-                    in ("regulation.bin", "regulation.bin.disabled")
+                    or path.name.lower() == "regulation.bin"
                 ):
                     return True
             elif path.is_dir():

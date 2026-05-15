@@ -1227,17 +1227,12 @@ class GamePage(QWidget):
 
             # Check for regulation.bin (also recursive to be safe, though usually near root)
             if not is_package_mod:
-                if (folder_path / "regulation.bin").exists() or (
-                    folder_path / "regulation.bin.disabled"
-                ).exists():
+                if (folder_path / "regulation.bin").exists():
                     is_package_mod = True
                 # Fallback check for nested regulation.bin if root check failed
                 if not is_package_mod:
-                    for bin_file in folder_path.rglob("regulation.bin*"):
-                        if bin_file.name in (
-                            "regulation.bin",
-                            "regulation.bin.disabled",
-                        ):
+                    for bin_file in folder_path.rglob("regulation.bin"):
+                        if bin_file.name == "regulation.bin":
                             is_package_mod = True
                             break
         except Exception:
@@ -1761,10 +1756,6 @@ class GamePage(QWidget):
             self.update_custom_savefile_warning()
         except Exception:
             pass
-        try:
-            self.update_multiple_regulation_warning()
-        except Exception:
-            pass
 
     def apply_filters(
         self, reset_page: bool = True, source_mods: dict[str, Any] | None = None
@@ -1807,9 +1798,6 @@ class GamePage(QWidget):
 
     def add_external_package_mod(self):
         self.mod_action_handler.add_external_package_mod()
-
-    def activate_regulation_mod(self, mod_path: str):
-        self.mod_action_handler.activate_regulation_mod(mod_path)
 
     def rename_mod(self, mod_path: str):
         """Handle mod rename request."""
@@ -2008,43 +1996,12 @@ class GamePage(QWidget):
         # Show banner only when no custom savefile AND seamless co-op not enabled
         banner.setVisible((not bool(savefile_value)) and (not seamless_enabled))
 
-    def update_multiple_regulation_warning(self):
-        """Show banner if multiple enabled mods provide a regulation.bin file."""
-        banner = getattr(self, "multiple_reg_banner", None)
-        if banner is None:
-            return
-
-        try:
-            mods_data = getattr(self, "all_mods_data", {}) or {}
-            enabled_reg_mods_count = 0
-
-            for _, info in mods_data.items():
-                is_enabled = info.get("enabled", False)
-                has_regulation = info.get("has_regulation", False)
-                if is_enabled and has_regulation:
-                    enabled_reg_mods_count += 1
-
-            if enabled_reg_mods_count > 1:
-                banner.setVisible(True)
-            else:
-                banner.setVisible(False)
-        except Exception:
-            banner.setVisible(False)
-
     def _get_filter_definitions(self) -> dict[str, tuple]:
         """Provides filter button text and tooltips to the UI builder."""
         return {
             "all": (tr("filter_all"), tr("filter_all_tooltip")),
             "enabled": (tr("filter_enabled"), tr("filter_enabled_tooltip")),
             "disabled": (tr("filter_disabled"), tr("filter_disabled_tooltip")),
-            "with_regulation": (
-                tr("filter_with_regulation"),
-                tr("filter_with_regulation_tooltip"),
-            ),
-            "without_regulation": (
-                tr("filter_without_regulation"),
-                tr("filter_without_regulation_tooltip"),
-            ),
         }
 
     def _is_valid_mod_folder(self, folder: Path) -> bool:
@@ -2059,9 +2016,7 @@ class GamePage(QWidget):
             for sub in folder.iterdir()
         ):
             return True
-        if (folder / "regulation.bin").exists() or (
-            folder / "regulation.bin.disabled"
-        ).exists():
+        if (folder / "regulation.bin").exists():
             return True
         return False
 

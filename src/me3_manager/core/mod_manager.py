@@ -1,7 +1,6 @@
 """
 Improved and robust mod management system for ME3 Manager.
-Addresses the key issues with package mod enabling, regulation file management,
-and path handling consistency.
+Addresses the key issues with package mod enabling and path handling consistency.
 """
 
 import shutil
@@ -37,8 +36,6 @@ class ModInfo:
     mod_type: ModType
     status: ModStatus
     is_external: bool
-    has_regulation: bool = False
-    regulation_active: bool = False
     advanced_options: dict[str, Any] = None
     parent_package: str | None = None
     is_container: bool = False
@@ -53,9 +50,8 @@ class ImprovedModManager:
     """
     Improved mod management system that fixes the key issues:
     1. Allows multiple package mods to be enabled
-    2. Properly manages regulation files (only one active at a time)
-    3. Uses consistent path handling (relative for internal, absolute only for external DLLs)
-    4. Provides robust error handling and validation
+    2. Uses consistent path handling (relative for internal, absolute only for external DLLs)
+    3. Provides robust error handling and validation
     """
 
     def __init__(self, config_manager):
@@ -103,21 +99,17 @@ class ImprovedModManager:
         """
         return PathUtils.normalize(path_str)
 
-    def _analyze_folder_content(self, folder_path: Path) -> tuple[bool, bool]:
+    def _analyze_folder_content(self, folder_path: Path) -> bool:
         """
         Analyze folder content to determine properties.
-        Returns: (has_regulation, has_mod_content)
+        Returns: has_mod_content
         """
-        has_regulation = (folder_path / "regulation.bin").exists() or (
-            folder_path / "regulation.bin.disabled"
-        ).exists()
-
-        has_mod_content = has_regulation or any(
+        has_mod_content = (folder_path / "regulation.bin").exists() or any(
             (folder_path / acceptable).exists()
             for acceptable in self.acceptable_folders
         )
 
-        return has_regulation, has_mod_content
+        return has_mod_content
 
     def get_all_mods(self, game_name: str) -> dict[str, ModInfo]:
         """
@@ -289,7 +281,6 @@ class ImprovedModManager:
     ) -> dict[str, ModInfo]:
         """Scan filesystem for mods."""
         mods = {}
-        active_regulation_mod = self._get_active_regulation_mod(mods_dir)
 
         for folder in mods_dir.iterdir():
             if (
@@ -302,8 +293,7 @@ class ImprovedModManager:
                 continue
 
             mod_path = str(folder)
-            has_regulation, has_mod_content = self._analyze_folder_content(folder)
-            regulation_active = has_regulation and folder.name == active_regulation_mod
+            has_mod_content = self._analyze_folder_content(folder)
 
             folder_mod_info = ModInfo(
                 path=mod_path,
@@ -313,8 +303,6 @@ class ImprovedModManager:
                 if enabled_status.get(folder.name, False)
                 else ModStatus.DISABLED,
                 is_external=False,
-                has_regulation=has_regulation,
-                regulation_active=regulation_active,
                 is_container=not has_mod_content,
                 advanced_options=advanced_options.get(folder.name, {}),
             )
@@ -348,10 +336,7 @@ class ImprovedModManager:
                             f"{folder.name}/{str(rel_path).replace(chr(92), '/')}"
                         )
 
-                        has_regulation, _ = self._analyze_folder_content(subfolder)
-                        regulation_active = (
-                            has_regulation and (subfolder / "regulation.bin").exists()
-                        )
+                        has_mod_content = self._analyze_folder_content(subfolder)
 
                         subfolder_mod_info = ModInfo(
                             path=subfolder_path,
@@ -361,8 +346,6 @@ class ImprovedModManager:
                             if enabled_status.get(display_name, False)
                             else ModStatus.DISABLED,
                             is_external=False,
-                            has_regulation=has_regulation,
-                            regulation_active=regulation_active,
                             parent_package=folder.name,
                             advanced_options=advanced_options.get(display_name, {}),
                         )
@@ -419,13 +402,6 @@ class ImprovedModManager:
         """
         return {}
 
-    def _get_active_regulation_mod(self, mods_dir: Path) -> str | None:
-        """Find which mod currently has the active regulation.bin file"""
-        for folder in mods_dir.iterdir():
-            if folder.is_dir() and (folder / "regulation.bin").exists():
-                return folder.name
-        return None
-
     def _get_external_mods(
         self, game_name: str, enabled_status: dict, advanced_options: dict
     ) -> dict[str, ModInfo]:
@@ -457,10 +433,7 @@ class ImprovedModManager:
                     mod_type = ModType.FOLDER
                     mod_name = path_obj.name
 
-                    has_regulation, has_mod_content = self._analyze_folder_content(
-                        path_obj
-                    )
-                    regulation_active = (path_obj / "regulation.bin").exists()
+                    has_mod_content = self._analyze_folder_content(path_obj)
                     is_container = not has_mod_content
 
                     enabled = enabled_status.get(
@@ -472,16 +445,12 @@ class ImprovedModManager:
                 else:
                     mod_type = ModType.DLL
                     mod_name = path_obj.stem
-                    has_regulation = False
-                    regulation_active = False
                     is_container = False
                     enabled = enabled_status.get(normalized_path, False)
                     advanced = advanced_options.get(normalized_path, {})
             else:
                 mod_type = ModType.DLL if is_dll else ModType.FOLDER
                 mod_name = path_obj.stem if mod_type == ModType.DLL else path_obj.name
-                has_regulation = False
-                regulation_active = False
                 is_container = False  # Default missing to false
                 enabled = enabled_status.get(
                     normalized_path, False
@@ -502,8 +471,6 @@ class ImprovedModManager:
                 mod_type=mod_type,
                 status=status,
                 is_external=True,
-                has_regulation=has_regulation,
-                regulation_active=regulation_active,
                 is_container=is_container,
                 advanced_options=advanced,
             )
@@ -718,9 +685,7 @@ class ImprovedModManager:
             if mod_path_obj.is_dir():
                 # IMPROVEMENT: If the folder is a "container" (native-only mod),
                 # toggling it should toggle its child DLLs instead of adding it to packages.
-                has_regulation, has_mod_content = self._analyze_folder_content(
-                    mod_path_obj
-                )
+                has_mod_content = self._analyze_folder_content(mod_path_obj)
 
                 if not has_mod_content:
                     # Native-only mod: toggle all contained DLLs
@@ -911,19 +876,6 @@ class ImprovedModManager:
                 }
                 packages.append(package_entry)
                 config_data["packages"] = packages
-                # Enforce single active regulation on enable
-                try:
-                    if mod_path_obj.is_dir():
-                        folders = self._candidate_regulation_folders(game_name)
-                        other_active = self._find_other_active_regulation(
-                            folders, mod_path_obj
-                        )
-                        if other_active is not None:
-                            self._disable_folder_regulation(mod_path_obj)
-                        else:
-                            self._enable_folder_regulation(mod_path_obj)
-                except Exception:
-                    pass
                 return True, "Created new package entry"
             else:
                 updated = False
@@ -944,19 +896,6 @@ class ImprovedModManager:
 
                 if updated:
                     config_data["packages"] = packages
-                    # Enforce single active regulation when path changes
-                    try:
-                        if mod_path_obj.is_dir():
-                            folders = self._candidate_regulation_folders(game_name)
-                            other_active = self._find_other_active_regulation(
-                                folders, mod_path_obj
-                            )
-                            if other_active is not None:
-                                self._disable_folder_regulation(mod_path_obj)
-                            else:
-                                self._enable_folder_regulation(mod_path_obj)
-                    except Exception:
-                        pass
                     return True, "Updated package entry"
 
                 return True, "Package entry already exists"
@@ -965,12 +904,6 @@ class ImprovedModManager:
                 # Preserve entry + advanced options, just mark disabled
                 package_entry["enabled"] = False
                 config_data["packages"] = packages
-                # Disable regulation when disabling a package
-                try:
-                    if mod_path_obj.is_dir():
-                        self._disable_folder_regulation(mod_path_obj)
-                except Exception:
-                    pass
                 return True, "Disabled package entry"
             else:
                 return True, "Package was already disabled"
@@ -1129,189 +1062,6 @@ class ImprovedModManager:
 
         return package_paths
 
-    def _candidate_regulation_folders(self, game_name: str) -> list[Path]:
-        """Collect unique package folders (internal + tracked external) for regulation checks."""
-        mods_dir = self.config_manager.get_mods_dir(game_name)
-        candidate_folders: list[Path] = []
-
-        if mods_dir.exists():
-            for folder in mods_dir.iterdir():
-                if folder.is_dir():
-                    candidate_folders.append(folder)
-
-        candidate_folders.extend(self._get_tracked_external_package_paths(game_name))
-
-        seen: set[Path] = set()
-        unique_candidates: list[Path] = []
-        for folder in candidate_folders:
-            try:
-                resolved = folder.resolve()
-            except Exception:
-                continue
-
-            if resolved in seen:
-                continue
-
-            seen.add(resolved)
-            unique_candidates.append(resolved)
-
-        return unique_candidates
-
-    def _find_other_active_regulation(
-        self, folders: list[Path], exclude_folder: Path
-    ) -> Path | None:
-        """Return a folder (not exclude_folder) that has an active regulation.bin, if any."""
-        try:
-            exclude_resolved = exclude_folder.resolve()
-        except Exception:
-            exclude_resolved = exclude_folder
-
-        for folder in folders:
-            if folder == exclude_resolved:
-                continue
-            if (folder / "regulation.bin").exists():
-                return folder
-        return None
-
-    def _disable_folder_regulation(self, folder: Path) -> None:
-        """Rename regulation.bin to regulation.bin.disabled in the given folder, if present."""
-        regulation_file = folder / "regulation.bin"
-        disabled_file = folder / "regulation.bin.disabled"
-        if regulation_file.exists():
-            try:
-                regulation_file.rename(disabled_file)
-            except Exception:
-                pass
-
-    def _enable_folder_regulation(self, folder: Path) -> bool:
-        """Ensure regulation.bin is active in the given folder. Returns True if active after call."""
-        disabled_file = folder / "regulation.bin.disabled"
-        regulation_file = folder / "regulation.bin"
-        if disabled_file.exists():
-            try:
-                disabled_file.rename(regulation_file)
-                return True
-            except Exception:
-                return False
-        return regulation_file.exists()
-
-    def set_regulation_active(self, game_name: str, mod_path: str) -> tuple[bool, str]:
-        """
-        Set which mod should have the active regulation.bin file.
-        Only one regulation file can be active at a time.
-        """
-        try:
-            target_folder = Path(mod_path)
-
-            if not target_folder.exists():
-                return False, f"Mod folder not found: {mod_path}"
-
-            if not target_folder.is_dir():
-                return False, "Regulation files can only be managed for folder mods"
-
-            mods_dir = self.config_manager.get_mods_dir(game_name)
-            candidate_folders: list[Path] = []
-
-            if mods_dir.exists():
-                # Recursively search for ALL folders (including nested) that might have regulation.bin
-                for folder in mods_dir.rglob("*"):
-                    if folder.is_dir():
-                        candidate_folders.append(folder)
-
-            candidate_folders.extend(
-                self._get_tracked_external_package_paths(game_name)
-            )
-
-            target_resolved = target_folder.resolve()
-            seen: set[Path] = set()
-            unique_candidates: list[Path] = []
-
-            for folder in candidate_folders:
-                try:
-                    resolved = folder.resolve()
-                except Exception:
-                    continue
-
-                if resolved in seen:
-                    continue
-
-                seen.add(resolved)
-                unique_candidates.append(resolved)
-
-            for folder in unique_candidates:
-                if folder == target_resolved:
-                    continue
-
-                regulation_file = folder / "regulation.bin"
-                disabled_file = folder / "regulation.bin.disabled"
-
-                if regulation_file.exists():
-                    try:
-                        regulation_file.rename(disabled_file)
-                    except Exception:
-                        continue
-
-            disabled_file = target_resolved / "regulation.bin.disabled"
-            regulation_file = target_resolved / "regulation.bin"
-
-            if disabled_file.exists():
-                disabled_file.rename(regulation_file)
-                return True, f"Set {target_folder.name} as active regulation mod"
-
-            if regulation_file.exists():
-                return True, f"{target_folder.name} regulation file is already active"
-
-            return False, f"No regulation file found for {target_folder.name}"
-
-        except Exception as e:
-            return False, f"Error setting regulation active: {str(e)}"
-
-    def disable_all_regulations(self, game_name: str) -> tuple[bool, str]:
-        """
-        Disable regulation.bin across all mods (internal and tracked external)
-        by renaming any active files to regulation.bin.disabled. This leaves
-        no active regulation.
-        """
-        try:
-            mods_dir = self.config_manager.get_mods_dir(game_name)
-            if not mods_dir or not mods_dir.exists():
-                return False, "Mods directory not found"
-
-            disabled_count = 0
-
-            # Recursively search for ALL folders with regulation.bin (including nested)
-            for folder in mods_dir.rglob("*"):
-                try:
-                    if not folder.is_dir():
-                        continue
-                    regulation_file = folder / "regulation.bin"
-                    disabled_file = folder / "regulation.bin.disabled"
-                    if regulation_file.exists():
-                        regulation_file.rename(disabled_file)
-                        disabled_count += 1
-                except Exception:
-                    # Ignore failures on a single folder and continue
-                    continue
-
-            # Also check tracked external mods
-            external_paths = self._get_tracked_external_package_paths(game_name)
-            for folder in external_paths:
-                try:
-                    if not folder.is_dir():
-                        continue
-                    regulation_file = folder / "regulation.bin"
-                    disabled_file = folder / "regulation.bin.disabled"
-                    if regulation_file.exists():
-                        regulation_file.rename(disabled_file)
-                        disabled_count += 1
-                except Exception:
-                    continue
-
-            # Even if nothing changed, it's a successful no-op
-            return True, f"Regulation disabled ({disabled_count} file(s))"
-        except Exception as e:
-            return False, f"Error disabling regulation: {str(e)}"
-
     def _is_valid_mod_folder(self, folder: Path) -> bool:
         """
         Checks if a folder contains valid mod contents.
@@ -1322,9 +1072,7 @@ class ImprovedModManager:
             sub.is_dir() and sub.name in ACCEPTABLE_FOLDERS for sub in folder.iterdir()
         ):
             return True
-        if (folder / "regulation.bin").exists() or (
-            folder / "regulation.bin.disabled"
-        ).exists():
+        if (folder / "regulation.bin").exists():
             return True
         return False
 
