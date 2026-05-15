@@ -659,19 +659,17 @@ class ModInstaller:
 
         # Check for DLLs and game folders
         dlls = [c for c in children if c.is_file() and c.suffix.lower() == ".dll"]
-        has_game_folders = any(
-            c.is_dir() and c.name.lower() in ACCEPTABLE_FOLDERS for c in children
+        has_assets = (
+            any(c.is_dir() and c.name.lower() in ACCEPTABLE_FOLDERS for c in children)
+            or (folder / "regulation.bin").exists()
         )
-        has_regulation = (folder / "regulation.bin").exists() or (
-            folder / "regulation.bin.disabled"
-        ).exists()
 
         # Priority 2: Native mod (DLL-only)
-        if dlls and not has_game_folders and not has_regulation:
+        if dlls and not has_assets:
             return "native"
 
         # Priority 3: Package mod
-        if has_game_folders or has_regulation:
+        if has_assets:
             return "package"
 
         # Check for nested DLLs (e.g., SeamlessCoop/nrsc.dll)

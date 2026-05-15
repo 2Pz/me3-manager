@@ -99,8 +99,6 @@ class ModListHandler:
                 "enabled": mod_info.status == ModStatus.ENABLED,
                 "external": mod_info.is_external,
                 "is_folder_mod": mod_info.mod_type == ModType.FOLDER,
-                "has_regulation": mod_info.has_regulation,
-                "regulation_active": mod_info.regulation_active,
                 "advanced_options": mod_info.advanced_options,
                 "update_available_version": update_available_version,
             }
@@ -128,8 +126,6 @@ class ModListHandler:
                 continue
 
             is_enabled = info["enabled"]
-            is_folder_mod = info.get("is_folder_mod", False)
-            has_regulation = info.get("has_regulation", False)
 
             category_match = False
             if gp.current_filter == "all":
@@ -138,10 +134,6 @@ class ModListHandler:
                 category_match = is_enabled
             elif gp.current_filter == "disabled":
                 category_match = not is_enabled
-            elif gp.current_filter == "with_regulation":
-                category_match = is_folder_mod and is_enabled and has_regulation
-            elif gp.current_filter == "without_regulation":
-                category_match = is_folder_mod and is_enabled and not has_regulation
 
             if category_match:
                 gp.filtered_mods[mod_path] = info
@@ -231,32 +223,18 @@ class ModListHandler:
     ):
         """Factory method to create a single ModItem widget."""
         gp = self.game_page
-        is_enabled, is_folder_mod, has_regulation, regulation_active = (
+        is_enabled, is_folder_mod = (
             info["enabled"],
             info.get("is_folder_mod", False),
-            info.get("has_regulation", False),
-            info.get("regulation_active", False),
         )
 
         text_color = "#cccccc" if not is_enabled else "#90EE90"
         if is_nested:
             text_color = "#b0b0b0" if not is_enabled else "#90EE90"
-        elif regulation_active:
-            text_color = "#FFD700"
 
         mod_info = gp.mod_infos.get(mod_path)
 
-        if regulation_active:
-            mod_type, type_icon = (
-                tr("mod_type_active_regulation"),
-                QIcon(resource_path("resources/icon/regulation_active.svg")),
-            )
-        elif has_regulation:
-            mod_type, type_icon = (
-                tr("mod_type_package_with_regulation"),
-                QIcon(resource_path("resources/icon/folder.svg")),
-            )
-        elif mod_info and mod_info.mod_type == ModType.DLL and mod_info.parent_package:
+        if mod_info and mod_info.mod_type == ModType.DLL and mod_info.parent_package:
             mod_type, type_icon = (
                 tr("mod_type_nested_dll"),
                 QIcon(resource_path("resources/icon/dll.svg")),
@@ -282,12 +260,10 @@ class ModListHandler:
             is_enabled=is_enabled,
             is_external=info["external"],
             is_folder_mod=is_folder_mod,
-            is_regulation=has_regulation,
             mod_type=mod_type,
             type_icon=type_icon,
             item_bg_color="transparent",
             text_color=text_color,
-            is_regulation_active=regulation_active,
             has_advanced_options=has_advanced_options,
             is_nested=is_nested,
             has_children=has_children,
@@ -313,8 +289,6 @@ class ModListHandler:
         mod_widget.open_folder_requested.connect(gp.open_mod_folder)
         mod_widget.advanced_options_requested.connect(gp.open_advanced_options)
 
-        if has_regulation:
-            mod_widget.regulation_activate_requested.connect(gp.activate_regulation_mod)
         return mod_widget
 
     def _on_mod_expand_requested(self, mod_path: str, expanded: bool):

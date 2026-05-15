@@ -675,11 +675,6 @@ class ConfigFacade:
         # This would be handled by ModManager in full refactor
         pass
 
-    def set_regulation_active(self, game_name, mod_name):
-        """Set regulation active (needed by UI components)."""
-        # This would be handled by ModManager in full refactor
-        pass
-
     def add_folder_mod(self, game_name: str, mod_name: str, mod_path: str):
         """
         Add a folder mod to the configuration.

@@ -99,7 +99,6 @@ class ModItem(QWidget):
     rename_requested = Signal(str)
     open_folder_requested = Signal(str)
     edit_config_requested = Signal(str)
-    regulation_activate_requested = Signal(str)
     advanced_options_requested = Signal(str)
     expand_requested = Signal(str, bool)  # New signal for expand/collapse
     clicked = Signal(str)  # Emitted when the row is clicked (for sidebar/details)
@@ -111,12 +110,10 @@ class ModItem(QWidget):
         is_enabled: bool,
         is_external: bool,
         is_folder_mod: bool,
-        is_regulation: bool,
         mod_type: str,
         type_icon: QIcon,
         item_bg_color: str,
         text_color: str,
-        is_regulation_active: bool,
         has_advanced_options: bool = False,
         is_nested: bool = False,
         has_children: bool = False,
@@ -131,10 +128,8 @@ class ModItem(QWidget):
         self.is_external = is_external
         self.is_enabled = is_enabled
         self.is_folder_mod = is_folder_mod
-        self.is_regulation = is_regulation
         self.mod_type = mod_type
         self.type_icon = type_icon
-        self.is_regulation_active = is_regulation_active
         self.is_nested = is_nested
         self.has_children = has_children
         self.is_expanded = is_expanded
@@ -361,7 +356,7 @@ class ModItem(QWidget):
         layout.addWidget(self.toggle_btn)
 
         # Config button (only for DLL mods)
-        if not self.is_folder_mod and not self.is_regulation and not self.is_container:
+        if not self.is_folder_mod and not self.is_container:
             config_btn = QPushButton()
             config_btn.setIcon(QIcon(resource_path("resources/icon/settings.svg")))
             config_btn.setFixedSize(button_size, button_size)
@@ -412,32 +407,6 @@ class ModItem(QWidget):
                 lambda: self.delete_requested.emit(self.mod_path)
             )
             layout.addWidget(delete_btn)
-
-        # Regulation button (show for any folder with regulation)
-        if self.is_regulation:
-            self.activate_regulation_btn = QPushButton()
-            self.activate_regulation_btn.setIcon(
-                QIcon(resource_path("resources/icon/regulation.svg"))
-            )
-            self.activate_regulation_btn.setFixedSize(button_size, button_size)
-
-            if self.is_regulation_active:
-                self.activate_regulation_btn.setToolTip(tr("click_to_disable_tooltip"))
-                self.activate_regulation_btn.setStyleSheet(
-                    self._get_active_regulation_button_style()
-                )
-            else:
-                self.activate_regulation_btn.setToolTip(
-                    tr("regulation_inactive_tooltip")
-                )
-                self.activate_regulation_btn.setStyleSheet(
-                    self._get_action_button_style()
-                )
-
-            self.activate_regulation_btn.clicked.connect(
-                lambda: self.regulation_activate_requested.emit(self.mod_path)
-            )
-            layout.addWidget(self.activate_regulation_btn)
 
     def _get_expand_button_style(self):
         """Style for expand/collapse button"""
@@ -503,22 +472,6 @@ class ModItem(QWidget):
             QPushButton:hover {{
                 background-color: #dc3545;
                 border: 1px solid #c82333;
-            }}
-        """
-
-    def _get_active_regulation_button_style(self):
-        """Style for active regulation button"""
-        radius = 12 if not self.is_nested else 10
-        return f"""
-            QPushButton {{
-                background-color: #28a745;
-                border: none;
-                border-radius: {radius}px;
-                color: white;
-            }}
-            QPushButton:disabled {{
-                background-color: #28a745;
-                color: white;
             }}
         """
 

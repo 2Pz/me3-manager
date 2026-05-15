@@ -2,7 +2,7 @@
 Mod Interaction Handler for GamePage.
 
 This module handles direct user actions performed on individual mods, such as
-enabling/disabling, deleting, adding external mods, and activating regulation files.
+enabling/disabling, deleting, and adding external mods.
 """
 
 from pathlib import Path
@@ -105,17 +105,3 @@ class ModActionHandler:
                 self.game_page.game_name, folder_path
             )
             self._handle_result(success, message, "add_external_mod_error_title", 3000)
-
-    def activate_regulation_mod(self, mod_path: str):
-        """Activates the regulation.bin file for a specific mod."""
-        # If the clicked mod is already the active regulation, interpret the action as disabling all
-        mod_info = self.game_page.mod_infos.get(mod_path)
-        if getattr(mod_info, "regulation_active", False):
-            success, message = self.mod_manager.disable_all_regulations(
-                self.game_page.game_name
-            )
-        else:
-            success, message = self.mod_manager.set_regulation_active(
-                self.game_page.game_name, mod_path
-            )
-        self._handle_result(success, message, "regulation_error_title", 3000)

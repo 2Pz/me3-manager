@@ -61,10 +61,7 @@ class DragDropHandler:
         """Check if path is a game asset folder or regulation.bin file."""
         if path.is_dir() and path.name.lower() in ACCEPTABLE_FOLDERS:
             return True
-        if path.is_file() and path.name.lower() in (
-            "regulation.bin",
-            "regulation.bin.disabled",
-        ):
+        if path.is_file() and path.name.lower() == "regulation.bin":
             return True
         return False
 
@@ -176,10 +173,7 @@ class DragDropHandler:
                     result = self.game_page.mod_installer.install_mod(path.parent)
                     if result:
                         installed_any = True
-                elif path.is_file() and path.name.lower() in (
-                    "regulation.bin",
-                    "regulation.bin.disabled",
-                ):
+                elif path.is_file() and path.name.lower() == "regulation.bin":
                     # Single regulation.bin dropped - prompt for mod name
                     if self._install_loose_game_assets([path]):
                         installed_any = True
