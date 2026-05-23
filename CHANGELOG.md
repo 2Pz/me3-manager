@@ -3,6 +3,41 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.6
+**Released:** May 23, 2026
+
+
+### ✨ New Features
+
+- Prompt for community recommended options when installing Nexus mods `[ui]` ([5de34e7](https://github.com/2Pz/me3-manager/commit/5de34e7d4654c7b6f54506a7f0c3f7ba25521cd2))
+
+
+
+### 🔧 Bug Fixes
+
+- Default to latest main file when viewing nexus mods `[ui]` ([92ce16b](https://github.com/2Pz/me3-manager/commit/92ce16b65c7f5f5b10d82049c911cf2af9bbdc35))
+
+
+
+### 🎨 User Interface
+
+- Force terminal output to LTR and English status messages ([88b443d](https://github.com/2Pz/me3-manager/commit/88b443d3986e68fcff75fd345611cdfc42fd1ef8))
+
+
+
+### ♻️ Code Refactoring
+
+- Remove manual regulation.bin management and UI elements ([4f7c9d0](https://github.com/2Pz/me3-manager/commit/4f7c9d0882f711a325ba44e6ceffad1d9106287b))
+
+
+
+### 🧹 Maintenance
+
+- Bump project version to 1.4.6 ([39fee4c](https://github.com/2Pz/me3-manager/commit/39fee4c0c94dd2e90ee58336060897257e2b253f))
+
+
+
+---
 ## 📦 Release 1.4.5
 **Released:** March 27, 2026
 
@@ -848,6 +883,7 @@
 
 
 ---
+[1.4.6]: https://github.com/2Pz/me3-manager/compare/1.4.5..1.4.6
 [1.4.5]: https://github.com/2Pz/me3-manager/compare/1.4.4..1.4.5
 [1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
 [1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
