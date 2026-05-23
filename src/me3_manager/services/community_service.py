@@ -27,6 +27,7 @@ class CommunityProfile:
     image_url: str | None = None
     is_folder: bool = False
     files: list[dict] | None = None  # List of file objects for folder profiles
+    mod_options: dict[str, dict] | None = None  # Mapping of nexus_link to mod options
 
 
 class CommunityService:
@@ -154,6 +155,7 @@ class CommunityService:
         )
 
         description = "No description provided."
+        mod_options = {}
         try:
             # fetch description (fast, small file)
             resp = self._session.get(raw_url, timeout=5)
@@ -165,6 +167,17 @@ class CommunityService:
                     description = data["game"].get("description", description)
                 else:
                     description = data.get("description", description)
+
+                # Extract mod options from natives and packages
+                for category in ["natives", "packages"]:
+                    if category in data and isinstance(data[category], list):
+                        for mod in data[category]:
+                            link = mod.get("nexus_link")
+                            if link:
+                                normalized_link = link.replace(
+                                    "http://", "https://"
+                                ).rstrip("/")
+                                mod_options[normalized_link] = mod
         except Exception:
             pass
 
@@ -178,6 +191,7 @@ class CommunityService:
             image_url=image_url,
             is_folder=is_folder,
             files=folder_items,
+            mod_options=mod_options,
         )
 
     def download_profile(

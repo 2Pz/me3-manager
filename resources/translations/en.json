@@ -510,5 +510,8 @@
   "user_prompts_required_error": "Please fill in all required fields:",
   "profile_settings_saved_status": "Profile settings saved for {game_name}.",
   "admin_warning_title": "Administrator Mode Detected",
-  "admin_warning_msg": "Running Mod Engine 3 Manager as Administrator can cause some features, like dragging and dropping files, to stop working.\n\nIt is recommended to run the application normally unless required."
+  "admin_warning_msg": "Running Mod Engine 3 Manager as Administrator can cause some features, like dragging and dropping files, to stop working.\n\nIt is recommended to run the application normally unless required.",
+  "nexus_recommended_options_title": "Recommended Options Available",
+  "nexus_recommended_options_desc": "The community has provided recommended settings for this mod in the following profiles.\nPlease select which profile's settings you'd like to apply, or choose 'None' to install with default settings.",
+  "nexus_no_recommended_options": "None (Default Settings)"
 }

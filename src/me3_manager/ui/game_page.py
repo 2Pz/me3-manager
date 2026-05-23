@@ -12,11 +12,16 @@ from PySide6.QtGui import (
     QPixmap,
 )
 from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
     QInputDialog,
+    QLabel,
+    QListWidget,
     QMenu,
     QMessageBox,
     QProgressDialog,
     QSizePolicy,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -86,6 +91,41 @@ class NexusDownloadWorker(QThread):
             self.success = False
             self.error_message = str(e)
             self.finished_signal.emit(False, str(e))
+
+
+class RecommendedOptionsDialog(QDialog):
+    def __init__(self, title, desc, items, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        self.selected_item = None
+        self.setMinimumWidth(450)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel(desc)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        self.list_widget = QListWidget()
+        for item in items:
+            self.list_widget.addItem(item)
+        self.list_widget.setCurrentRow(0)
+        self.list_widget.setMinimumHeight(150)
+        layout.addWidget(self.list_widget)
+
+        btn_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        btn_box.accepted.connect(self.accept)
+        btn_box.rejected.connect(self.reject)
+        layout.addWidget(btn_box)
+
+    def accept(self):
+        current_item = self.list_widget.currentItem()
+        if current_item:
+            self.selected_item = current_item.text()
+            super().accept()
 
 
 class GamePage(QWidget):
@@ -807,6 +847,7 @@ class GamePage(QWidget):
         file_name: str | None = None,
         install_name: str | None = None,
         ignore_sidebar: bool = False,
+        skip_options_prompt: bool = False,
     ):
         """Download and install a Nexus mod (zip only).
 
@@ -835,6 +876,57 @@ class GamePage(QWidget):
 
         if not mod:
             return
+
+        # Check for community profile recommended options
+        if not skip_options_prompt:
+            try:
+                nexus_url = (
+                    f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}"
+                )
+                alt_nexus_url = (
+                    f"https://nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}"
+                )
+                profiles = self.community_service.fetch_profiles(self.game_name)
+                matches = []
+                for p in profiles:
+                    if p.mod_options:
+                        if nexus_url in p.mod_options:
+                            matches.append((p.name, p.mod_options[nexus_url], p))
+                        elif alt_nexus_url in p.mod_options:
+                            matches.append((p.name, p.mod_options[alt_nexus_url], p))
+
+                if matches:
+                    display_matches = []
+                    for m in matches:
+                        display_name = m[0]
+                        if display_name.endswith(".me3"):
+                            display_name = display_name[:-4]
+                        display_matches.append((display_name, m[1], m[2]))
+
+                    items = [tr("nexus_no_recommended_options")] + [
+                        m[0] for m in display_matches
+                    ]
+
+                    dialog = RecommendedOptionsDialog(
+                        tr("nexus_recommended_options_title"),
+                        tr("nexus_recommended_options_desc"),
+                        items,
+                        self,
+                    )
+                    if dialog.exec() == QDialog.DialogCode.Accepted:  # Accepted
+                        current_row = dialog.list_widget.currentRow()
+                        if current_row > 0:
+                            # Subtract 1 because the first item is the default option
+                            selected_match = display_matches[current_row - 1]
+                            self.on_community_install_requested(selected_match[2])
+                            return
+                    else:
+                        # User cancelled the dialog, abort download
+                        return
+            except Exception as e:
+                log.warning(
+                    "Failed to check community profiles for recommended options: %s", e
+                )
 
         # If file_id not explicit, check from sidebar
         target_file_id = file_id
@@ -1037,6 +1129,7 @@ class GamePage(QWidget):
                     )
 
                     self._update_status(tr("nexus_install_success_status"))
+
                     if sidebar:
                         # Refresh sidebar details with updated file info
                         # Also refresh the file list so the dropdown selects the new file
@@ -1194,6 +1287,7 @@ class GamePage(QWidget):
                     )
                     log.debug("Metadata saved successfully")
                     self._update_status(tr("nexus_install_success_status"))
+
                     if sidebar:
                         # Refresh sidebar details with updated file info
                         # Also refresh the file list so the dropdown selects the new file

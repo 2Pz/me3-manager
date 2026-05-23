@@ -1353,6 +1353,7 @@ class ModInstaller:
                             file_name=file_name,
                             install_name=None,
                             ignore_sidebar=True,
+                            skip_options_prompt=True,
                         )
                     else:
                         installed = self.game_page.download_selected_nexus_mod(
@@ -1365,6 +1366,7 @@ class ModInstaller:
                             install_name=dep["settings"].get("install_name")
                             or file_name,  # Destination folder name
                             ignore_sidebar=True,
+                            skip_options_prompt=True,
                         )
 
                     if installed:
