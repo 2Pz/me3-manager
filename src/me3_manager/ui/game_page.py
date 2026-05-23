@@ -623,19 +623,20 @@ class GamePage(QWidget):
 
                 # Determine which file should be selected by default
                 selected_file_id = None
+                latest = None
 
-                # 1. Prefer currently installed/tracked file
-                cached_meta = self.nexus_metadata.get_cached_for_mod(
-                    mod.game_domain, mod.mod_id
-                )
-                if cached_meta and cached_meta.file_id:
-                    selected_file_id = int(cached_meta.file_id)
-
-                # 2. If not installed, pick latest main file
-                if selected_file_id is None and files:
+                # 1. Always prefer the latest main file first so the UI shows the newest version by default
+                if files:
                     latest = self.nexus_service.pick_latest_main_file(files)
                     if latest:
                         selected_file_id = latest.file_id
+
+                # 2. Fallback to currently installed/tracked file if no latest main file could be determined
+                cached_meta = self.nexus_metadata.get_cached_for_mod(
+                    mod.game_domain, mod.mod_id
+                )
+                if selected_file_id is None and cached_meta and cached_meta.file_id:
+                    selected_file_id = int(cached_meta.file_id)
 
                 # Populate the sidebar dropdown
                 sidebar.populate_files(files, selected_file_id)
@@ -678,6 +679,13 @@ class GamePage(QWidget):
 
             if target_file:
                 sidebar.set_details(mod, target_file)
+
+                is_installed = bool(
+                    cached_meta
+                    and cached_meta.local_mod_path
+                    and not str(cached_meta.local_mod_path).startswith("__cache__:")
+                )
+
                 if cached_meta and cached_meta.file_id == selected_file_id:
                     sidebar.set_status("")
                     sidebar.set_cached_text(self._fmt_cached_age(cached_meta.cached_at))
@@ -694,6 +702,13 @@ class GamePage(QWidget):
                 else:
                     sidebar.set_status(tr("nexus_details_fetched_status"))
                     sidebar.set_cached_text(tr("nexus_cached_just_now"))
+
+                    if (
+                        is_installed
+                        and cached_meta.file_id
+                        and int(cached_meta.file_id) != target_file.file_id
+                    ):
+                        sidebar.set_update_mode(True)
 
             # Save cache if we fetched fresh data
             if target_file and self.nexus_service.has_api_key:
