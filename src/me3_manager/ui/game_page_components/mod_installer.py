@@ -946,7 +946,9 @@ class ModInstaller:
 
             # Collect packages
             for i, pkg in enumerate(profile_data.get("packages", [])):
-                pkg_abs = self._resolve_package_source(pkg, profile_base)
+                pkg_abs = self._resolve_package_source(
+                    pkg, profile_base, jail_dir=import_folder
+                )
                 if pkg_abs and pkg_abs.is_dir():
                     dest_name = (
                         mod_name_override
@@ -968,7 +970,9 @@ class ModInstaller:
             # so we can redirect natives to point inside the installed package.
             package_source_map = {}
             for i, pkg in enumerate(profile_data.get("packages", [])):
-                pkg_abs = self._resolve_package_source(pkg, profile_base)
+                pkg_abs = self._resolve_package_source(
+                    pkg, profile_base, jail_dir=import_folder
+                )
 
                 if pkg_abs and pkg_abs.is_dir():
                     # Determine the destination name (same logic as above loop)
@@ -986,7 +990,11 @@ class ModInstaller:
                     continue
 
                 self._process_import_native_entry(
-                    native, profile_base, package_source_map, items_to_install
+                    native,
+                    profile_base,
+                    package_source_map,
+                    items_to_install,
+                    jail_dir=import_folder,
                 )
 
             if (
@@ -1435,6 +1443,7 @@ class ModInstaller:
         profile_base: Path,
         package_source_map: dict[Path, str],
         items_to_install: list[tuple[Path, Path]],
+        jail_dir: Path | None = None,
     ):
         """Helper to process a single native entry during profile import."""
         has_path = bool(native.get("path"))
@@ -1444,7 +1453,7 @@ class ModInstaller:
         nat_abs = None
         if has_path:
             nat_rel = Path(native["path"])
-            nat_abs = self._safe_join(profile_base, nat_rel)
+            nat_abs = self._safe_join(profile_base, nat_rel, jail_dir=jail_dir)
 
         # 1. Process DLL installation if we have a valid source path
         if nat_abs and nat_abs.is_file() and nat_abs.suffix.lower() == ".dll":
@@ -1466,7 +1475,7 @@ class ModInstaller:
                 continue
 
             cfg_rel = Path(cfg_path_str)
-            cfg_abs = self._safe_join(profile_base, cfg_rel)
+            cfg_abs = self._safe_join(profile_base, cfg_rel, jail_dir=jail_dir)
 
             if cfg_abs and cfg_abs.is_file():
                 if not self._is_in_package(cfg_abs, package_source_map):
@@ -1616,7 +1625,9 @@ class ModInstaller:
         """Get the mods directory for the current game."""
         return self.config_manager.get_mods_dir(self.game_page.game_name)
 
-    def _resolve_package_source(self, pkg: dict, profile_base: Path) -> Path | None:
+    def _resolve_package_source(
+        self, pkg: dict, profile_base: Path, jail_dir: Path | None = None
+    ) -> Path | None:
         """Resolve absolute source path for a package, handling mod_folder."""
         if not isinstance(pkg, dict) or not (pkg.get("source") or pkg.get("path")):
             return None
@@ -1626,15 +1637,21 @@ class ModInstaller:
         if pkg.get("mod_folder"):
             pkg_rel_path = str(Path(pkg_rel_path) / pkg.get("mod_folder"))
 
-        return self._safe_join(profile_base, Path(pkg_rel_path))
+        return self._safe_join(profile_base, Path(pkg_rel_path), jail_dir=jail_dir)
 
-    def _safe_join(self, base: Path, child: Path) -> Path | None:
-        """Safely join paths, preventing traversal attacks."""
+    def _safe_join(
+        self, base: Path, child: Path, jail_dir: Path | None = None
+    ) -> Path | None:
+        """Safely join paths, preventing traversal attacks while allowing expected relative navigation."""
         try:
             if child.is_absolute():
                 return None
             candidate = (base / child).resolve()
-            candidate.relative_to(base.resolve())
+
+            # Ensure candidate does not escape the restriction jail
+            restriction = jail_dir.resolve() if jail_dir else base.resolve()
+            candidate.relative_to(restriction)
+
             return candidate
         except Exception:
             return None
