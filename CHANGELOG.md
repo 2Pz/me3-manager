@@ -3,6 +3,27 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.7
+**Released:** June 24, 2026
+
+
+### 🔧 Bug Fixes
+
+- Support relative sibling paths in .me3 profiles `[mod_installer]` ([5982398](https://github.com/2Pz/me3-manager/commit/598239833fdade800d3c3b97a6821327c5f8c271))
+
+- Prevent config editor from defaulting to non-existent config.ini `[ui]` ([ad5978e](https://github.com/2Pz/me3-manager/commit/ad5978e2ecdd1c8cfe75d4298a8f3b92c6336557))
+
+
+
+### 🧹 Maintenance
+
+- Add Chinese translation entry to 1.4.7 changelog ([6222acb](https://github.com/2Pz/me3-manager/commit/6222acbbaa8e022110ff617325f1046b9e24ae5c))
+
+- Bump project version to 1.4.7 ([d67ed1b](https://github.com/2Pz/me3-manager/commit/d67ed1b7e15cc244435338dc68c6151007cdeed9))
+
+
+
+---
 ## 📦 Release 1.4.6
 **Released:** May 23, 2026
 
@@ -883,6 +904,7 @@
 
 
 ---
+[1.4.7]: https://github.com/2Pz/me3-manager/compare/1.4.6..1.4.7
 [1.4.6]: https://github.com/2Pz/me3-manager/compare/1.4.5..1.4.6
 [1.4.5]: https://github.com/2Pz/me3-manager/compare/1.4.4..1.4.5
 [1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
