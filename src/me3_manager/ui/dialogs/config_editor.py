@@ -87,12 +87,14 @@ class ConfigEditorDialog(QDialog):
 
     def __init__(self, mod_name: str, config_paths: list[Path], parent=None):
         super().__init__(parent)
-        self.all_paths = config_paths if config_paths else []
-        # Fallback if empty list passed (shouldn't happen with PathManager logic)
-        if not self.all_paths:
-            self.all_paths = [Path("config.ini")]
+        self.all_paths = [p for p in (config_paths or []) if p and p.exists()]
 
-        self.current_path = self.all_paths[0]
+        # Save the mod directory as a fallback for the browse button
+        self._default_browse_dir = Path.cwd()
+        if config_paths and config_paths[0]:
+            self._default_browse_dir = config_paths[0].parent
+
+        self.current_path = self.all_paths[0] if self.all_paths else None
 
         self.setWindowTitle(tr("edit_config_title", mod_name=mod_name))
         self.setMinimumSize(800, 560)
@@ -157,7 +159,7 @@ class ConfigEditorDialog(QDialog):
 
         layout.addLayout(button_layout)
 
-        if self.current_path.is_file():
+        if self.current_path and self.current_path.is_file():
             self.load_config(self.current_path)
         else:
             self.save_btn.setEnabled(False)
@@ -231,7 +233,9 @@ class ConfigEditorDialog(QDialog):
             self.reject()
 
     def browse_for_config(self):
-        start_dir = str(self.current_path.parent if self.current_path else Path.cwd())
+        start_dir = str(
+            self.current_path.parent if self.current_path else self._default_browse_dir
+        )
         file_name, _ = QFileDialog.getOpenFileName(
             self, tr("select_config_file"), start_dir, tr("ini_files_filter")
         )
