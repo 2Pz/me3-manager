@@ -1,8 +1,8 @@
 #!/bin/bash
 # Create GitHub release with artifacts
 #
-# Usage: ./create_release.sh <version> <changelog_content>
-# Example: ./create_release.sh v1.3.0 "$(cat changelog.txt)"
+# Usage: ./create_release.sh <version> <changelog_content> [main_sha]
+# Example: ./create_release.sh v1.3.0 "$(cat changelog.txt)" "abc123"
 #
 # Environment variables:
 #   GITHUB_TOKEN or GH_TOKEN: GitHub token for authentication
@@ -18,18 +18,27 @@ set -euo pipefail
 
 VERSION="${1:-}"
 CHANGELOG_CONTENT="${2:-}"
+MAIN_SHA="${3:-}"
 
 if [ -z "$VERSION" ]; then
     echo "Error: Version argument required" >&2
-    echo "Usage: $0 <version> <changelog_content>" >&2
+    echo "Usage: $0 <version> <changelog_content> [main_sha]" >&2
     exit 1
 fi
 
 # Strip 'v' prefix for file naming
 VERSION_NO_V="${VERSION#v}"
 
-# Get commit SHA for tagging
-COMMIT=$(git rev-parse --verify HEAD)
+# Use the main branch SHA for tagging if provided, otherwise fall back to HEAD.
+# This is critical: tags must point to commits on main (not the release branch)
+# so that git-cliff can correctly determine unreleased changes for future releases.
+if [ -n "$MAIN_SHA" ]; then
+    COMMIT="$MAIN_SHA"
+    echo "📌 Tagging main branch commit: $COMMIT"
+else
+    COMMIT=$(git rev-parse --verify HEAD)
+    echo "⚠️  No main SHA provided, falling back to HEAD: $COMMIT"
+fi
 
 # Delete existing release if it exists (draft or otherwise)
 if gh release view "$VERSION" >/dev/null 2>&1; then
