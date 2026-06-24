@@ -130,6 +130,31 @@ jobs:
         with:
           tool: git-cliff
 
+      - name: Fix misplaced release tags
+        run: |
+          # Ensure all release tags are ancestors of main (HEAD).
+          # Tags created on release branches (not main) break git-cliff's
+          # changelog generation because it can't find them in main's history.
+          # This step detects and moves such tags to the merge commit on main.
+          echo "🔍 Checking release tags for correct placement on main..."
+          for tag in $(git tag --list '[0-9]*.[0-9]*.[0-9]*' --sort=-creatordate | head -5); do
+            if ! git merge-base --is-ancestor "$tag" HEAD 2>/dev/null; then
+              echo "⚠️  Tag $tag is NOT an ancestor of main"
+              # Find the merge commit on main that brought this tag's changes in
+              tag_commit=$(git rev-parse "$tag")
+              merge_commit=$(git log --oneline --all --ancestry-path "$tag_commit"..HEAD --merges --reverse 2>/dev/null | head -1 | awk '{print $1}')
+              if [ -n "$merge_commit" ] && git merge-base --is-ancestor "$merge_commit" HEAD 2>/dev/null; then
+                echo "✅ Moving tag $tag to merge commit $merge_commit on main"
+                git tag -f "$tag" "$merge_commit"
+                git push origin -f "refs/tags/$tag"
+              else
+                echo "⚠️  Could not find merge commit for tag $tag, skipping"
+              fi
+            else
+              echo "✅ Tag $tag is correctly placed on main"
+            fi
+          done
+
       - name: Bump version and update changelog
         run: |
           # Bump version in pyproject.toml
@@ -319,6 +344,8 @@ jobs:
           threshold: "1s"
 
       - name: Create draft release with artifacts
+        env:
+          MAIN_SHA: ${{ github.sha }}
         run: |
           chmod +x scripts/create_release.sh
-          ./scripts/create_release.sh "$NEXT_VERSION" "${{ steps.changelog.outputs.content }}"
+          ./scripts/create_release.sh "$NEXT_VERSION" "${{ steps.changelog.outputs.content }}" "$MAIN_SHA"
