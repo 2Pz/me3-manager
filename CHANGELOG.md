@@ -3,8 +3,8 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
-## 📦 Release 1.4.6
-**Released:** May 23, 2026
+## 📦 Release 1.4.7
+**Released:** June 24, 2026
 
 
 ### ✨ New Features
@@ -883,7 +883,7 @@
 
 
 ---
-[1.4.6]: https://github.com/2Pz/me3-manager/compare/1.4.5..1.4.6
+[1.4.7]: https://github.com/2Pz/me3-manager/compare/1.4.5..1.4.7
 [1.4.5]: https://github.com/2Pz/me3-manager/compare/1.4.4..1.4.5
 [1.4.4]: https://github.com/2Pz/me3-manager/compare/1.4.3..1.4.4
 [1.4.3]: https://github.com/2Pz/me3-manager/compare/1.4.2..1.4.3
