@@ -118,11 +118,6 @@ commit_parsers = [
   # Documentation
   { message = "^docs", group = "<!-- 3 -->📖 Documentation" },
   
-  # Localization & Translation
-  { message = "^i18n", group = "<!-- 4 -->🌐 Translations" },
-  { message = ".*translation.*", group = "<!-- 4 -->🌐 Translations" },
-  { message = ".*localization.*", group = "<!-- 4 -->🌐 Translations" },
-  
   # Performance & Quality
   { message = "^perf", group = "<!-- 4 -->⚡ Performance Improvements" },
   { message = "^refactor", group = "<!-- 5 -->♻️ Code Refactoring" },
