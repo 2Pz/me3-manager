@@ -7,6 +7,11 @@
 **Released:** June 24, 2026
 
 
+### 🌐 Translations
+
+- Improve Chinese translation text ([#243](https://github.com/2Pz/me3-manager/pull/243)) ([86668e5](https://github.com/2Pz/me3-manager/commit/86668e5))
+
+
 ---
 ## 📦 Release 1.4.6
 **Released:** May 23, 2026
