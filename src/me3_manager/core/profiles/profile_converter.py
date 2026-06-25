@@ -73,7 +73,10 @@ class ProfileConverter:
                 result[key] = data.get(key)
 
         # Natives
-        for nat in data.get("natives", []) or []:
+        natives_list = data.get("natives", []) or []
+        if "native" in data:
+            natives_list.extend(data.get("native", []) or [])
+        for nat in natives_list:
             # Check for path or nexus link
             nexus_link = nat.get("nexus_link")
 
@@ -120,7 +123,10 @@ class ProfileConverter:
                 result["natives"].append({"path": nat})
 
         # Packages
-        for pkg in data.get("packages", []) or []:
+        packages_list = data.get("packages", []) or []
+        if "package" in data:
+            packages_list.extend(data.get("package", []) or [])
+        for pkg in packages_list:
             if isinstance(pkg, dict):
                 pkg_id = pkg.get("id")
                 # Prefer path over legacy source
