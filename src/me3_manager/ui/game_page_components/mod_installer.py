@@ -1009,7 +1009,9 @@ class ModInstaller:
 
             # Stage and install
             if items_to_install:
-                with TemporaryDirectory() as tmp_dir:
+                temp_root = self._get_mods_dir().parent / ".me3_temp_extraction"
+                temp_root.mkdir(parents=True, exist_ok=True)
+                with TemporaryDirectory(dir=str(temp_root)) as tmp_dir:
                     staged_items = []
                     for src, dest_name in items_to_install:
                         staged_path = Path(tmp_dir) / dest_name
@@ -1451,8 +1453,9 @@ class ModInstaller:
             return
 
         nat_abs = None
+        nat_rel = None
         if has_path:
-            nat_rel = Path(native["path"])
+            nat_rel = Path(str(native["path"]).replace("\\", "/"))
             nat_abs = self._safe_join(profile_base, nat_rel, jail_dir=jail_dir)
 
         # 1. Process DLL installation if we have a valid source path
@@ -1462,7 +1465,10 @@ class ModInstaller:
             )
 
             if not found_in_package:
-                items_to_install.append((nat_abs, Path(native["path"])))
+                if ".." in nat_rel.parts:
+                    items_to_install.append((nat_abs, Path(nat_abs.name)))
+                else:
+                    items_to_install.append((nat_abs, nat_rel))
 
         # 2. Handle associated config
         # Explicit config field
@@ -1474,20 +1480,26 @@ class ModInstaller:
             if not cfg_path_str:
                 continue
 
-            cfg_rel = Path(cfg_path_str)
+            cfg_rel = Path(str(cfg_path_str).replace("\\", "/"))
             cfg_abs = self._safe_join(profile_base, cfg_rel, jail_dir=jail_dir)
 
             if cfg_abs and cfg_abs.is_file():
                 if not self._is_in_package(cfg_abs, package_source_map):
-                    items_to_install.append((cfg_abs, cfg_rel))
+                    if ".." in cfg_rel.parts:
+                        items_to_install.append((cfg_abs, Path(cfg_abs.name)))
+                    else:
+                        items_to_install.append((cfg_abs, cfg_rel))
 
         # Implicit config dir (only if we have a native path and no explicit configs)
         if nat_abs and not configs:
             cfg_dir = nat_abs.parent / nat_abs.stem
             if cfg_dir.is_dir():
                 if not self._is_in_package(cfg_dir, package_source_map):
-                    rel_parent = Path(native["path"]).parent
-                    items_to_install.append((cfg_dir, rel_parent / cfg_dir.name))
+                    rel_parent = nat_rel.parent
+                    if ".." in rel_parent.parts:
+                        items_to_install.append((cfg_dir, Path(cfg_dir.name)))
+                    else:
+                        items_to_install.append((cfg_dir, rel_parent / cfg_dir.name))
 
     def _is_in_package(
         self,
