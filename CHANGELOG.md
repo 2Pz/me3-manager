@@ -3,6 +3,23 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.8
+**Released:** June 25, 2026
+
+
+### 🔧 Bug Fixes
+
+- Prevent native path escapes, support singular toml keys, and use local temp dir ([630e23c](https://github.com/2Pz/me3-manager/commit/630e23cc767f50382d9a1bcebbcd0914aba40ad6))
+
+
+
+### 🧹 Maintenance
+
+- Bump project version to 1.4.8 ([fce1458](https://github.com/2Pz/me3-manager/commit/fce1458e087dbfd39f9da9569a0cbca31e021296))
+
+
+
+---
 ## 📦 Release 1.4.7
 **Released:** June 24, 2026
 
@@ -904,6 +921,7 @@
 
 
 ---
+[1.4.8]: https://github.com/2Pz/me3-manager/compare/1.4.7..1.4.8
 [1.4.7]: https://github.com/2Pz/me3-manager/compare/1.4.6..1.4.7
 [1.4.6]: https://github.com/2Pz/me3-manager/compare/1.4.5..1.4.6
 [1.4.5]: https://github.com/2Pz/me3-manager/compare/1.4.4..1.4.5
