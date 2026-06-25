@@ -41,10 +41,9 @@ build_exe_options = {
     # Force exclude packages if needed
     "excludes": [],
     "include_files": include_files,
-    # Compress all packages into a zip file if possible
-    "zip_include_packages": ["*"],
-    # Exclude no packages from the zip file
-    "zip_exclude_packages": [],
+    # Do not compress packages into a zip file to avoid nested archive quarantine on Nexus Mods
+    "zip_include_packages": [],
+    "zip_exclude_packages": ["*"],
     # Output dir for built executables and dependencies. We use an extra dir
     # because the Windows build is not a single file; this makes it easier to
     # package the Me3_Manager_VERSION dir inside a zip in CI.
@@ -80,3 +79,21 @@ setup(
     options={"build_exe": build_exe_options},
     executables=executables,
 )
+
+# Post-build step to rename library.zip to library.pak
+# This prevents Nexus Mods from flagging the distribution as containing a "nested archive"
+if sys.platform == "win32" and len(sys.argv) > 1 and sys.argv[1] == "build":
+    build_dir = Path(build_exe_options["build_exe"])
+    lib_dir = build_dir / "lib"
+    library_zip = lib_dir / "library.zip"
+    library_dat = lib_dir / "library.dat"
+    library_pak = lib_dir / "library.pak"
+
+    if library_zip.exists():
+        sys.stdout.write(
+            f"Renaming {library_zip.name} to {library_pak.name} to avoid Nexus Mods quarantine...\n"
+        )
+        library_zip.rename(library_pak)
+        # cx_Freeze base executables read the actual zip name from library.dat
+        library_dat.write_bytes(b"library.pak")
+        sys.stdout.write("Successfully renamed library.zip.\n")
