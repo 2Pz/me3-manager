@@ -33,14 +33,20 @@ include_files = [
     ("resources/", "resources/"),
 ]
 
-# Explicitly pull OpenSSL DLLs into the root folder to prevent PATH conflicts 
+# Explicitly pull OpenSSL DLLs into the root folder to prevent PATH conflicts
 # when zip_exclude_packages is used (which otherwise buries them in lib/)
 try:
     import _ssl
+
     ssl_dir = Path(_ssl.__file__).parent
-    
+
     # Try finding the DLLs (Python 3.10+ uses -3.dll, older uses -1_1.dll)
-    for dll_name in ["libcrypto-3.dll", "libssl-3.dll", "libcrypto-1_1.dll", "libssl-1_1.dll"]:
+    for dll_name in [
+        "libcrypto-3.dll",
+        "libssl-3.dll",
+        "libcrypto-1_1.dll",
+        "libssl-1_1.dll",
+    ]:
         dll_path = ssl_dir / dll_name
         if dll_path.exists():
             include_files.append((str(dll_path), dll_name))
