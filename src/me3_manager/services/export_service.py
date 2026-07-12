@@ -132,6 +132,29 @@ class ExportService:
         return data
 
     @staticmethod
+    def _is_external_absolute_path(path_str: str, mods_dir: Path) -> bool:
+        """Check if an absolute path is outside the mods directory."""
+        p = Path(path_str)
+        if p.is_absolute():
+            try:
+                p.resolve().relative_to(mods_dir.resolve())
+                return False
+            except Exception:
+                return True
+        return False
+
+    @staticmethod
+    def _annotate_line_if_needed(
+        lines: list[str], i: int, ln: str, inline_note: str
+    ) -> bool:
+        if inline_note.strip() not in ln:
+            lines[i] = ExportService._append_note_preserving_line_ending(
+                ln, inline_note
+            )
+            return True
+        return False
+
+    @staticmethod
     def _append_note_preserving_line_ending(line: str, note: str) -> str:
         """Append a note to a line while preserving its original line ending."""
         if line.endswith("\r\n"):
@@ -183,13 +206,9 @@ class ExportService:
                     continue
 
                 # Check for external paths (absolute and outside mods_dir)
-                p = Path(raw_path)
-                if p.is_absolute():
-                    try:
-                        p.resolve().relative_to(mods_dir.resolve())
-                    except Exception:
-                        external_packages.append((f"mods/{p.name}", str(p)))
-                        continue
+                if ExportService._is_external_absolute_path(raw_path, mods_dir):
+                    external_packages.append((f"mods/{Path(raw_path).name}", raw_path))
+                    continue
 
                 # Resolved relative path inside mods directory
                 rel = ExportService._rel_to_mods(raw_path, mods_dir, mods_dir_name)
@@ -210,13 +229,9 @@ class ExportService:
                 if not raw_path:
                     continue
 
-                p = Path(raw_path)
-                if p.is_absolute():
-                    try:
-                        p.resolve().relative_to(mods_dir.resolve())
-                    except Exception:
-                        external_natives.append((f"mods/{p.name}", str(p)))
-                        continue
+                if ExportService._is_external_absolute_path(raw_path, mods_dir):
+                    external_natives.append((f"mods/{Path(raw_path).name}", raw_path))
+                    continue
 
                 rel = ExportService._rel_to_mods(raw_path, mods_dir, mods_dir_name)
                 src_file = (mods_dir / rel).resolve()
@@ -330,12 +345,9 @@ class ExportService:
                                         f'.path="{miss}"' in comp
                                     ):
                                         # Append inline note once
-                                        if inline_note.strip() not in stripped:
-                                            lines[i] = (
-                                                ExportService._append_note_preserving_line_ending(
-                                                    ln, inline_note
-                                                )
-                                            )
+                                        if ExportService._annotate_line_if_needed(
+                                            lines, i, ln, inline_note
+                                        ):
                                             modified = True
                                         missing_paths.remove(miss)
                                         break
@@ -350,12 +362,9 @@ class ExportService:
                                         stripped.startswith("path = ")
                                         and f'"{miss}"' in stripped
                                     ):
-                                        if inline_note.strip() not in stripped:
-                                            lines[i] = (
-                                                ExportService._append_note_preserving_line_ending(
-                                                    ln, inline_note
-                                                )
-                                            )
+                                        if ExportService._annotate_line_if_needed(
+                                            lines, i, ln, inline_note
+                                        ):
                                             modified = True
                                         missing_paths.remove(miss)
                                         break

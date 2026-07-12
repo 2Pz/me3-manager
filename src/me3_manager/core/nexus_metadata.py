@@ -321,6 +321,20 @@ class NexusMetadataManager:
         except Exception as e:
             log.warning("Failed to save Nexus metadata %s: %s", path, e)
 
+    def _update_tracked_mod(self, local_mod_path: str, callback) -> bool:
+        """Helper to load, update, and save a tracked mod."""
+        try:
+            self.ensure_dirs()
+            items = self.load_game("unknown")
+            tracked = items.get(local_mod_path)
+            if not tracked:
+                return False
+            callback(tracked)
+            self.save_game(tracked.game_domain or "unknown", items)
+            return True
+        except Exception:
+            return False
+
     def set_update_check_result(
         self,
         *,
@@ -334,13 +348,8 @@ class NexusMetadataManager:
         Persist a cached update-check result for an installed mod.
         Returns True if the mod was found and updated.
         """
-        try:
-            self.ensure_dirs()
-            items = self.load_game("unknown")
-            tracked = items.get(local_mod_path)
-            if not tracked:
-                return False
 
+        def update_cb(tracked):
             tracked.update_checked_at = TrackedNexusMod.now_iso()
             tracked.update_error = error
             tracked.update_available = bool(update_available)
@@ -354,26 +363,16 @@ class NexusMetadataManager:
                 tracked.update_latest_file_id = None
                 tracked.update_latest_version = None
 
-            # Save to this game's file (domain is stored inside record; file selection ignores it)
-            self.save_game(tracked.game_domain or "unknown", items)
-            return True
-        except Exception:
-            return False
+        return self._update_tracked_mod(local_mod_path, update_cb)
 
     def set_update_check_error(self, *, local_mod_path: str, error: str) -> bool:
         """Persist an update-check error without overwriting existing availability state."""
-        try:
-            self.ensure_dirs()
-            items = self.load_game("unknown")
-            tracked = items.get(local_mod_path)
-            if not tracked:
-                return False
+
+        def update_cb(tracked):
             tracked.update_checked_at = TrackedNexusMod.now_iso()
             tracked.update_error = error
-            self.save_game(tracked.game_domain or "unknown", items)
-            return True
-        except Exception:
-            return False
+
+        return self._update_tracked_mod(local_mod_path, update_cb)
 
     def get_for_local_mod(
         self, game_domain: str, local_mod_path: str

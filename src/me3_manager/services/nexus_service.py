@@ -247,26 +247,14 @@ class NexusService:
         if resp.status_code == 401:
             raise NexusError("Unauthorized: invalid or missing Nexus API key.")
         if resp.status_code == 403:
-            msg = None
-            try:
-                j = resp.json()
-                if isinstance(j, dict):
-                    msg = j.get("message") or j.get("error")
-            except Exception:
-                msg = None
+            msg = NexusService._extract_error_message(resp)
             raise NexusError(msg or "Forbidden by Nexus API (HTTP 403).")
 
         try:
             resp.raise_for_status()
         except requests.HTTPError as e:
             # Provide a compact, user-friendly error message.
-            msg = None
-            try:
-                j = resp.json()
-                if isinstance(j, dict):
-                    msg = j.get("message") or j.get("error")
-            except Exception:
-                msg = None
+            msg = NexusService._extract_error_message(resp)
             raise NexusError(
                 msg or f"HTTP {resp.status_code}: {resp.text[:200]}"
             ) from e
@@ -276,6 +264,16 @@ class NexusService:
             return j if isinstance(j, dict) else {"data": j}
         except Exception as e:
             raise NexusError("Invalid JSON response from Nexus API.") from e
+
+    @staticmethod
+    def _extract_error_message(resp: requests.Response) -> str | None:
+        try:
+            j = resp.json()
+            if isinstance(j, dict):
+                return j.get("message") or j.get("error")
+        except Exception:
+            pass
+        return None
 
     # --- Auth ---
 

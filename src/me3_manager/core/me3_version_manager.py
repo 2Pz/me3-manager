@@ -24,6 +24,36 @@ if sys.platform == "win32":
 log = logging.getLogger(__name__)
 
 
+def _download_file(
+    url: str,
+    save_path: str,
+    progress_callback: Callable[[int], None],
+    is_cancelled_callback: Callable[[], bool],
+    cancel_action: Callable[[], None],
+    progress_scale: float = 1.0,
+) -> bool:
+    """Helper to download a file with progress updates and cancellation check."""
+    response = requests.get(url, stream=True, timeout=15)
+    response.raise_for_status()
+    total_size = int(response.headers.get("content-length", 0))
+    bytes_downloaded = 0
+
+    with open(save_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if is_cancelled_callback():
+                cancel_action()
+                return False
+            if chunk:
+                bytes_downloaded += len(chunk)
+                f.write(chunk)
+                if total_size > 0:
+                    progress = int(
+                        (bytes_downloaded / total_size) * 100 * progress_scale
+                    )
+                    progress_callback(progress)
+    return True
+
+
 class ME3Downloader(QObject):
     """Handles downloading ME3 installer files in a separate thread (for Windows)."""
 
@@ -38,24 +68,23 @@ class ME3Downloader(QObject):
 
     def run(self):
         try:
-            response = requests.get(self.url, stream=True, timeout=15)
-            response.raise_for_status()
-            total_size = int(response.headers.get("content-length", 0))
-            bytes_downloaded = 0
 
-            with open(self.save_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if self._is_cancelled:
-                        self.download_finished.emit(
-                            Status.CANCELLED, tr("download_cancelled"), ""
-                        )
-                        return
-                    if chunk:
-                        bytes_downloaded += len(chunk)
-                        f.write(chunk)
-                        if total_size > 0:
-                            progress = int((bytes_downloaded / total_size) * 100)
-                            self.download_progress.emit(progress)
+            def cancel_action():
+                self.download_finished.emit(
+                    Status.CANCELLED, tr("download_cancelled"), ""
+                )
+
+            success = _download_file(
+                self.url,
+                self.save_path,
+                self.download_progress.emit,
+                lambda: self._is_cancelled,
+                cancel_action,
+                1.0,
+            )
+
+            if not success:
+                return
 
             self.download_finished.emit(
                 Status.SUCCESS, tr("download_complete"), self.save_path
@@ -212,6 +241,18 @@ class ME3VersionManager(QObject):
         self.monitoring_installation = False
         self.last_known_version = None
 
+    def _create_progress_dialog(
+        self, title: str, text: str, cancellable: bool = False, maximum: int = 0
+    ) -> QProgressDialog:
+        """Helper to create a standard progress dialog."""
+        cancel_text = tr("CANCEL") if cancellable else None
+        dialog = QProgressDialog(text, cancel_text, 0, maximum, self.parent)
+        dialog.setWindowTitle(title)
+        dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        if not cancellable:
+            dialog.setCancelButton(None)
+        return dialog
+
     def _prepare_command(self, cmd: list) -> list:
         """Enhanced command preparation with better environment handling."""
         return PlatformUtils.prepare_command(cmd)
@@ -317,21 +358,14 @@ class ME3VersionManager(QObject):
             self.custom_install_windows_me3()
             return
 
-        self.progress_dialog = QProgressDialog(
-            tr("me3_update_process"), None, 0, 0, self.parent
+        self.progress_dialog = self._create_progress_dialog(
+            title=tr("me3_update_title"),
+            text=tr("me3_update_process"),
+            cancellable=False,
+            maximum=0,
         )
-        self.progress_dialog.setWindowTitle(tr("me3_update_title"))
-        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        self.progress_dialog.setCancelButton(None)
 
-        self.thread = QThread()
-        self.worker = ME3Updater(self._prepare_command)
-        self.worker.moveToThread(self.thread)
-        self.worker.update_finished.connect(self._on_update_finished)
-        self.thread.started.connect(self.worker.run)
-
-        self.thread.start()
-        self.progress_dialog.show()
+        self._start_worker(ME3Updater(self._prepare_command), self._on_update_finished)
 
     def _on_update_finished(self, status_code: int, return_code: int, output: str):
         """Handle completion of ME3 update process."""
@@ -397,22 +431,19 @@ class ME3VersionManager(QObject):
         if not save_path:
             return
 
-        self.progress_dialog = QProgressDialog(
-            tr("downloading_me3_installer"), tr("CANCEL"), 0, 100, self.parent
+        self.progress_dialog = self._create_progress_dialog(
+            title=tr("DOWNLOADING"),
+            text=tr("downloading_me3_installer"),
+            cancellable=True,
+            maximum=100,
         )
-        self.progress_dialog.setWindowTitle(tr("DOWNLOADING"))
-        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.canceled.connect(self._cancel_download)
 
-        self.thread = QThread()
-        self.worker = ME3Downloader(download_url, save_path)
-        self.worker.moveToThread(self.thread)
-        self.worker.download_progress.connect(self.progress_dialog.setValue)
-        self.worker.download_finished.connect(self._on_download_finished)
-        self.thread.started.connect(self.worker.run)
-
-        self.thread.start()
-        self.progress_dialog.show()
+        self._start_worker(
+            ME3Downloader(download_url, save_path),
+            self._on_download_finished,
+            self.progress_dialog.setValue,
+        )
 
     def _cancel_download(self):
         """Cancel the current download."""
@@ -521,22 +552,19 @@ class ME3VersionManager(QObject):
         temp_dir = tempfile.gettempdir()
         temp_path = os.path.join(temp_dir, f"me3-windows-amd64-{version}.zip")
 
-        self.progress_dialog = QProgressDialog(
-            tr("installing_me3_custom_distribution"), tr("CANCEL"), 0, 100, self.parent
+        self.progress_dialog = self._create_progress_dialog(
+            title=tr("installing_me3"),
+            text=tr("installing_me3_custom_distribution"),
+            cancellable=True,
+            maximum=100,
         )
-        self.progress_dialog.setWindowTitle(tr("installing_me3"))
-        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.canceled.connect(self._cancel_custom_install)
 
-        self.thread = QThread()
-        self.worker = ME3CustomInstaller(zip_url, temp_path, self.path_manager)
-        self.worker.moveToThread(self.thread)
-        self.worker.download_progress.connect(self.progress_dialog.setValue)
-        self.worker.install_finished.connect(self._on_custom_install_finished)
-        self.thread.started.connect(self.worker.run)
-
-        self.thread.start()
-        self.progress_dialog.show()
+        self._start_worker(
+            ME3CustomInstaller(zip_url, temp_path, self.path_manager),
+            self._on_custom_install_finished,
+            self.progress_dialog.setValue,
+        )
 
     def _cancel_custom_install(self):
         """Cancel the current custom installation."""
@@ -621,21 +649,17 @@ class ME3VersionManager(QObject):
         if latest_version:
             env_vars["VERSION"] = latest_version
 
-        self.progress_dialog = QProgressDialog(
-            tr("running_me3_installer"), None, 0, 0, self.parent
+        self.progress_dialog = self._create_progress_dialog(
+            title=tr("installing_me3"),
+            text=tr("running_me3_installer"),
+            cancellable=False,
+            maximum=0,
         )
-        self.progress_dialog.setWindowTitle(tr("installing_me3"))
-        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
-        self.progress_dialog.setCancelButton(None)
 
-        self.thread = QThread()
-        self.worker = ME3LinuxInstaller(installer_url, self._prepare_command, env_vars)
-        self.worker.moveToThread(self.thread)
-        self.worker.install_finished.connect(self._on_linux_install_finished)
-        self.thread.started.connect(self.worker.run)
-
-        self.thread.start()
-        self.progress_dialog.show()
+        self._start_worker(
+            ME3LinuxInstaller(installer_url, self._prepare_command, env_vars),
+            self._on_linux_install_finished,
+        )
 
     def _on_linux_install_finished(
         self, status_code: int, return_code: int, output: str
@@ -678,6 +702,25 @@ class ME3VersionManager(QObject):
                 tr("installation_failed"),
                 tr("install_script_failed", clean_output=clean_output),
             )
+
+    def _start_worker(self, worker, finish_slot, progress_slot=None):
+        self.thread = QThread()
+        self.worker = worker
+        self.worker.moveToThread(self.thread)
+        if progress_slot and hasattr(self.worker, "download_progress"):
+            self.worker.download_progress.connect(progress_slot)
+
+        # Connect to the appropriate finish signal
+        if hasattr(self.worker, "update_finished"):
+            self.worker.update_finished.connect(finish_slot)
+        elif hasattr(self.worker, "download_finished"):
+            self.worker.download_finished.connect(finish_slot)
+        elif hasattr(self.worker, "install_finished"):
+            self.worker.install_finished.connect(finish_slot)
+
+        self.thread.started.connect(self.worker.run)
+        self.thread.start()
+        self.progress_dialog.show()
 
     def _cleanup_thread(self):
         """Clean up thread and progress dialog."""
@@ -749,26 +792,22 @@ class ME3CustomInstaller(QObject):
     def run(self):
         try:
             # Step 1: Download the ZIP file
-            response = requests.get(self.url, stream=True, timeout=15)
-            response.raise_for_status()
-            total_size = int(response.headers.get("content-length", 0))
-            bytes_downloaded = 0
+            def cancel_action():
+                self.install_finished.emit(
+                    Status.CANCELLED, -1, tr("download_cancelled")
+                )
 
-            with open(self.temp_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if self._is_cancelled:
-                        self.install_finished.emit(
-                            Status.CANCELLED, -1, tr("download_cancelled")
-                        )
-                        return
-                    if chunk:
-                        bytes_downloaded += len(chunk)
-                        f.write(chunk)
-                        if total_size > 0:
-                            progress = int(
-                                (bytes_downloaded / total_size) * 50
-                            )  # First 50% for download
-                            self.download_progress.emit(progress)
+            success = _download_file(
+                self.url,
+                self.temp_path,
+                self.download_progress.emit,
+                lambda: self._is_cancelled,
+                cancel_action,
+                0.5,  # First 50% for download
+            )
+
+            if not success:
+                return
 
             # Step 2: Extract and install
             self.download_progress.emit(50)  # Download complete

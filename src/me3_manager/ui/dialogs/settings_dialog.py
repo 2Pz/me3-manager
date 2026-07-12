@@ -236,16 +236,18 @@ class SettingsDialog(QDialog):
 
     def apply_styles(self):
         """Apply consistent styling to the dialog"""
-        self.setStyleSheet("""
-            QDialog {
+        from me3_manager.ui.dialogs.dialog_utils import StyleUtils
+
+        self.setStyleSheet(f"""
+            QDialog {{
                 background-color: #252525;
                 color: #ffffff;
-            }
-            QLabel {
+            }}
+            QLabel {{
                 background-color: transparent;
                 color: #ffffff;
-            }
-            QPushButton {
+            }}
+            QPushButton {{
                 background-color: #2d2d2d;
                 border: 1px solid #3d3d3d;
                 padding: 10px 20px;
@@ -253,91 +255,84 @@ class SettingsDialog(QDialog):
                 color: #ffffff;
                 min-width: 80px;
                 font-weight: 500;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #3d3d3d;
-            }
-            QPushButton:pressed {
+            }}
+            QPushButton:pressed {{
                 background-color: #1d1d1d;
-            }
-            QCheckBox {
+            }}
+            QCheckBox {{
                 background-color: transparent;
                 color: #ffffff;
                 spacing: 10px;
                 padding: 6px 0px;
                 font-size: 13px;
-            }
-            QCheckBox::indicator {
+            }}
+            QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
                 border: 2px solid #3d3d3d;
                 border-radius: 4px;
                 background-color: #2d2d2d;
-            }
-            QCheckBox::indicator:checked {
+            }}
+            QCheckBox::indicator:checked {{
                 background-color: #0078d4;
                 border-color: #0078d4;
-            }
-            QCheckBox::indicator:hover {
+            }}
+            QCheckBox::indicator:hover {{
                 border-color: #4d4d4d;
-            }
-            QCheckBox::indicator:checked:hover {
+            }}
+            QCheckBox::indicator:checked:hover {{
                 background-color: #106ebe;
                 border-color: #106ebe;
-            }
-            QLineEdit {
+            }}
+            QLineEdit {{
                 background-color: #2d2d2d;
                 border: 1px solid #3d3d3d;
                 border-radius: 6px;
                 padding: 8px 12px;
                 color: #ffffff;
                 font-size: 13px;
-            }
-            QDoubleSpinBox {
-                background-color: #2d2d2d;
-                border: 1px solid #3d3d3d;
-                border-radius: 6px;
-                padding: 4px 8px;
-                color: #ffffff;
-                font-size: 13px;
-            }
-            QComboBox {
+            }}
+            {StyleUtils.get_dark_compact_widget_style("QDoubleSpinBox")}
+            QComboBox {{
                 background-color: #2d2d2d;
                 border: 1px solid #3d3d3d;
                 border-radius: 6px;
                 padding: 5px 10px;
                 color: #ffffff;
                 font-size: 13px;
-            }
-            QComboBox QAbstractItemView {
+            }}
+            QComboBox QAbstractItemView {{
                 background-color: #252525;
                 color: #ffffff;
                 selection-background-color: #0078d4;
                 border: 1px solid #3d3d3d;
-            }
-            QLineEdit:focus, QDoubleSpinBox:focus {
+            }}
+            QLineEdit:focus, QDoubleSpinBox:focus {{
                 border-color: #0078d4;
-            }
-            #SectionHeader {
+            }}
+            #SectionHeader {{
                 font-size: 15px;
                 font-weight: bold;
                 color: #ffffff;
-            }
-            #StatusSuccess {
+            }}
+            #StatusSuccess {{
                 color: #90EE90;
                 font-size: 12px;
                 margin-top: 6px;
-            }
-            #StatusError {
+            }}
+            #StatusError {{
                 color: #FFB6C1;
                 font-size: 12px;
                 margin-top: 6px;
-            }
-            #StatusInfo {
+            }}
+            #StatusInfo {{
                 color: #cccccc;
                 font-size: 12px;
                 margin-top: 6px;
-            }
+            }}
         """)
 
     # Event Handlers

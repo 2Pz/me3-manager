@@ -23,6 +23,46 @@ from typing import Any
 
 
 class ProfileConverter:
+    COMMON_MOD_ATTRS = (
+        "load_before",
+        "load_after",
+        "mod_folder",
+        "nexus_id",
+        "nexus_file_id",
+        "nexus_file_name",
+        "nexus_name",
+        "version",
+        "config",
+        "config_overrides",
+        "user_prompts",
+        "nexus_link",
+        "nexus_category",
+    )
+
+    V2_COMMON_ATTRS = (
+        "load_before",
+        "load_after",
+        "nexus_id",
+        "nexus_file_id",
+        "nexus_file_name",
+        "nexus_name",
+        "version",
+    )
+
+    @staticmethod
+    def _copy_common_attrs_and_alias(table: dict, entry: dict) -> None:
+        ProfileConverter._copy_attributes(
+            table, entry, ProfileConverter.COMMON_MOD_ATTRS
+        )
+        if "mod_root_path" in table and table["mod_root_path"]:
+            entry["mod_folder"] = table["mod_root_path"]
+
+    @staticmethod
+    def _copy_attributes(source: dict, target: dict, keys: tuple[str, ...]):
+        for k in keys:
+            if k in source and source[k] not in (None, []):
+                target[k] = source[k]
+
     @staticmethod
     def normalize(data: dict[str, Any] | None) -> dict[str, Any]:
         """
@@ -91,28 +131,18 @@ class ProfileConverter:
                         entry["nexus_category"] = nat.get("nexus_category")
 
                 # Copy known optional fields
-                for k in (
-                    "enabled",
-                    "optional",
-                    "load_early",
-                    "initializer",
-                    "finalizer",
-                    "config",
-                    "load_before",
-                    "load_after",
-                    "mod_folder",
-                    "mod_folder",
-                    "nexus_id",
-                    "nexus_file_id",
-                    "nexus_file_name",
-                    "nexus_name",
-                    "version",
-                    "config",
-                    "config_overrides",
-                    "user_prompts",
-                ):
-                    if k in nat and nat[k] not in (None, []):
-                        entry[k] = nat[k]
+                ProfileConverter._copy_attributes(
+                    nat,
+                    entry,
+                    (
+                        "enabled",
+                        "optional",
+                        "load_early",
+                        "initializer",
+                        "finalizer",
+                    )
+                    + ProfileConverter.COMMON_MOD_ATTRS,
+                )
 
                 # Support mod_root_path alias
                 if "mod_root_path" in nat and nat["mod_root_path"]:
@@ -155,21 +185,9 @@ class ProfileConverter:
                         if pkg.get("nexus_category"):
                             entry["nexus_category"] = pkg.get("nexus_category")
 
-                    for k in (
-                        "load_before",
-                        "load_after",
-                        "mod_folder",
-                        "nexus_id",
-                        "nexus_file_id",
-                        "nexus_file_name",
-                        "nexus_name",
-                        "version",
-                        "config",
-                        "config_overrides",
-                        "user_prompts",
-                    ):
-                        if k in pkg and pkg[k] not in (None, []):
-                            entry[k] = pkg[k]
+                    ProfileConverter._copy_attributes(
+                        pkg, entry, ProfileConverter.COMMON_MOD_ATTRS
+                    )
 
                     # Support mod_root_path alias
                     if "mod_root_path" in pkg and pkg["mod_root_path"]:
@@ -251,30 +269,8 @@ class ProfileConverter:
                         entry["finalizer"] = table.get("finalizer")
                     if table.get("config"):
                         entry["config"] = table.get("config")
-                    if table.get("nexus_link"):
-                        entry["nexus_link"] = table.get("nexus_link")
-                    if table.get("nexus_category"):
-                        entry["nexus_category"] = table.get("nexus_category")
                     # Map load order arrays if present
-                    for k in (
-                        "load_before",
-                        "load_after",
-                        "mod_folder",
-                        "nexus_id",
-                        "nexus_file_id",
-                        "nexus_file_name",
-                        "nexus_name",
-                        "version",
-                        "config",
-                        "config_overrides",
-                        "user_prompts",
-                    ):
-                        if k in table and table[k] not in (None, []):
-                            entry[k] = table[k]
-
-                    # Support mod_root_path alias
-                    if "mod_root_path" in table and table["mod_root_path"]:
-                        entry["mod_folder"] = table["mod_root_path"]
+                    ProfileConverter._copy_common_attrs_and_alias(table, entry)
 
                     result["natives"].append(entry)
                 else:
@@ -286,30 +282,8 @@ class ProfileConverter:
                     if table.get("enabled") is False:
                         entry["enabled"] = False
                     # Disabled flag is v2-specific; we omit entirely if False to match current schema
-                    for k in (
-                        "load_before",
-                        "load_after",
-                        "mod_folder",
-                        "nexus_id",
-                        "nexus_file_id",
-                        "nexus_file_name",
-                        "nexus_name",
-                        "version",
-                        "config",
-                        "config_overrides",
-                        "user_prompts",
-                    ):
-                        if k in table and table[k] not in (None, []):
-                            entry[k] = table[k]
+                    ProfileConverter._copy_common_attrs_and_alias(table, entry)
 
-                    # Support mod_root_path alias
-                    if "mod_root_path" in table and table["mod_root_path"]:
-                        entry["mod_folder"] = table["mod_root_path"]
-
-                    if table.get("nexus_link"):
-                        entry["nexus_link"] = table.get("nexus_link")
-                    if table.get("nexus_category"):
-                        entry["nexus_category"] = table.get("nexus_category")
                     result["packages"].append(entry)
 
         # Fallback: if [mods] is absent but legacy sections exist, keep them
@@ -401,17 +375,9 @@ class ProfileConverter:
             if nat.get("nexus_category"):
                 inline["nexus_category"] = nat["nexus_category"]
             # Load order arrays
-            for k in (
-                "load_before",
-                "load_after",
-                "nexus_id",
-                "nexus_file_id",
-                "nexus_file_name",
-                "nexus_name",
-                "version",
-            ):
-                if k in nat and nat[k] not in (None, []):
-                    inline[k] = nat[k]
+            ProfileConverter._copy_attributes(
+                nat, inline, ProfileConverter.V2_COMMON_ATTRS
+            )
             # Store as whole inline table under key
             deps[identifier] = inline
 
@@ -435,17 +401,9 @@ class ProfileConverter:
             inline = {"path": pkg["path"]}
             if pkg.get("enabled") is False:
                 inline["enabled"] = False
-            for k in (
-                "load_before",
-                "load_after",
-                "nexus_id",
-                "nexus_file_id",
-                "nexus_file_name",
-                "nexus_name",
-                "version",
-            ):
-                if k in pkg and pkg[k] not in (None, []):
-                    inline[k] = pkg[k]
+            ProfileConverter._copy_attributes(
+                pkg, inline, ProfileConverter.V2_COMMON_ATTRS
+            )
             if pkg.get("nexus_category"):
                 inline["nexus_category"] = pkg["nexus_category"]
             deps[ident] = inline

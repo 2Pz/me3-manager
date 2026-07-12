@@ -13,6 +13,9 @@ import copy
 import logging
 import re
 import shutil
+from collections.abc import Callable
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Literal
@@ -77,6 +80,16 @@ _JUNK_NAMES = frozenset({"__MACOSX", ".DS_Store"})
 # Files that should be overwritten (Mod binaries/core files)
 # Everything else is considered user data/config and should be preserved if it exists
 _BINARY_EXTENSIONS = {".dll", ".exe", ".bin"}
+
+
+@dataclass
+class InstallOptions:
+    """Options for mod installation methods."""
+
+    mod_name_hint: str | None = None
+    mod_root_path: str | None = None
+    delete_archive: bool = False
+    load_mods: bool = True
 
 
 def _contains_symlink(path: Path) -> bool:
@@ -497,6 +510,95 @@ class ModInstaller:
         # Track the last selected mod root path for metadata storage
         self._last_selected_mod_root_path: str | None = None
 
+    def _run_worker_with_progress(self, worker, progress) -> bool:
+        """Run worker and progress dialog. Returns true if successful, false if failed/cancelled."""
+        worker.finished_signal.connect(lambda s, m: progress.close())
+        progress.canceled.connect(worker.requestInterruption)
+        worker.start()
+        progress.exec()
+        worker.wait()
+        return worker.success
+
+    def _create_progress_dialog(self, status_key: str) -> QProgressDialog:
+        """Create a modal progress dialog with the given status text key."""
+        progress = QProgressDialog(
+            tr(status_key),
+            tr("cancel_button"),
+            0,
+            0,
+            self.game_page,
+        )
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+        return progress
+
+    @contextmanager
+    def _staging_dir(self):
+        """Context manager that yields a temporary staging directory path."""
+        temp_root = self._get_mods_dir().parent / ".me3_temp_extraction"
+        temp_root.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=str(temp_root)) as tmp_dir:
+            yield Path(tmp_dir)
+
+    @staticmethod
+    def _copy_to_staging(
+        src: Path,
+        staged_path: Path,
+        copy_fn: Callable | None = None,
+    ) -> None:
+        """Copy a file or directory to a staging path."""
+        staged_path.parent.mkdir(parents=True, exist_ok=True)
+        if src.is_dir():
+            kwargs: dict = dict(
+                symlinks=False,
+                ignore_dangling_symlinks=True,
+                dirs_exist_ok=True,
+            )
+            if copy_fn is not None:
+                kwargs["copy_function"] = copy_fn
+            shutil.copytree(src, staged_path, **kwargs)
+        else:
+            if copy_fn is not None:
+                copy_fn(src, staged_path, follow_symlinks=False)
+            else:
+                shutil.copy2(src, staged_path, follow_symlinks=False)
+
+    def _base_script_context(self) -> dict:
+        """Return the base context dict shared by all script hooks."""
+        return {
+            "mods_dir": self._get_mods_dir(),
+            "game_name": self.game_page.game_name,
+            "shutil": shutil,
+            "Path": Path,
+        }
+
+    def _run_hook_script(
+        self,
+        script_path: Path,
+        hook_name: str,
+        context: dict,
+        *,
+        log_label: str = "script",
+    ) -> bool:
+        """Dynamically load a script and call the named hook function.
+
+        Returns True if the hook was found and executed, False otherwise.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("mod_hook", script_path)
+        if not spec or not spec.loader:
+            return False
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        hook = getattr(module, hook_name, None)
+        if hook:
+            hook(context)
+            self._log.info("%s executed successfully", log_label)
+            return True
+        return False
+
     # =========================================================================
     # PUBLIC API - Single Entry Point
     # =========================================================================
@@ -539,7 +641,13 @@ class ModInstaller:
             # Handle archives
             if source.is_file() and source.suffix.lower() in ARCHIVE_EXTENSIONS:
                 return self._install_from_archive(
-                    source, mod_name_hint, mod_root_path, delete_archive, load_mods
+                    source,
+                    InstallOptions(
+                        mod_name_hint=mod_name_hint,
+                        mod_root_path=mod_root_path,
+                        delete_archive=delete_archive,
+                        load_mods=load_mods,
+                    ),
                 )
 
             if not source.is_dir():
@@ -710,32 +818,14 @@ class ModInstaller:
     def _install_from_archive(
         self,
         archive: Path,
-        mod_name_hint: str | None,
-        mod_root_path: str | None = None,
-        delete_archive: bool = False,
-        load_mods: bool = True,
+        options: InstallOptions,
     ) -> list[str]:
         """Extract archive and install contents."""
-        # Use a temp dir on the main disk (near mods dir) to avoid running out of space in /tmp
-        # which is often a small RAM disk.
-        mods_dir = self._get_mods_dir()
-        temp_root = mods_dir.parent / ".me3_temp_extraction"
-        temp_root.mkdir(parents=True, exist_ok=True)
-
-        with TemporaryDirectory(dir=str(temp_root)) as tmp:
+        with self._staging_dir() as tmp:
             extract_dir = Path(tmp) / "extract"
             extract_dir.mkdir(parents=True, exist_ok=True)
 
-            progress = QProgressDialog(
-                tr("extracting_status"),
-                tr("cancel_button"),
-                0,
-                0,
-                self.game_page,
-            )
-            progress.setWindowModality(Qt.WindowModality.WindowModal)
-            progress.setAutoClose(False)
-            progress.setAutoReset(False)
+            progress = self._create_progress_dialog("extracting_status")
 
             worker = ActionWorker(
                 extract_archive,
@@ -743,14 +833,8 @@ class ModInstaller:
                 extract_dir,
                 cancel_check=lambda: worker.isInterruptionRequested(),
             )
-            worker.finished_signal.connect(lambda s, m: progress.close())
-            progress.canceled.connect(worker.requestInterruption)
 
-            worker.start()
-            progress.exec()
-            worker.wait()
-
-            if not worker.success:
+            if not self._run_worker_with_progress(worker, progress):
                 if "cancel" in worker.error_msg.lower():
                     self._log.info("Archive extraction cancelled by user.")
                 else:
@@ -766,10 +850,10 @@ class ModInstaller:
 
             installed = self.install_mod(
                 extract_dir,
-                mod_name_hint=mod_name_hint or archive.stem,
-                mod_root_path=mod_root_path,
+                mod_name_hint=options.mod_name_hint or archive.stem,
+                mod_root_path=options.mod_root_path,
             )
-            if installed and delete_archive:
+            if installed and options.delete_archive:
                 try:
                     archive.unlink()
                 except Exception as e:
@@ -871,12 +955,7 @@ class ModInstaller:
         if not items_to_install:
             return False
 
-        # Use a temp dir on the main disk (near mods dir)
-        mods_dir = self._get_mods_dir()
-        temp_root = mods_dir.parent / ".me3_temp_extraction"
-        temp_root.mkdir(parents=True, exist_ok=True)
-
-        with TemporaryDirectory(dir=str(temp_root)) as tmp_dir:
+        with self._staging_dir() as tmp_dir:
             staged_items = []
 
             def do_staging():
@@ -889,49 +968,16 @@ class ModInstaller:
                     if QThread.currentThread().isInterruptionRequested():
                         raise InterruptedError("Staging cancelled")
 
-                    # Ensure dest_rel is a Path
                     dest_rel_path = Path(dest_rel)
+                    staged_path = tmp_dir / dest_rel_path
 
-                    # Determine staged path
-                    staged_path = Path(tmp_dir) / dest_rel_path
-
-                    # Ensure parent directory exists in temp staging area
-                    staged_path.parent.mkdir(parents=True, exist_ok=True)
-
-                    if src.is_dir():
-                        shutil.copytree(
-                            src,
-                            staged_path,
-                            symlinks=False,
-                            ignore_dangling_symlinks=True,
-                            dirs_exist_ok=True,
-                            copy_function=copy_with_cancel,
-                        )
-                    else:
-                        copy_with_cancel(src, staged_path, follow_symlinks=False)
-
+                    self._copy_to_staging(src, staged_path, copy_fn=copy_with_cancel)
                     staged_items.append((staged_path, dest_rel_path))
 
-            progress = QProgressDialog(
-                tr("staging_status"),
-                tr("cancel_button"),
-                0,
-                0,
-                self.game_page,
-            )
-            progress.setWindowModality(Qt.WindowModality.WindowModal)
-            progress.setAutoClose(False)
-            progress.setAutoReset(False)
+            progress = self._create_progress_dialog("staging_status")
 
             worker = ActionWorker(do_staging)
-            worker.finished_signal.connect(lambda s, m: progress.close())
-            progress.canceled.connect(worker.requestInterruption)
-
-            worker.start()
-            progress.exec()
-            worker.wait()
-
-            if not worker.success:
+            if not self._run_worker_with_progress(worker, progress):
                 if (
                     "cancelled" in worker.error_msg.lower()
                     or "cancel" in worker.error_msg.lower()
@@ -1035,46 +1081,22 @@ class ModInstaller:
             mods_dir = self._get_mods_dir()
             items_to_install: list[tuple[Path, str]] = []
             final_folder_names: list[str] = []
+            package_source_map: dict[Path, str] = {}
 
-            # Collect packages
+            # Collect packages and build source map in one pass
             for i, pkg in enumerate(profile_data.get("packages", [])):
                 pkg_abs = self._resolve_package_source(
                     pkg, profile_base, jail_dir=import_folder
                 )
-                if pkg_abs and pkg_abs.is_dir():
-                    dest_name = (
-                        mod_name_override
-                        if mod_name_override and i == 0
-                        else pkg_abs.name
-                    )
-                    if _validate_mod_name(dest_name):
-                        if pkg_abs and pkg_abs.is_dir():
-                            items_to_install.append((pkg_abs, dest_name))
-                            final_folder_names.append(dest_name)
-                        else:
-                            # If the package source doesn't exist (e.g. community profile),
-                            # we just track the folder name so we can register it later.
-                            # The assumption is that it will be filled by Nexus downloads or exists already.
-                            final_folder_names.append(dest_name)
-
-            # Collect natives not in packages
-            # We need to map package source paths to their destination names (folder IDs)
-            # so we can redirect natives to point inside the installed package.
-            package_source_map = {}
-            for i, pkg in enumerate(profile_data.get("packages", [])):
-                pkg_abs = self._resolve_package_source(
-                    pkg, profile_base, jail_dir=import_folder
+                if not (pkg_abs and pkg_abs.is_dir()):
+                    continue
+                dest_name = (
+                    mod_name_override if mod_name_override and i == 0 else pkg_abs.name
                 )
-
-                if pkg_abs and pkg_abs.is_dir():
-                    # Determine the destination name (same logic as above loop)
-                    dest_name = (
-                        mod_name_override
-                        if mod_name_override and i == 0
-                        else pkg_abs.name
-                    )
-
-                    package_source_map[pkg_abs] = dest_name
+                package_source_map[pkg_abs] = dest_name
+                if _validate_mod_name(dest_name):
+                    items_to_install.append((pkg_abs, dest_name))
+                final_folder_names.append(dest_name)
 
             # Stage and install
             for native in profile_data.get("natives", []):
@@ -1101,30 +1123,11 @@ class ModInstaller:
 
             # Stage and install
             if items_to_install:
-                temp_root = self._get_mods_dir().parent / ".me3_temp_extraction"
-                temp_root.mkdir(parents=True, exist_ok=True)
-                with TemporaryDirectory(dir=str(temp_root)) as tmp_dir:
+                with self._staging_dir() as tmp_dir:
                     staged_items = []
                     for src, dest_name in items_to_install:
-                        staged_path = Path(tmp_dir) / dest_name
-
-                        # Ensure parent directory exists in temp staging area
-                        staged_path.parent.mkdir(parents=True, exist_ok=True)
-
-                        if src.is_dir():
-                            shutil.copytree(
-                                src,
-                                staged_path,
-                                symlinks=False,
-                                ignore_dangling_symlinks=True,
-                                dirs_exist_ok=True,
-                            )
-                        else:
-                            shutil.copy2(src, staged_path, follow_symlinks=False)
-
-                        # Pass tuple to _copy_with_progress so InstallWorker uses relative path
-                        # First element is absolute path to staged file
-                        # Second element is the relative path it should have in mods dir
+                        staged_path = tmp_dir / dest_name
+                        self._copy_to_staging(src, staged_path)
                         dest_rel = (
                             dest_name
                             if isinstance(dest_name, Path)
@@ -1963,40 +1966,19 @@ class ModInstaller:
         - game_name: str
         - profile_data: dict (mutable profile data)
         """
-        import importlib.util
-
         try:
             self._log.info("Running custom install script: %s", script_path)
-
-            # Load module dynamically
-            spec = importlib.util.spec_from_file_location(
-                "mod_install_hook", script_path
+            context = {
+                "root_path": root_path,
+                "profile_data": profile_data,
+                **self._base_script_context(),
+            }
+            return self._run_hook_script(
+                script_path,
+                "on_prepare_install",
+                context,
+                log_label="Custom install script",
             )
-            if not spec or not spec.loader:
-                raise ImportError(f"Could not load script from {script_path}")
-
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            # Check for hook
-            if hasattr(module, "on_prepare_install"):
-                context = {
-                    "root_path": root_path,
-                    "mods_dir": self._get_mods_dir(),
-                    "game_name": self.game_page.game_name,
-                    "profile_data": profile_data,
-                    "shutil": shutil,
-                    "Path": Path,
-                }
-                module.on_prepare_install(context)
-                self._log.info("Custom install script executed successfully")
-                return True
-            else:
-                self._log.warning(
-                    "Script %s has no on_prepare_install function", script_path.name
-                )
-                return False
-
         except Exception as e:
             self._log.exception("Error running install script")
             self._show_error(tr("script_execution_failed", error=str(e)))
@@ -2020,33 +2002,19 @@ class ModInstaller:
         - game_name: str
         - profile_data: dict
         """
-        import importlib.util
-
         try:
             self._log.info("Running post-install script: %s", script_path)
-
-            spec = importlib.util.spec_from_file_location(
-                "mod_post_install_hook", script_path
+            context = {
+                "installed": installed_list,
+                "profile_data": profile_data,
+                **self._base_script_context(),
+            }
+            return self._run_hook_script(
+                script_path,
+                "on_post_install",
+                context,
+                log_label="Post-install script",
             )
-            if not spec or not spec.loader:
-                return False
-
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            if hasattr(module, "on_post_install"):
-                context = {
-                    "installed": installed_list,
-                    "mods_dir": self._get_mods_dir(),
-                    "game_name": self.game_page.game_name,
-                    "profile_data": profile_data,
-                    "shutil": shutil,
-                    "Path": Path,
-                }
-                module.on_post_install(context)
-                self._log.info("Post-install script executed successfully")
-                return True
-            return False
         except Exception:
             self._log.exception("Error running post-install script")
             return False

@@ -8,25 +8,17 @@ to run the game via terminal or subprocess.
 
 import shlex
 import subprocess
-from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import QMessageBox
 
+from me3_manager.ui.game_page_components.base_component import GamePageComponent
 from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
-if TYPE_CHECKING:
-    from ..game_page import GamePage
 
-
-class GameLauncher:
+class GameLauncher(GamePageComponent):
     """Handles all logic related to launching the game."""
-
-    def __init__(self, game_page: "GamePage"):
-        self.game_page = game_page
-        self.config_manager = game_page.config_manager
-        self.game_name = game_page.game_name
 
     def launch_game(self):
         """Launch the game with the configured profile and settings."""
@@ -79,16 +71,14 @@ class GameLauncher:
     def _handle_me3_not_installed(self) -> bool:
         """Shows a dialog prompting the user to install ME3 and returns if successful."""
 
+        from me3_manager.ui.dialogs.dialog_utils import DialogUtils
         from me3_manager.ui.main_window import HelpAboutDialog
 
-        reply = QMessageBox.question(
+        if DialogUtils.ask_question(
             self.game_page,
             tr("me3_not_installed_title"),
             tr("me3_required_for_launch_msg"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
+        ):
             main_window = self.game_page.window()
             dialog = HelpAboutDialog(main_window, initial_setup=True)
             dialog.exec()

@@ -17,7 +17,39 @@ from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
 if TYPE_CHECKING:
-    from ..game_page import GamePage
+    pass
+
+from me3_manager.ui.game_page_components.base_component import GamePageComponent
+
+
+def select_executable(
+    parent: QWidget, game_name: str, expected_name: str
+) -> Path | None:
+    """Open a file dialog to select a game executable.
+
+    Returns the selected Path if valid, or None if cancelled/invalid.
+    Shows a warning if the selected file name doesn't match the expected name.
+    """
+    file_name, _ = QFileDialog.getOpenFileName(
+        parent,
+        f"Select {game_name} Executable ({expected_name})",
+        str(Path.home()),
+        "Executable Files (*.exe);;All Files (*)",
+    )
+    if not file_name:
+        return None
+    selected = Path(file_name)
+    if selected.name.lower() != expected_name.lower():
+        QMessageBox.warning(
+            parent,
+            tr("incorrect_executable_title"),
+            tr(
+                "executable_mismatch_message",
+                game_name=game_name,
+            ),
+        )
+        return None
+    return selected
 
 
 def is_frozen():
@@ -38,13 +70,8 @@ def _open_path(parent_widget: QWidget, path: Path):
         )
 
 
-class PageUtils:
+class PageUtils(GamePageComponent):
     """A class for utility methods that require access to the GamePage instance."""
-
-    def __init__(self, game_page: "GamePage"):
-        self.game_page = game_page
-        self.config_manager = game_page.config_manager
-        self.game_name = game_page.game_name
 
     def open_mods_folder(self):
         """Opens the root mods directory for the current game."""
@@ -123,19 +150,10 @@ class PageUtils:
             )
             return
 
-        file_name, _ = QFileDialog.getOpenFileName(
-            self.game_page,
-            f"Select {self.game_name} Executable ({expected_exe_name})",
-            str(Path.home()),
-            "Executable Files (*.exe);;All Files (*)",
-        )
-        if file_name:
-            selected_path = Path(file_name)
-            if selected_path.name.lower() != expected_exe_name.lower():
-                # ... (error message logic)
-                return
+        selected = select_executable(self.game_page, self.game_name, expected_exe_name)
+        if selected:
             try:
-                self.config_manager.set_game_exe_path(self.game_name, file_name)
+                self.config_manager.set_game_exe_path(self.game_name, str(selected))
                 self.game_page._update_status(
                     f"Set custom executable path for {self.game_name}"
                 )

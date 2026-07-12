@@ -22,15 +22,15 @@ from me3_manager.utils.translator import tr
 if TYPE_CHECKING:
     from ..game_page import GamePage
 
+from me3_manager.ui.game_page_components.base_component import GamePageComponent
 
-class DialogHandler:
+
+class DialogHandler(GamePageComponent):
     """Handles the creation and management of all dialog windows for GamePage."""
 
     def __init__(self, game_page: "GamePage"):
-        self.game_page = game_page
-        self.config_manager = game_page.config_manager
+        super().__init__(game_page)
         self.mod_manager = game_page.mod_manager
-        self.game_name = game_page.game_name
 
     def open_profile_editor(self):
         """Opens the main profile editor dialog."""
@@ -105,8 +105,7 @@ class DialogHandler:
                 self.game_page._update_status(
                     tr("advanced_options_updated_status", mod_name=mod_name)
                 )
-                if hasattr(self.game_page, "update_custom_settings_banner"):
-                    self.game_page.update_custom_settings_banner()
+                self.game_page.update_custom_settings_banner()
         except Exception as e:
             QMessageBox.warning(
                 self.game_page,
@@ -121,8 +120,7 @@ class DialogHandler:
                 self.game_name, self.config_manager, self.game_page
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                if hasattr(self.game_page, "update_custom_settings_banner"):
-                    self.game_page.update_custom_settings_banner()
+                self.game_page.update_custom_settings_banner()
         except Exception as e:
             QMessageBox.warning(
                 self.game_page,
@@ -142,8 +140,7 @@ class DialogHandler:
                 )
                 self.game_page.load_mods(reset_page=False)
                 self.game_page._update_status(tr("status_ready"))
-                if hasattr(self.game_page, "update_custom_settings_banner"):
-                    self.game_page.update_custom_settings_banner()
+                self.game_page.update_custom_settings_banner()
                 # Refresh banner state
                 try:
                     self.game_page.update_custom_savefile_warning()

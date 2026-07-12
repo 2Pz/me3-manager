@@ -29,14 +29,14 @@ from me3_manager.utils.translator import tr
 if TYPE_CHECKING:
     from ..game_page import GamePage
 
+from me3_manager.ui.game_page_components.base_component import GamePageComponent
 
-class ProfileHandler:
+
+class ProfileHandler(GamePageComponent):
     """Handles profile selection dropdown and the profile management dialog."""
 
     def __init__(self, game_page: "GamePage"):
-        self.game_page = game_page
-        self.config_manager = game_page.config_manager
-        self.game_name = game_page.game_name
+        super().__init__(game_page)
         self.profile_action_group: QActionGroup | None = None
 
     def update_profile_dropdown(self):

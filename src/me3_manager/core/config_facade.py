@@ -649,15 +649,12 @@ class ConfigFacade:
     def enable_native_with_options(
         self, game_name: str, mod_path: str, options: dict | None = None
     ) -> bool:
-        """Enable a native (DLL) mod with additional options.
-
-        This is used when installing from hosted profiles to preserve
-        settings like load_early.
+        """Enable a native DLL mod, preserving settings like load_early.
 
         Args:
-            game_name: Name of the game
-            mod_path: Path to the DLL mod
-            options: Optional dict of options (e.g., load_early=True)
+            game_name (str): ID of the game
+            mod_path (str): File path to the DLL
+            options (dict | None): Dict with options (load_early, etc)
 
         Returns:
             True on success, False on failure

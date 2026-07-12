@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from me3_manager.services.community_service import CommunityProfile
+from me3_manager.ui.game_page_components.base_search_panel import BaseSearchPanel
 from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
@@ -137,7 +138,7 @@ class CommunityResultCard(QWidget):
         layout.addWidget(desc_label, 1)
 
 
-class CommunitySearchPanel(QWidget):
+class CommunitySearchPanel(BaseSearchPanel):
     install_requested = Signal(object)  # CommunityProfile
 
     def __init__(self):
@@ -146,10 +147,8 @@ class CommunitySearchPanel(QWidget):
         self._build()
 
     def _build(self):
-        self.setStyleSheet("background: transparent;")
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(16)
+        self._setup_base_ui(spacing=16)
+        root = self.root_layout
 
         # Header Row
         header_layout = QHBoxLayout()
@@ -191,24 +190,9 @@ class CommunitySearchPanel(QWidget):
 
         # Scroll Area for Grid
         self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll.setStyleSheet("""
-            QScrollArea { background: transparent; border: none; }
-            QScrollBar:vertical {
-                border: none;
-                background: #1e1e1e;
-                width: 8px;
-                margin: 0px 0px 0px 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: #3d3d3d;
-                min-height: 20px;
-                border-radius: 4px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-        """)
+        from me3_manager.ui.dialogs.dialog_utils import StyleUtils
+
+        StyleUtils.setup_search_scroll_area(self.scroll)
         root.addWidget(self.scroll, 1)
 
         self.inner = QWidget()
@@ -223,17 +207,9 @@ class CommunitySearchPanel(QWidget):
 
         self.scroll.setWidget(self.inner)
 
-    def set_status(self, text: str):
-        self.status.setText(text)
-
     def clear_results(self):
         self._profiles = []
-        # Clear grid
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.deleteLater()
+        self._clear_layout(self.grid_layout)
         self.status.setText(tr("community_results_empty"))
 
     def set_results(self, profiles: list[CommunityProfile]):

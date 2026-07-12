@@ -5,7 +5,6 @@ from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -18,18 +17,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager.ui.dialogs.dialog_utils import GameDialogBase
 from me3_manager.utils.translator import tr
 
 
-class ProfileCompareDialog(QDialog):
+class ProfileCompareDialog(GameDialogBase):
     """Side-by-side comparison of two profiles for a game."""
 
     def __init__(self, game_name: str, config_manager, parent=None):
-        super().__init__(parent)
-        self.game_name = game_name
-        self.config_manager = config_manager
-        self.setWindowTitle(tr("profile_compare_title", game_name=game_name))
-        self.setMinimumSize(900, 550)
+        super().__init__(
+            game_name,
+            config_manager,
+            parent,
+            title_key="profile_compare_title",
+            min_size=(900, 550),
+        )
         self.setStyleSheet(
             """
             QDialog { background-color: #1e1e1e; color: #ffffff; }

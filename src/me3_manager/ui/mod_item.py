@@ -408,72 +408,56 @@ class ModItem(QWidget):
             )
             layout.addWidget(delete_btn)
 
-    def _get_expand_button_style(self):
-        """Style for expand/collapse button"""
+    def _get_base_button_style(
+        self,
+        bg,
+        hover_bg,
+        hover_border,
+        extra_base="",
+        extra_hover="",
+        extra_pressed="",
+    ):
+        """Base style for mod action buttons"""
         radius = 12 if not self.is_nested else 10
         return f"""
             QPushButton {{
-                background-color: #4a4a4a;
+                background-color: {bg};
                 border: none;
                 border-radius: {radius}px;
-                color: #cccccc;
-                font-weight: bold;
+                {extra_base}
             }}
             QPushButton:hover {{
-                background-color: #5a5a5a;
-                border: 1px solid #0078d4;
-                color: white;
+                background-color: {hover_bg};
+                border: 1px solid {hover_border};
+                {extra_hover}
             }}
-            QPushButton:pressed {{
-                background-color: #005a9e;
-            }}
+            {f"QPushButton:pressed {{ {extra_pressed} }}" if extra_pressed else ""}
         """
+
+    def _get_expand_button_style(self):
+        """Style for expand/collapse button"""
+        return self._get_base_button_style(
+            "#4a4a4a",
+            "#5a5a5a",
+            "#0078d4",
+            "color: #cccccc; font-weight: bold;",
+            "color: white;",
+            "background-color: #005a9e;",
+        )
 
     def _get_action_button_style(self):
         """Standard action button style"""
-        radius = 12 if not self.is_nested else 10
-        return f"""
-            QPushButton {{
-                background-color: #4a4a4a;
-                border: none;
-                border-radius: {radius}px;
-            }}
-            QPushButton:hover {{
-                background-color: #5a5a5a;
-                border: 1px solid #0078d4;
-            }}
-        """
+        return self._get_base_button_style("#4a4a4a", "#5a5a5a", "#0078d4")
 
     def _get_active_advanced_button_style(self):
         """Style for advanced button when options are active"""
-        radius = 12 if not self.is_nested else 10
-        return f"""
-            QPushButton {{
-                background-color: #ff8c00;
-                border: none;
-                border-radius: {radius}px;
-                color: white;
-            }}
-            QPushButton:hover {{
-                background-color: #ffa500;
-                border: 1px solid #ffaa00;
-            }}
-        """
+        return self._get_base_button_style(
+            "#ff8c00", "#ffa500", "#ffaa00", "color: white;"
+        )
 
     def _get_delete_button_style(self):
         """Style for delete button"""
-        radius = 12 if not self.is_nested else 10
-        return f"""
-            QPushButton {{
-                background-color: #4a4a4a;
-                border: none;
-                border-radius: {radius}px;
-            }}
-            QPushButton:hover {{
-                background-color: #dc3545;
-                border: 1px solid #c82333;
-            }}
-        """
+        return self._get_base_button_style("#4a4a4a", "#dc3545", "#c82333")
 
     def _update_expand_button(self):
         """Update expand button icon based on state"""
@@ -507,6 +491,24 @@ class ModItem(QWidget):
             tooltip_html = "<br>".join(tooltip_parts)
             self.setToolTip(tooltip_html)
 
+    @staticmethod
+    def _toggle_button_style(
+        radius: int, bg: str, hover_bg: str, border_color: str
+    ) -> str:
+        return f"""
+            QPushButton {{
+                background-color: {bg};
+                border: none;
+                border-radius: {radius}px;
+                color: white;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_bg};
+                border: 1px solid {border_color};
+            }}
+        """
+
     def update_toggle_button_ui(self):
         """Update toggle button appearance based on enabled state"""
         if not hasattr(self, "toggle_btn"):
@@ -516,34 +518,10 @@ class ModItem(QWidget):
 
         if self.is_enabled:
             self.toggle_btn.setToolTip(tr("click_to_disable_tooltip"))
-            style = f"""
-                QPushButton {{
-                    background-color: #28a745;
-                    border: none;
-                    border-radius: {radius}px;
-                    color: white;
-                    font-weight: bold;
-                }}
-                QPushButton:hover {{
-                    background-color: #34ce57;
-                    border: 1px solid #28a745;
-                }}
-            """
+            style = self._toggle_button_style(radius, "#28a745", "#34ce57", "#28a745")
         else:
             self.toggle_btn.setToolTip(tr("click_to_enable_tooltip"))
-            style = f"""
-                QPushButton {{
-                    background-color: #dc3545;
-                    border: none;
-                    border-radius: {radius}px;
-                    color: white;
-                    font-weight: bold;
-                }}
-                QPushButton:hover {{
-                    background-color: #e04558;
-                    border: 1px solid #dc3545;
-                }}
-            """
+            style = self._toggle_button_style(radius, "#dc3545", "#e04558", "#dc3545")
 
         self.toggle_btn.setStyleSheet(style)
 

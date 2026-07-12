@@ -391,16 +391,43 @@ class ImprovedModManager:
 
     def _scan_nested_mods(
         self,
-        game_name: str,
-        mods_dir: Path,
-        enabled_status: dict,
-        advanced_options: dict,
+        g_name: str,
+        mdir: Path,
+        en_status: dict,
+        adv_options: dict,
     ) -> dict[str, ModInfo]:
         """Deprecated - merged into _scan_internal_mods.
 
         Kept for compatibility but returns empty dict.
         """
         return {}
+
+    def _get_tracked_paths(self, game_name: str) -> list[str]:
+        """Get the list of tracked external mod paths for the active profile."""
+        active_profile_id = self.config_manager.active_profiles.get(
+            game_name, "default"
+        )
+        game_external_mods = self.config_manager.tracked_external_mods.get(
+            game_name, {}
+        )
+        if isinstance(game_external_mods, dict):
+            return game_external_mods.get(active_profile_id, [])
+        return []
+
+    def _get_enabled_and_advanced(
+        self,
+        enabled_status: dict,
+        advanced_options: dict,
+        normalized_path: str,
+        mod_name: str,
+    ) -> tuple[bool, dict]:
+        enabled = enabled_status.get(normalized_path, False) or enabled_status.get(
+            mod_name, False
+        )
+        advanced = advanced_options.get(normalized_path) or advanced_options.get(
+            mod_name, {}
+        )
+        return enabled, advanced
 
     def _get_external_mods(
         self, game_name: str, enabled_status: dict, advanced_options: dict
@@ -409,17 +436,7 @@ class ImprovedModManager:
         mods = {}
 
         # Get tracked external mods for active profile
-        active_profile_id = self.config_manager.active_profiles.get(
-            game_name, "default"
-        )
-        game_external_mods = self.config_manager.tracked_external_mods.get(
-            game_name, {}
-        )
-
-        if isinstance(game_external_mods, dict):
-            tracked_paths = game_external_mods.get(active_profile_id, [])
-        else:
-            tracked_paths = []
+        tracked_paths = self._get_tracked_paths(game_name)
 
         for stored_path in tracked_paths:
             normalized_path = self._normalize_path(stored_path)
@@ -436,12 +453,9 @@ class ImprovedModManager:
                     has_mod_content = self._analyze_folder_content(path_obj)
                     is_container = not has_mod_content
 
-                    enabled = enabled_status.get(
-                        normalized_path, False
-                    ) or enabled_status.get(mod_name, False)
-                    advanced = advanced_options.get(
-                        normalized_path
-                    ) or advanced_options.get(mod_name, {})
+                    enabled, advanced = self._get_enabled_and_advanced(
+                        enabled_status, advanced_options, normalized_path, mod_name
+                    )
                 else:
                     mod_type = ModType.DLL
                     mod_name = path_obj.stem
@@ -452,12 +466,9 @@ class ImprovedModManager:
                 mod_type = ModType.DLL if is_dll else ModType.FOLDER
                 mod_name = path_obj.stem if mod_type == ModType.DLL else path_obj.name
                 is_container = False  # Default missing to false
-                enabled = enabled_status.get(
-                    normalized_path, False
-                ) or enabled_status.get(mod_name, False)
-                advanced = advanced_options.get(
-                    normalized_path
-                ) or advanced_options.get(mod_name, {})
+                enabled, advanced = self._get_enabled_and_advanced(
+                    enabled_status, advanced_options, normalized_path, mod_name
+                )
 
             status = (
                 ModStatus.MISSING
@@ -1042,17 +1053,7 @@ class ImprovedModManager:
 
     def _get_tracked_external_package_paths(self, game_name: str) -> list[Path]:
         """Return tracked external mod paths that are directories."""
-        active_profile_id = self.config_manager.active_profiles.get(
-            game_name, "default"
-        )
-        game_external_mods = self.config_manager.tracked_external_mods.get(
-            game_name, {}
-        )
-
-        if isinstance(game_external_mods, dict):
-            tracked_paths = game_external_mods.get(active_profile_id, [])
-        else:
-            tracked_paths = []
+        tracked_paths = self._get_tracked_paths(game_name)
 
         package_paths: list[Path] = []
         for stored_path in tracked_paths:
@@ -1122,17 +1123,7 @@ class ImprovedModManager:
             normalized_path = str(mod_path_obj.resolve()).replace("\\", "/")
 
             # Check if already tracked
-            active_profile_id = self.config_manager.active_profiles.get(
-                game_name, "default"
-            )
-            game_external_mods = self.config_manager.tracked_external_mods.get(
-                game_name, {}
-            )
-
-            if isinstance(game_external_mods, dict):
-                tracked_paths = game_external_mods.get(active_profile_id, [])
-            else:
-                tracked_paths = []
+            tracked_paths = self._get_tracked_paths(game_name)
 
             if normalized_path in tracked_paths:
                 return False, "This external mod is already tracked"

@@ -23,6 +23,14 @@ class ME3InfoManager:
         self._is_installed: bool | None = None
         self._info_output_raw: str | None = None
 
+    def _run_version_command(self) -> tuple[int, str]:
+        """Run the me3 --version command and return exit code and stdout."""
+        command = self._prepare_command(["me3", "--version"])
+        returncode, stdout, _ = CommandRunner.run(
+            command, timeout=10, capture_output=True, text=True
+        )
+        return returncode, stdout or ""
+
     def _prepare_command(self, cmd: list[str]) -> list[str]:
         """
         Prepare a command for execution with platform specifics.
@@ -35,10 +43,7 @@ class ME3InfoManager:
             return self._is_installed
 
         try:
-            command = self._prepare_command(["me3", "--version"])
-            returncode, stdout, _ = CommandRunner.run(
-                command, timeout=10, capture_output=True, text=True
-            )
+            returncode, stdout = self._run_version_command()
 
             if returncode == 0 and stdout:
                 self._is_installed = True
@@ -233,10 +238,7 @@ class ME3InfoManager:
             return info["version"]
 
         try:
-            command = self._prepare_command(["me3", "--version"])
-            returncode, stdout, _ = CommandRunner.run(
-                command, timeout=10, capture_output=True, text=True
-            )
+            _, stdout = self._run_version_command()
 
             if stdout:
                 version_match = re.search(r"(\d+\.\d+\.\d+)", stdout)
