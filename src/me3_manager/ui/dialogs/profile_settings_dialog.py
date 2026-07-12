@@ -7,52 +7,35 @@ import shutil
 import sys
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QKeyEvent
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
 )
 
+from me3_manager.ui.dialogs.dialog_utils import (
+    GameDialogBase,
+    NoEnterLineEdit,
+    StyleUtils,
+)
 from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.translator import tr
 
 
-class NoEnterLineEdit(QLineEdit):
-    """QLineEdit that doesn't activate buttons when Enter is pressed."""
-
-    def keyPressEvent(self, event: QKeyEvent):
-        """Override key press event to handle Enter/Return keys."""
-        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            # Consume the event - don't let it propagate to activate buttons
-            event.accept()
-            return
-        # For all other keys, use default behavior
-        super().keyPressEvent(event)
-
-
-class ProfileSettingsDialog(QDialog):
+class ProfileSettingsDialog(GameDialogBase):
     """Dialog for configuring profile-level settings (savefile, start_online, etc.)"""
 
     def __init__(self, game_name: str, config_manager, parent=None):
-        super().__init__(parent)
-        self.game_name = game_name
-        self.config_manager = config_manager
-        self.current_settings = {}
+        super().__init__(game_name, config_manager, parent)
         self.seamless_enabled = False
-
-        self.setWindowTitle(tr("profile_settings_title", game_name=game_name))
-        self.setModal(True)
-        self.setMinimumSize(800, 560)
         self.resize(860, 660)
 
         self.init_ui()
@@ -78,7 +61,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Save File Settings group
         savefile_group = QGroupBox(tr("savefile_settings_group"))
-        savefile_group.setStyleSheet(self._get_group_style())
+        savefile_group.setStyleSheet(StyleUtils.get_group_style())
         savefile_layout = QFormLayout(savefile_group)
         savefile_layout.setSpacing(8)
         savefile_layout.setContentsMargins(12, 12, 12, 12)
@@ -92,7 +75,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Custom savefile checkbox
         self.custom_savefile_cb = QCheckBox(tr("use_custom_savefile"))
-        self.custom_savefile_cb.setStyleSheet(self._get_checkbox_style())
+        self.custom_savefile_cb.setStyleSheet(StyleUtils.get_checkbox_style())
         self.custom_savefile_cb.toggled.connect(self.on_custom_savefile_toggled)
         savefile_layout.addRow("", self.custom_savefile_cb)
 
@@ -102,7 +85,7 @@ class ProfileSettingsDialog(QDialog):
         # Savefile name input
         self.savefile_edit = NoEnterLineEdit()
         self.savefile_edit.setPlaceholderText(tr("savefile_placeholder"))
-        self.savefile_edit.setStyleSheet(self._get_lineedit_style())
+        self.savefile_edit.setStyleSheet(StyleUtils.get_lineedit_style())
         self.savefile_edit.setEnabled(False)
         savefile_input_layout.addWidget(self.savefile_edit, 1)
 
@@ -112,7 +95,7 @@ class ProfileSettingsDialog(QDialog):
         self.extension_combo.addItem(tr("extension_co2_seamless"), ".co2")
         # FIXME: Disable .co2 (index 1) as it is not supported yet
         self.extension_combo.model().item(1).setEnabled(False)
-        self.extension_combo.setStyleSheet(self._get_combobox_style())
+        self.extension_combo.setStyleSheet(StyleUtils.get_combobox_style())
         self.extension_combo.setEnabled(False)
         self.extension_combo.setMinimumWidth(150)
         self.extension_combo.hide()  # Hidden until .co2 is supported
@@ -136,7 +119,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Online Settings group
         online_group = QGroupBox(tr("online_settings_group"))
-        online_group.setStyleSheet(self._get_group_style())
+        online_group.setStyleSheet(StyleUtils.get_group_style())
         online_layout = QFormLayout(online_group)
         online_layout.setSpacing(8)
         online_layout.setContentsMargins(12, 12, 12, 12)
@@ -150,7 +133,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Start online checkbox
         self.start_online_cb = QCheckBox(tr("start_online_checkbox"))
-        self.start_online_cb.setStyleSheet(self._get_checkbox_style())
+        self.start_online_cb.setStyleSheet(StyleUtils.get_checkbox_style())
         online_layout.addRow(tr("start_online_label"), self.start_online_cb)
 
         # Online info
@@ -161,7 +144,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Compatibility Settings group
         compat_group = QGroupBox(tr("compatibility_settings_group"))
-        compat_group.setStyleSheet(self._get_group_style())
+        compat_group.setStyleSheet(StyleUtils.get_group_style())
         compat_layout = QFormLayout(compat_group)
         compat_layout.setSpacing(8)
         compat_layout.setContentsMargins(12, 12, 12, 12)
@@ -175,7 +158,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Disable Arxan checkbox
         self.disable_arxan_cb = QCheckBox(tr("disable_arxan_checkbox"))
-        self.disable_arxan_cb.setStyleSheet(self._get_checkbox_style())
+        self.disable_arxan_cb.setStyleSheet(StyleUtils.get_checkbox_style())
         compat_layout.addRow(tr("disable_arxan_label"), self.disable_arxan_cb)
 
         # Disable Arxan info
@@ -188,7 +171,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Profile Version group
         version_group = QGroupBox(tr("profile_version_group"))
-        version_group.setStyleSheet(self._get_group_style())
+        version_group.setStyleSheet(StyleUtils.get_group_style())
         version_layout = QFormLayout(version_group)
         version_layout.setSpacing(8)
         version_layout.setContentsMargins(12, 12, 12, 12)
@@ -205,7 +188,7 @@ class ProfileSettingsDialog(QDialog):
         self.version_combo.addItem("v2")
         # FIXME: Disable v2 (index 1) as it is not supported yet
         self.version_combo.model().item(1).setEnabled(False)
-        self.version_combo.setStyleSheet(self._get_combobox_style())
+        self.version_combo.setStyleSheet(StyleUtils.get_combobox_style())
         version_layout.addRow(tr("default_profile_version_label"), self.version_combo)
 
         version_info = QLabel(tr("default_profile_version_info"))
@@ -215,7 +198,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Steam Integration group
         steam_group = QGroupBox(tr("steam_integration_header"))
-        steam_group.setStyleSheet(self._get_group_style())
+        steam_group.setStyleSheet(StyleUtils.get_group_style())
         steam_layout = QVBoxLayout(steam_group)
         steam_layout.setSpacing(12)
         steam_layout.setContentsMargins(12, 12, 12, 12)
@@ -224,7 +207,7 @@ class ProfileSettingsDialog(QDialog):
         )
 
         self.add_to_steam_btn = QPushButton(tr("add_to_steam_button"))
-        self.add_to_steam_btn.setStyleSheet(self._get_save_button_style())
+        self.add_to_steam_btn.setStyleSheet(StyleUtils.get_save_button_style())
         self.add_to_steam_btn.clicked.connect(self.on_add_to_steam_clicked)
         steam_layout.addWidget(self.add_to_steam_btn)
 
@@ -255,22 +238,7 @@ class ProfileSettingsDialog(QDialog):
 
         layout.addLayout(columns_layout)
 
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        self.cancel_btn = QPushButton(tr("cancel_button"))
-        self.cancel_btn.setStyleSheet(self._get_cancel_button_style())
-        self.cancel_btn.clicked.connect(self.reject)
-
-        self.save_btn = QPushButton(tr("save_button"))
-        self.save_btn.setStyleSheet(self._get_save_button_style())
-        self.save_btn.clicked.connect(self.save_settings)
-
-        button_layout.addWidget(self.cancel_btn)
-        button_layout.addWidget(self.save_btn)
-
-        layout.addLayout(button_layout)
+        StyleUtils.setup_standard_dialog_buttons(layout, self, self.save_settings)
 
     def on_add_to_steam_clicked(self):
         """Create a Steam shortcut for the current profile."""
@@ -338,6 +306,7 @@ class ProfileSettingsDialog(QDialog):
             from pathlib import Path as _Path
 
             from me3_manager.services.steam_shortcuts import (
+                ShortcutParams,
                 SteamShortcuts,
                 detect_steam_dir_from_path,
             )
@@ -391,12 +360,14 @@ class ProfileSettingsDialog(QDialog):
 
             ok, msg = SteamShortcuts.add_shortcut_for_all_users(
                 normalized_steam,
-                appname=appname,
-                exe=exe,
-                startdir=startdir,
-                launch_options=launch_options,
-                icon=icon_path,
-                tags=["ME3"],
+                ShortcutParams(
+                    appname=appname,
+                    exe=exe,
+                    startdir=startdir,
+                    launch_options=launch_options,
+                    icon=icon_path,
+                    tags=["ME3"],
+                ),
             )
 
             if ok:
@@ -610,163 +581,3 @@ class ProfileSettingsDialog(QDialog):
             return True  # We'll add the extension in the save logic
 
         return True
-
-    def _get_group_style(self):
-        """Get group box stylesheet"""
-        return """
-            QGroupBox {
-                font-size: 14px;
-                font-weight: bold;
-                border: 2px solid #3d3d3d;
-                border-radius: 8px;
-                margin-top: 12px;
-                padding-top: 12px;
-                color: #ffffff;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 8px 0 8px;
-                color: #ffffff;
-            }
-        """
-
-    def _get_checkbox_style(self):
-        """Get checkbox stylesheet"""
-        return """
-            QCheckBox {
-                color: #ffffff;
-                font-size: 13px;
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-                border-radius: 3px;
-                border: 2px solid #3d3d3d;
-                background-color: #2d2d2d;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #0078d4;
-                border-color: #0078d4;
-            }
-            QCheckBox::indicator:checked:hover {
-                background-color: #106ebe;
-                border-color: #106ebe;
-            }
-            QCheckBox::indicator:hover {
-                border-color: #4d4d4d;
-            }
-        """
-
-    def _get_lineedit_style(self):
-        """Get line edit stylesheet"""
-        return """
-            QLineEdit {
-                background-color: #3d3d3d;
-                border: 2px solid #4d4d4d;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 13px;
-                color: #ffffff;
-                min-height: 20px;
-            }
-            QLineEdit:focus {
-                border-color: #0078d4;
-            }
-            QLineEdit:hover {
-                border-color: #5d5d5d;
-            }
-            QLineEdit:disabled {
-                background-color: #2d2d2d;
-                color: #666666;
-                border-color: #3d3d3d;
-            }
-        """
-
-    def _get_cancel_button_style(self):
-        """Get cancel button stylesheet"""
-        return """
-            QPushButton {
-                background-color: #666666;
-                color: #ffffff;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 13px;
-                font-weight: 500;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #777777;
-            }
-            QPushButton:pressed {
-                background-color: #555555;
-            }
-        """
-
-    def _get_combobox_style(self):
-        """Get combobox stylesheet"""
-        return """
-            QComboBox {
-                background-color: #3d3d3d;
-                border: 2px solid #4d4d4d;
-                border-radius: 6px;
-                padding: 8px 12px;
-                font-size: 13px;
-                color: #ffffff;
-                min-height: 20px;
-            }
-            QComboBox:focus {
-                border-color: #0078d4;
-            }
-            QComboBox:hover {
-                border-color: #5d5d5d;
-            }
-            QComboBox:disabled {
-                background-color: #2d2d2d;
-                color: #666666;
-                border-color: #3d3d3d;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #ffffff;
-                margin-right: 5px;
-            }
-            QComboBox::down-arrow:disabled {
-                border-top-color: #666666;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #3d3d3d;
-                border: 2px solid #4d4d4d;
-                selection-background-color: #0078d4;
-                color: #ffffff;
-            }
-        """
-
-    def _get_save_button_style(self):
-        """Get save button stylesheet"""
-        return """
-            QPushButton {
-                background-color: #0078d4;
-                color: #ffffff;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 20px;
-                font-size: 13px;
-                font-weight: bold;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-            QPushButton:pressed {
-                background-color: #005a9e;
-            }
-        """

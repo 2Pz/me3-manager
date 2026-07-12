@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -25,7 +26,11 @@ from PySide6.QtWidgets import (
 )
 
 from me3_manager.services.nexus_service import NexusMod
+from me3_manager.ui.game_page_components.base_search_panel import BaseSearchPanel
 from me3_manager.utils.translator import tr
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QPixmap
 
 
 @dataclass(frozen=True)
@@ -132,7 +137,7 @@ class NexusResultCard(QWidget):
         super().mousePressEvent(event)
 
 
-class NexusSearchPanel(QWidget):
+class NexusSearchPanel(BaseSearchPanel):
     result_selected = Signal(object)  # NexusResult
     download_requested = Signal(object)  # NexusResult
 
@@ -145,10 +150,8 @@ class NexusSearchPanel(QWidget):
         self._build()
 
     def _build(self):
-        self.setStyleSheet("background: transparent;")
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(8)
+        self._setup_base_ui(spacing=8)
+        root = self.root_layout
 
         header = QLabel(tr("nexus_results_header"))
         header.setStyleSheet("color: #ffffff; font-size: 13px; font-weight: 600;")
@@ -171,17 +174,9 @@ class NexusSearchPanel(QWidget):
         self.inner_layout.addStretch()
         self.scroll.setWidget(self.inner)
 
-    def set_status(self, text: str):
-        self.status.setText(text)
-
     def clear_results(self):
         self._results = []
-        # Clear cards
-        while self.inner_layout.count():
-            item = self.inner_layout.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.deleteLater()
+        self._clear_layout(self.inner_layout)
         self.inner_layout.addStretch()
         self.status.setText(tr("nexus_results_empty"))
 

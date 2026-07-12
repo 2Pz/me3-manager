@@ -31,7 +31,6 @@ from me3_manager.ui.draggable_game_button import (
 from me3_manager.ui.game_page import GamePage
 from me3_manager.ui.terminal import EmbeddedTerminal
 from me3_manager.utils.platform_utils import PlatformUtils
-from me3_manager.utils.resource_path import resource_path
 from me3_manager.utils.status import Status
 from me3_manager.utils.translator import tr
 
@@ -195,7 +194,9 @@ class ModEngine3Manager(QMainWindow):
             stable_version = update_info.get("stable_version", "Unknown")
             current_version = update_info.get("current_version", "Unknown")
 
-            reply = QMessageBox.question(
+            from me3_manager.ui.dialogs.dialog_utils import DialogUtils
+
+            if DialogUtils.ask_question(
                 self,
                 tr("me3_update_available_question_title"),
                 tr(
@@ -203,11 +204,7 @@ class ModEngine3Manager(QMainWindow):
                     current_version=current_version,
                     stable_version=stable_version,
                 ),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-
-            if reply == QMessageBox.StandardButton.Yes:
+            ):
                 if sys.platform == "win32":
                     # Route via version manager so portable installs use ZIP replacement
                     self.version_manager.update_me3_cli()
@@ -247,6 +244,8 @@ class ModEngine3Manager(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle(tr("app_title"))
+        from me3_manager.utils.resource_path import resource_path
+
         self.setWindowIcon(QIcon(resource_path("resources/icon/icon.ico")))
         self.setGeometry(100, 100, 1200, 800)
         self.setStyleSheet("""

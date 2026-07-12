@@ -174,23 +174,26 @@ class GamePage(QWidget):
         self.nexus_service = NexusService(self.config_manager.get_nexus_api_key())
         self.community_service = CommunityService()
         self._thumb_cache: dict[str, QPixmap] = {}
-        self.nexus_metadata = NexusMetadataManager(
-            self.config_manager.config_root,
-            self.game_name,
-            legacy_roots=[
-                self.config_manager.config_root,
-                self.config_manager.get_mods_dir(self.game_name),
-            ],
-        )
-        try:
-            self.nexus_metadata.ensure_dirs()
-        except Exception:
-            pass
+        self._init_nexus_metadata()
 
         self.builder.init_ui()
         self._setup_file_watcher()
         self.load_mods()
         self.on_search_mode_changed()  # Ensure correct initial state
+
+    def _init_nexus_metadata(self):
+        try:
+            self.nexus_metadata = NexusMetadataManager(
+                self.config_manager.config_root,
+                self.game_name,
+                legacy_roots=[
+                    self.config_manager.config_root,
+                    self.config_manager.get_mods_dir(self.game_name),
+                ],
+            )
+            self.nexus_metadata.ensure_dirs()
+        except Exception:
+            pass
 
     @staticmethod
     def _safe_disconnect(signal) -> None:
@@ -313,6 +316,17 @@ class GamePage(QWidget):
             sidebar.hide_animated()
 
     # Search mode handlers (Local/Nexus)
+    def _set_local_mods_visibility(self, visible: bool):
+        if hasattr(self, "mods_scroll_area"):
+            self.mods_scroll_area.setVisible(visible)
+        else:
+            self.mods_widget.setVisible(visible)
+
+        if hasattr(self, "pagination_widget"):
+            self.pagination_widget.setVisible(visible)
+        if hasattr(self, "community_search_panel"):
+            self.community_search_panel.setVisible(not visible)
+
     def on_search_mode_changed(self):
         try:
             combo = getattr(self, "search_mode_combo", None)
@@ -325,42 +339,18 @@ class GamePage(QWidget):
 
         # UX: clear previous results when switching modes (actual panels added later)
         if self.search_mode == "local":
-            if hasattr(self, "mods_scroll_area"):
-                self.mods_scroll_area.setVisible(True)
-            else:
-                self.mods_widget.setVisible(True)
-
-            if hasattr(self, "pagination_widget"):
-                self.pagination_widget.setVisible(True)
-            if hasattr(self, "community_search_panel"):
-                self.community_search_panel.setVisible(False)
+            self._set_local_mods_visibility(True)
             self.apply_filters(reset_page=True)
 
         elif self.search_mode == "community":
-            if hasattr(self, "mods_scroll_area"):
-                self.mods_scroll_area.setVisible(False)
-            else:
-                self.mods_widget.setVisible(False)
-
-            if hasattr(self, "pagination_widget"):
-                self.pagination_widget.setVisible(False)
-            if hasattr(self, "community_search_panel"):
-                self.community_search_panel.setVisible(True)
+            self._set_local_mods_visibility(False)
             self.perform_community_search()
         else:
             # Nexus mode (overlay dropdown), show local mods in background?
             # Or hide everything?
             # Existing behavior was likely just showing local mods + dropdown.
             # Let's keep local mods visible for Nexus mode.
-            if hasattr(self, "mods_scroll_area"):
-                self.mods_scroll_area.setVisible(True)
-            else:
-                self.mods_widget.setVisible(True)
-
-            if hasattr(self, "pagination_widget"):
-                self.pagination_widget.setVisible(True)
-            if hasattr(self, "community_search_panel"):
-                self.community_search_panel.setVisible(False)
+            self._set_local_mods_visibility(True)
 
     def on_search_text_changed(self):
         # In local mode, keep existing live filtering.
@@ -436,24 +426,16 @@ class GamePage(QWidget):
                 try:
                     mods = self.nexus_service.search_mods_by_name(game_domain, query)
                     if not mods:
-                        self._update_status(tr("nexus_results_empty"))
-                        self._show_nexus_dropdown(error_text=tr("nexus_results_empty"))
+                        self._show_nexus_error(tr("nexus_results_empty"))
                         return
                 except Exception as e:
-                    self._update_status(tr("nexus_search_failed", error=str(e)))
-                    self._show_nexus_dropdown(
-                        error_text=tr("nexus_search_failed", error=str(e))
-                    )
+                    self._show_nexus_error(tr("nexus_search_failed", error=str(e)))
                     return
             else:
-                self._update_status(tr("nexus_game_not_supported"))
-                self._show_nexus_dropdown(error_text=tr("nexus_game_not_supported"))
+                self._show_nexus_error(tr("nexus_game_not_supported"))
                 return
         except Exception as e:
-            self._update_status(tr("nexus_search_failed", error=str(e)))
-            self._show_nexus_dropdown(
-                error_text=tr("nexus_search_failed", error=str(e))
-            )
+            self._show_nexus_error(tr("nexus_search_failed", error=str(e)))
             return
 
         self._nexus_last_results = mods
@@ -752,25 +734,10 @@ class GamePage(QWidget):
 
             # Save cache if we fetched fresh data
             if target_file and self.nexus_service.has_api_key:
-                self.nexus_metadata.upsert_cache_for_mod(
-                    game_domain=mod.game_domain,
-                    mod_id=mod.mod_id,
-                    mod_name=mod.name,
-                    mod_version=target_file.version,
-                    mod_author=mod.author,
-                    mod_endorsements=mod.endorsement_count,
-                    mod_unique_downloads=mod.unique_downloads,
-                    mod_total_downloads=mod.total_downloads,
-                    mod_picture_url=mod.picture_url,
-                    mod_summary=mod.summary,
-                    file_id=target_file.file_id,
-                    file_name=target_file.name,
-                    file_version=target_file.version,
-                    file_size_kb=target_file.size_kb,
-                    file_category=target_file.category_name,
-                    file_uploaded_timestamp=target_file.uploaded_timestamp,
-                    nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
-                    mod_root_path=sidebar.get_mod_root_path() if sidebar else None,
+                self._cache_nexus_metadata(
+                    mod=mod,
+                    target_file=target_file,
+                    sidebar=sidebar,
                 )
 
             self._update_status(
@@ -1093,56 +1060,13 @@ class GamePage(QWidget):
                 )
                 if installed:
                     # Track metadata for update checking (match API install behavior).
-                    mods_dir = self.config_manager.get_mods_dir(self.game_name)
-                    installed_name = (
-                        installed[0]
-                        if isinstance(installed[0], str)
-                        else installed[0].name
-                    )
-                    folder_path = mods_dir / installed_name
-
-                    if folder_path.exists() and folder_path.is_dir():
-                        local_path = self._determine_metadata_local_path(folder_path)
-                    else:
-                        local_path = str(folder_path.resolve())
-
-                    self.nexus_metadata.upsert_cache_for_mod(
-                        game_domain=mod.game_domain,
-                        mod_id=mod.mod_id,
-                        local_mod_path=local_path,
-                        file_id=chosen.file_id,
-                        mod_name=mod_name_hint,
-                        mod_version=chosen.version,
-                        mod_author=mod.author,
-                        mod_endorsements=mod.endorsement_count,
-                        mod_unique_downloads=mod.unique_downloads,
-                        mod_total_downloads=mod.total_downloads,
-                        mod_picture_url=mod.picture_url,
-                        mod_summary=mod.summary,
-                        file_name=chosen.name,
-                        file_version=chosen.version,
-                        file_size_kb=chosen.size_kb,
-                        file_category=chosen.category_name,
-                        file_uploaded_timestamp=chosen.uploaded_timestamp,
-                        nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
-                        mod_root_path=mod_root_path
-                        or (sidebar.get_mod_root_path() if sidebar else None),
-                        update_available=False,
+                    self._update_nexus_metadata_after_install(
+                        installed, mod, chosen, mod_name_hint, mod_root_path, sidebar
                     )
 
                     self._update_status(tr("nexus_install_success_status"))
 
-                    if sidebar:
-                        # Refresh sidebar details with updated file info
-                        # Also refresh the file list so the dropdown selects the new file
-                        try:
-                            # Re-fetch files just in case, but usually 'files' from outer scope is fine
-                            sidebar.populate_files(files, chosen.file_id)
-                        except Exception:
-                            pass
-                        sidebar.set_details(mod, chosen)
-                        sidebar.set_cached_text(tr("nexus_cached_just_now"))
-                        sidebar.set_status(tr("nexus_install_success_status"))
+                    self._refresh_sidebar_after_install(sidebar, mod, files, chosen)
                 return installed
 
             with TemporaryDirectory() as tmp:
@@ -1243,49 +1167,8 @@ class GamePage(QWidget):
 
                 if installed:
                     # Track metadata for update checking
-                    mods_dir = self.config_manager.get_mods_dir(self.game_name)
-                    installed_name = (
-                        installed[0]
-                        if isinstance(installed[0], str)
-                        else installed[0].name
-                    )
-                    folder_path = mods_dir / installed_name
-
-                    log.debug(
-                        "Metadata tracking: installed_name=%s, folder_path=%s",
-                        installed_name,
-                        folder_path,
-                    )
-
-                    if folder_path.exists() and folder_path.is_dir():
-                        local_path = self._determine_metadata_local_path(folder_path)
-                    else:
-                        local_path = str(folder_path.resolve())
-                        log.debug("Folder doesn't exist: %s", folder_path)
-
-                    log.debug("Saving metadata with local_path=%s", local_path)
-                    self.nexus_metadata.upsert_cache_for_mod(
-                        game_domain=mod.game_domain,
-                        mod_id=mod.mod_id,
-                        local_mod_path=local_path,
-                        file_id=chosen.file_id,
-                        mod_name=mod_name_hint,  # Use custom name (e.g. "Cinders Main") instead of Nexus name
-                        mod_version=chosen.version,
-                        mod_author=mod.author,
-                        mod_endorsements=mod.endorsement_count,
-                        mod_unique_downloads=mod.unique_downloads,
-                        mod_total_downloads=mod.total_downloads,
-                        mod_picture_url=mod.picture_url,
-                        mod_summary=mod.summary,
-                        file_name=chosen.name,
-                        file_version=chosen.version,
-                        file_size_kb=chosen.size_kb,
-                        file_category=chosen.category_name,
-                        file_uploaded_timestamp=chosen.uploaded_timestamp,
-                        nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
-                        mod_root_path=mod_root_path
-                        or (sidebar.get_mod_root_path() if sidebar else None),
-                        update_available=False,
+                    self._update_nexus_metadata_after_install(
+                        installed, mod, chosen, mod_name_hint, mod_root_path, sidebar
                     )
                     log.debug("Metadata saved successfully")
                     self._update_status(tr("nexus_install_success_status"))
@@ -1317,6 +1200,60 @@ class GamePage(QWidget):
             if sidebar:
                 sidebar.set_status(tr("nexus_download_failed_status", error=str(e)))
             return []
+
+    def _update_nexus_metadata_after_install(
+        self, installed, mod, chosen, mod_name_hint, mod_root_path, sidebar
+    ):
+        """Helper to track metadata after a successful install"""
+        mods_dir = self.config_manager.get_mods_dir(self.game_name)
+        installed_name = (
+            installed[0] if isinstance(installed[0], str) else installed[0].name
+        )
+        folder_path = mods_dir / installed_name
+
+        if folder_path.exists() and folder_path.is_dir():
+            local_path = self._determine_metadata_local_path(folder_path)
+        else:
+            local_path = str(folder_path.resolve())
+
+        self.nexus_metadata.upsert_cache_for_mod(
+            game_domain=mod.game_domain,
+            mod_id=mod.mod_id,
+            local_mod_path=local_path,
+            file_id=chosen.file_id,
+            mod_name=mod_name_hint,
+            mod_version=chosen.version,
+            mod_author=mod.author,
+            mod_endorsements=mod.endorsement_count,
+            mod_unique_downloads=mod.unique_downloads,
+            mod_total_downloads=mod.total_downloads,
+            mod_picture_url=mod.picture_url,
+            mod_summary=mod.summary,
+            file_name=chosen.name,
+            file_version=chosen.version,
+            file_size_kb=chosen.size_kb,
+            file_category=chosen.category_name,
+            file_uploaded_timestamp=chosen.uploaded_timestamp,
+            nexus_url=f"https://www.nexusmods.com/{mod.game_domain}/mods/{mod.mod_id}",
+            mod_root_path=mod_root_path
+            or (sidebar.get_mod_root_path() if sidebar else None),
+            update_available=False,
+        )
+
+    def _refresh_sidebar_after_install(self, sidebar, mod, files, chosen):
+        """Helper to refresh sidebar state after an installation finishes."""
+        if sidebar:
+            try:
+                sidebar.populate_files(files, chosen.file_id)
+            except Exception:
+                pass
+            sidebar.set_details(mod, chosen)
+            sidebar.set_cached_text(
+                self._fmt_cached_age(None)
+                if hasattr(self, "_fmt_cached_age")
+                else "Just now"
+            )
+            sidebar.set_status("Installation successful")
 
     def _determine_metadata_local_path(self, folder_path: Path) -> str:
         """
@@ -1429,6 +1366,16 @@ class GamePage(QWidget):
         except Exception as e:
             return None, False, str(e)
 
+    def _record_no_update(self, local_mod_path: str, latest) -> None:
+        """Record that no update is available for a mod."""
+        self.nexus_metadata.set_update_check_result(
+            local_mod_path=local_mod_path,
+            update_available=False,
+            latest_file_id=latest.file_id if latest else None,
+            latest_version=latest.version if latest else None,
+            error=None,
+        )
+
     def check_update_selected_mod(self):
         """
         Check if an update exists for the currently selected local-linked mod.
@@ -1492,13 +1439,7 @@ class GamePage(QWidget):
                 sidebar.set_update_mode(True)
             else:
                 if self.selected_local_mod_path and tracked:
-                    self.nexus_metadata.set_update_check_result(
-                        local_mod_path=self.selected_local_mod_path,
-                        update_available=False,
-                        latest_file_id=latest.file_id if latest else None,
-                        latest_version=latest.version if latest else None,
-                        error=None,
-                    )
+                    self._record_no_update(self.selected_local_mod_path, latest)
 
                     # Update the list item UI immediately to clear badge
                     if hasattr(self, "mod_widgets_map"):
@@ -1587,13 +1528,7 @@ class GamePage(QWidget):
                                 error=None,
                             )
                         else:
-                            self.gp.nexus_metadata.set_update_check_result(
-                                local_mod_path=str(t.local_mod_path),
-                                update_available=False,
-                                latest_file_id=latest.file_id if latest else None,
-                                latest_version=latest.version if latest else None,
-                                error=None,
-                            )
+                            self.gp._record_no_update(str(t.local_mod_path), latest)
                     except Exception as e:
                         try:
                             self.gp.nexus_metadata.set_update_check_error(
@@ -1849,18 +1784,7 @@ class GamePage(QWidget):
 
     def load_mods(self, reset_page: bool = True):
         # Metadata folder should live under the ACTIVE profile's mods directory
-        try:
-            self.nexus_metadata = NexusMetadataManager(
-                self.config_manager.config_root,
-                self.game_name,
-                legacy_roots=[
-                    self.config_manager.config_root,
-                    self.config_manager.get_mods_dir(self.game_name),
-                ],
-            )
-            self.nexus_metadata.ensure_dirs()
-        except Exception:
-            pass
+        self._init_nexus_metadata()
         self.mod_list_handler.load_mods(reset_page)
         # Update banner after mods load to reflect current active profile settings
         try:

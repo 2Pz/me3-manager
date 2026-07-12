@@ -1,5 +1,4 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -11,7 +10,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QVBoxLayout,
 )
 
 from me3_manager.utils.translator import tr
@@ -53,14 +51,9 @@ class GameManagementDialog(QDialog):
         self.populate_games_list()
 
     def init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        from me3_manager.ui.dialogs.dialog_utils import StyleUtils
 
-        # Title
-        title = QLabel(tr("manage_games"))
-        title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        layout.addWidget(title)
+        layout = StyleUtils.setup_standard_dialog_layout(self, tr("manage_games"))
 
         # Games list
         self.games_list = QListWidget()
@@ -247,14 +240,11 @@ class AddGameDialog(QDialog):
         self.init_ui()
 
     def init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        from me3_manager.ui.dialogs.dialog_utils import StyleUtils
 
-        # Title
-        title = QLabel(tr("add_new_game"))
-        title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        layout.addWidget(title)
+        layout = StyleUtils.setup_standard_dialog_layout(
+            self, tr("add_new_game"), title_font_size=14
+        )
 
         # Description
         description = QLabel(tr("add_new_game_desc"))

@@ -3,8 +3,21 @@ from __future__ import annotations
 import shutil
 import struct
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+
+@dataclass(frozen=True)
+class ShortcutParams:
+    """Parameters for a Steam shortcut entry."""
+
+    appname: str
+    exe: str
+    startdir: str
+    launch_options: str = ""
+    icon: str | None = None
+    tags: list[str] | None = None
 
 
 class _BinaryKV:
@@ -179,28 +192,19 @@ class SteamShortcuts:
         return _BinaryKV.dumps(wrapped)
 
     @classmethod
-    def _build_entry(
-        cls,
-        appname: str,
-        exe: str,
-        startdir: str,
-        launch_options: str = "",
-        icon: str | None = None,
-        tags: list[str] | None = None,
-    ) -> dict[str, Any]:
+    def _build_entry(cls, params: ShortcutParams) -> dict[str, Any]:
         entry: dict[str, Any] = {
-            "appname": appname,
-            "Exe": exe,
-            "StartDir": startdir,
-            "LaunchOptions": launch_options,
+            "appname": params.appname,
+            "Exe": params.exe,
+            "StartDir": params.startdir,
+            "LaunchOptions": params.launch_options,
             **cls.DEFAULT_FIELDS,
         }
-        if icon:
-            entry["icon"] = icon
-        # Tags are a nested object with numeric string keys
+        if params.icon:
+            entry["icon"] = params.icon
         tag_obj: dict[str, Any] = {}
-        if tags:
-            for i, t in enumerate(tags):
+        if params.tags:
+            for i, t in enumerate(params.tags):
                 tag_obj[str(i)] = t
         entry["tags"] = tag_obj
         return entry
@@ -222,12 +226,7 @@ class SteamShortcuts:
     def add_shortcut_for_all_users(
         cls,
         steam_dir: Path,
-        appname: str,
-        exe: str,
-        startdir: str,
-        launch_options: str = "",
-        icon: str | None = None,
-        tags: list[str] | None = None,
+        params: ShortcutParams,
     ) -> tuple[bool, str]:
         steam_dir = cls._coerce_steam_dir(steam_dir)
         if not steam_dir or not steam_dir.exists():
@@ -257,8 +256,8 @@ class SteamShortcuts:
             # Prepare per-user icon path inside Steam's user config dir so Steam can access it
             icon_for_user: str | None = None
             try:
-                if icon:
-                    src = Path(icon)
+                if params.icon:
+                    src = Path(params.icon)
                     if src.exists():
                         ext = src.suffix.lower() or (
                             ".ico" if sys.platform == "win32" else ".png"
@@ -283,7 +282,14 @@ class SteamShortcuts:
 
             # Build candidate entry per user (icon path differs per user)
             candidate = cls._build_entry(
-                appname, exe, startdir, launch_options, icon_for_user, tags
+                ShortcutParams(
+                    appname=params.appname,
+                    exe=params.exe,
+                    startdir=params.startdir,
+                    launch_options=params.launch_options,
+                    icon=icon_for_user,
+                    tags=params.tags,
+                )
             )
 
             # Check for duplicate

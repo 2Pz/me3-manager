@@ -135,6 +135,13 @@ class CommunityService:
             log.error("Failed to fetch community profiles: %s", e)
             return []
 
+    def _download_file(self, url: str, target_file: Path) -> None:
+        with self._session.get(url, stream=True, timeout=10) as r:
+            r.raise_for_status()
+            with open(target_file, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
     def _create_profile_from_item(
         self,
         item: dict,
@@ -256,11 +263,7 @@ class CommunityService:
 
                     log.debug("Downloading %s to %s", raw_url, target_file)
 
-                    with self._session.get(raw_url, stream=True, timeout=10) as r:
-                        r.raise_for_status()
-                        with open(target_file, "wb") as f:
-                            for chunk in r.iter_content(chunk_size=8192):
-                                f.write(chunk)
+                    self._download_file(raw_url, target_file)
 
                     if file_path.endswith(".me3"):
                         main_me3_path = target_file
@@ -272,13 +275,7 @@ class CommunityService:
                 target_file = destination_dir / profile.filename
                 log.info("Downloading profile %s to %s", profile.name, target_file)
 
-                with self._session.get(
-                    profile.download_url, stream=True, timeout=10
-                ) as r:
-                    r.raise_for_status()
-                    with open(target_file, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            f.write(chunk)
+                self._download_file(profile.download_url, target_file)
                 return target_file
 
         except Exception as e:

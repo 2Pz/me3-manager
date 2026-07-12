@@ -3,6 +3,7 @@ TOML config (me3.toml) writer utility for ME3 Manager.
 Handles writing ME3 config files while preserving comments and formatting using tomlkit.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,28 @@ class TomlConfigWriter:
                 return tomllib.load(f), ""
         except Exception as e:
             return {}, f"Failed to parse existing config file: {str(e)}"
+
+    @staticmethod
+    def _load_or_fail(config_path: Path) -> tuple[dict | None, str]:
+        """Load config, returning (None, error_msg) on failure."""
+        data, error = TomlConfigWriter._load_existing_config(config_path)
+        if error:
+            return None, error
+        return data, ""
+
+    @staticmethod
+    def _with_loaded_config(
+        config_path: Path,
+        func: Callable[[dict], tuple[bool, str]],
+    ) -> tuple[bool, str]:
+        """Load config, pass to func, and handle errors uniformly."""
+        try:
+            data, error = TomlConfigWriter._load_existing_config(config_path)
+            if error:
+                return False, error
+            return func(data)
+        except Exception as e:
+            return False, f"Unexpected error: {str(e)}"
 
     @staticmethod
     def _write_toml_document(config_path: Path, data: dict) -> tuple[bool, str]:
@@ -68,40 +91,28 @@ class TomlConfigWriter:
             key: The key to update
             value: The new value (None to remove the key)
             section: Optional section name (e.g., "game.elden_ring")
-
-        Returns:
-            Tuple of (success: bool, error_message: str)
         """
-        try:
-            existing_data, error = TomlConfigWriter._load_existing_config(config_path)
-            if error:
-                return False, error
 
-            # Navigate to the correct section and update the value
+        def _apply(data: dict) -> tuple[bool, str]:
             if section:
                 section_parts = section.split(".")
-                current_section = existing_data
+                current_section = data
                 for part in section_parts:
                     if part not in current_section:
                         current_section[part] = {}
                     current_section = current_section[part]
-
-                # Update or remove the value
                 if value is None:
                     current_section.pop(key, None)
                 else:
                     current_section[key] = value
             else:
-                # Update at root level
                 if value is None:
-                    existing_data.pop(key, None)
+                    data.pop(key, None)
                 else:
-                    existing_data[key] = value
+                    data[key] = value
+            return TomlConfigWriter._write_toml_document(config_path, data)
 
-            return TomlConfigWriter._write_toml_document(config_path, existing_data)
-
-        except Exception as e:
-            return False, f"Unexpected error updating config: {str(e)}"
+        return TomlConfigWriter._with_loaded_config(config_path, _apply)
 
     @staticmethod
     def update_game_settings(
@@ -114,39 +125,25 @@ class TomlConfigWriter:
             config_path: Path to the TOML config file
             game_name: Name of the game
             settings: Dictionary of settings to update
-
-        Returns:
-            Tuple of (success: bool, error_message: str)
         """
-        try:
-            existing_data, error = TomlConfigWriter._load_existing_config(config_path)
-            if error:
-                return False, error
 
-            # Ensure game section exists in data
-            if "game" not in existing_data:
-                existing_data["game"] = {}
-
-            if game_name not in existing_data["game"]:
-                existing_data["game"][game_name] = {}
-
-            # Update all settings in the data
+        def _apply(data: dict) -> tuple[bool, str]:
+            if "game" not in data:
+                data["game"] = {}
+            if game_name not in data["game"]:
+                data["game"][game_name] = {}
             for k, v in settings.items():
                 if v is None:
-                    existing_data["game"][game_name].pop(k, None)
+                    data["game"][game_name].pop(k, None)
                 else:
-                    existing_data["game"][game_name][k] = v
+                    data["game"][game_name][k] = v
+            if not data["game"][game_name]:
+                data["game"].pop(game_name, None)
+            if not data.get("game"):
+                data.pop("game", None)
+            return TomlConfigWriter._write_toml_document(config_path, data)
 
-            # Clean up empty sections
-            if not existing_data["game"][game_name]:
-                existing_data["game"].pop(game_name, None)
-            if not existing_data.get("game"):
-                existing_data.pop("game", None)
-
-            return TomlConfigWriter._write_toml_document(config_path, existing_data)
-
-        except Exception as e:
-            return False, f"Unexpected error updating game settings: {str(e)}"
+        return TomlConfigWriter._with_loaded_config(config_path, _apply)
 
     @staticmethod
     def validate_write_access(config_path: Path) -> tuple[bool, str]:

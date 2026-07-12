@@ -47,6 +47,21 @@ class FileWatcher(QObject):
         profiles = settings_manager.get("profiles", {})
         game_profiles = profiles.get(game_name, [])
 
+        self._add_default_and_profile_paths(
+            path_manager, game_name, game_profiles, target_dirs, target_files
+        )
+
+        # Update watched paths
+        self._update_watched_paths(target_dirs, target_files)
+
+    def _add_default_and_profile_paths(
+        self,
+        path_manager,
+        game_name: str,
+        game_profiles: list,
+        target_dirs: set[str],
+        target_files: set[str],
+    ) -> None:
         # Add default mods directory
         default_mods_dir = path_manager.get_mods_dir(game_name)
         if default_mods_dir.is_dir():
@@ -54,9 +69,6 @@ class FileWatcher(QObject):
 
         # Add custom profile directories and files
         self._collect_profile_paths(game_profiles, target_dirs, target_files)
-
-        # Update watched paths
-        self._update_watched_paths(target_dirs, target_files)
 
     def _collect_profile_paths(
         self, profiles: list, target_dirs: set[str], target_files: set[str]
@@ -101,14 +113,12 @@ class FileWatcher(QObject):
             if game_name not in profiles:
                 continue
 
-            # Add default mods directory
-            default_mods_dir = path_manager.get_mods_dir(game_name)
-            if default_mods_dir.is_dir():
-                target_dirs.add(str(default_mods_dir))
-
-            # Add custom profile directories and files
-            self._collect_profile_paths(
-                profiles.get(game_name, []), target_dirs, target_files
+            self._add_default_and_profile_paths(
+                path_manager,
+                game_name,
+                profiles.get(game_name, []),
+                target_dirs,
+                target_files,
             )
 
         # Update watched paths
