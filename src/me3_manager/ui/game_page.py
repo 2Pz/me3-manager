@@ -832,7 +832,9 @@ class GamePage(QWidget):
 
         try:
             self.nexus_metadata.set_mod_root_path(
-                mod.game_domain, mod.mod_id, new_root or None
+                game_domain=mod.game_domain,
+                mod_id=mod.mod_id,
+                mod_root_path=new_root or None,
             )
         except Exception:
             pass
@@ -1863,6 +1865,7 @@ class GamePage(QWidget):
         # Update banner after mods load to reflect current active profile settings
         try:
             self.update_custom_savefile_warning()
+            self.update_custom_settings_banner()
         except Exception:
             pass
         try:
@@ -2037,23 +2040,195 @@ class GamePage(QWidget):
         self.reload_timer.setSingleShot(True)
         self.reload_timer.timeout.connect(lambda: self.load_mods(reset_page=False))
 
+    def show_banner(
+        self,
+        banner_id: str,
+        level: str,
+        message: str,
+        action_text: str = None,
+        action_callback=None,
+        timeout_ms: int = 0,
+    ):
+        if not hasattr(self, "active_banners"):
+            self.active_banners = {}
+
+        if hasattr(self, "dismissed_banners") and banner_id in self.dismissed_banners:
+            if self.dismissed_banners[banner_id] == message:
+                return
+            else:
+                del self.dismissed_banners[banner_id]
+
+        if banner_id in self.active_banners:
+            # If the message is the same, no need to recreate
+            old_banner = self.active_banners[banner_id]
+            if getattr(old_banner, "_banner_message", None) == message:
+                return
+            self.hide_banner(banner_id)
+
+        from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+
+        banner = QWidget()
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(12)
+
+        if level == "error":
+            icon_text, icon_color, bg_color, border_color = (
+                "⚠",
+                "#ff5555",
+                "#3a1a1a",
+                "#7a2a2a",
+            )
+        elif level == "warning":
+            icon_text, icon_color, bg_color, border_color = (
+                "⚠",
+                "#ffcc00",
+                "#3a2a00",
+                "#7a5a00",
+            )
+        elif level == "success":
+            icon_text, icon_color, bg_color, border_color = (
+                "✓",
+                "#0DBC79",
+                "#1e3a2a",
+                "#2a5a3a",
+            )
+        else:  # info
+            icon_text, icon_color, bg_color, border_color = (
+                "ℹ",
+                "#0DBC79",
+                "#1a2a3a",
+                "#2a4a7a",
+            )
+
+        icon_label = QLabel(icon_text)
+        icon_label.setStyleSheet(
+            f"color: {icon_color}; font-size: 18px; font-weight: bold;"
+        )
+        layout.addWidget(icon_label)
+
+        text_label = QLabel(message)
+        text_label.setWordWrap(True)
+        text_label.setStyleSheet("color: #ffffff; font-size: 13px;")
+        layout.addWidget(text_label, 1)
+
+        if action_text and action_callback:
+            action_btn = QPushButton(action_text)
+            action_btn.setFixedHeight(32)
+            action_btn.clicked.connect(action_callback)
+            layout.addWidget(action_btn)
+
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(24, 24)
+        close_btn.clicked.connect(
+            lambda: self.hide_banner(banner_id, manual=True, message=message)
+        )
+        layout.addWidget(close_btn)
+
+        banner.setStyleSheet(f"""
+            QWidget {{ background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 8px; }}
+            QPushButton {{ background: #0078d4; color: white; border: none; border-radius: 6px; padding: 6px 12px; }}
+            QPushButton:hover {{ background: #106ebe; }}
+            QPushButton[text="✕"] {{ background: transparent; color: #888888; border: none; font-size: 14px; padding: 0; }}
+            QPushButton[text="✕"]:hover {{ color: #ffffff; }}
+        """)
+
+        if hasattr(self, "banner_container_layout"):
+            priorities = {
+                "multiple_reg": 0,
+                "custom_savefile": 1,
+                "custom_settings": 2,
+                "notification": 3,
+            }
+            target_priority = priorities.get(banner_id, 99)
+
+            insert_index = 0
+            for i in range(self.banner_container_layout.count()):
+                w = self.banner_container_layout.itemAt(i).widget()
+                if w:
+                    w_id = getattr(w, "_banner_id", None)
+                    if w_id:
+                        w_priority = priorities.get(w_id, 99)
+                        if target_priority < w_priority:
+                            break
+                insert_index += 1
+
+            banner._banner_id = banner_id
+            banner._banner_message = message
+            self.banner_container_layout.insertWidget(insert_index, banner)
+            self.active_banners[banner_id] = banner
+            banner.show()
+
+            if timeout_ms > 0:
+                from PySide6.QtCore import QTimer
+
+                timer = QTimer(self)
+                timer.setSingleShot(True)
+                timer.timeout.connect(lambda: self.hide_banner(banner_id))
+                timer.start(timeout_ms)
+                banner._hide_timer = timer
+
+    def hide_banner(self, banner_id: str, manual: bool = False, message: str = ""):
+        if manual:
+            if not hasattr(self, "dismissed_banners"):
+                self.dismissed_banners = {}
+            self.dismissed_banners[banner_id] = message
+
+        if hasattr(self, "active_banners") and banner_id in self.active_banners:
+            banner = self.active_banners.pop(banner_id)
+            if hasattr(self, "banner_container_layout"):
+                self.banner_container_layout.removeWidget(banner)
+            banner.deleteLater()
+
+    def update_custom_settings_banner(self):
+        """Show a persistent banner if non-default settings like custom exe are active."""
+        active_settings = []
+
+        try:
+            me3_game_settings = self.config_manager.get_me3_game_settings(
+                self.game_name
+            )
+            exe_path = me3_game_settings.get("exe")
+            if exe_path:
+                active_settings.append(f"{tr('custom_executable_title')}: {exe_path}")
+        except Exception:
+            pass
+
+        try:
+            me3_config_path = self.config_manager.get_me3_config_path(self.game_name)
+            if me3_config_path and Path(me3_config_path).exists():
+                import tomllib
+
+                with open(me3_config_path, "rb") as f:
+                    me3_global_config = tomllib.load(f)
+                global_steam_dir = me3_global_config.get("steam_dir")
+                if global_steam_dir:
+                    active_settings.append(
+                        f"{tr('steam_directory_title')}: {global_steam_dir}"
+                    )
+        except Exception:
+            pass
+
+        if active_settings:
+            msg = tr("gamepage_custom_settings_title") + "<br/>• ".join(active_settings)
+            self.show_banner("custom_settings", "info", msg)
+        else:
+            self.hide_banner("custom_settings")
+
     def update_custom_savefile_warning(self):
         """Show banner if active profile does not have a custom savefile set."""
-        banner = getattr(self, "custom_savefile_banner", None)
-        if banner is None:
-            return
         try:
             profile_path = self.config_manager.get_profile_path(self.game_name)
         except Exception:
-            banner.setVisible(False)
+            self.hide_banner("custom_savefile")
             return
         try:
             if not profile_path or not profile_path.exists():
-                banner.setVisible(False)
+                self.hide_banner("custom_savefile")
                 return
             config = self.config_manager._parse_toml_config(profile_path)
         except Exception:
-            banner.setVisible(False)
+            self.hide_banner("custom_savefile")
             return
 
         # Check both legacy (v1) and v2 style locations for savefile
@@ -2106,15 +2281,20 @@ class GamePage(QWidget):
         except Exception:
             seamless_enabled = False
 
-        # Show banner only when no custom savefile AND seamless co-op not enabled
-        banner.setVisible((not bool(savefile_value)) and (not seamless_enabled))
+        show_warning = (not bool(savefile_value)) and (not seamless_enabled)
+        if show_warning:
+            self.show_banner(
+                "custom_savefile",
+                "warning",
+                tr("gamepage_savefile_warning"),
+                tr("gamepage_configure_savefile_button"),
+                self.open_profile_settings,
+            )
+        else:
+            self.hide_banner("custom_savefile")
 
     def update_multiple_regulation_warning(self):
         """Show banner if multiple enabled mods provide a regulation.bin file."""
-        banner = getattr(self, "multiple_reg_banner", None)
-        if banner is None:
-            return
-
         try:
             mods_data = getattr(self, "all_mods_data", {}) or {}
             enabled_reg_mods_count = 0
@@ -2127,11 +2307,13 @@ class GamePage(QWidget):
                         enabled_reg_mods_count += 1
 
             if enabled_reg_mods_count > 1:
-                banner.setVisible(True)
+                self.show_banner(
+                    "multiple_reg", "error", tr("gamepage_multiple_reg_warning")
+                )
             else:
-                banner.setVisible(False)
+                self.hide_banner("multiple_reg")
         except Exception:
-            banner.setVisible(False)
+            self.hide_banner("multiple_reg")
 
     def _get_filter_definitions(self) -> dict[str, tuple]:
         """Provides filter button text and tooltips to the UI builder."""
