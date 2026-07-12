@@ -488,7 +488,7 @@ class ME3InfoManager:
         Create a default me3.toml file in the appropriate location.
         Returns True if successful, False otherwise.
         """
-        config_path = self.get_config_creation_path()
+        config_path = self.get_primary_config_path()
         if not config_path:
             return False
 
@@ -500,8 +500,6 @@ class ME3InfoManager:
             default_config = """# ME3 Configuration File
 # This file was automatically created
 
-[general]
-# Add your configuration options here
 """
 
             # Write the config file
