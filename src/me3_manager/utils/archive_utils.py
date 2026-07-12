@@ -12,7 +12,9 @@ import logging
 import platform
 import shutil
 import subprocess
+import time
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 try:
@@ -89,7 +91,9 @@ def _find_7zip() -> str | None:
     return None
 
 
-def extract_archive(archive: Path, dest_dir: Path) -> bool:
+def extract_archive(
+    archive: Path, dest_dir: Path, cancel_check: Callable[[], bool] | None = None
+) -> bool:
     """
     Extract an archive to the destination directory.
 
@@ -98,6 +102,7 @@ def extract_archive(archive: Path, dest_dir: Path) -> bool:
     Args:
         archive: Path to the archive file
         dest_dir: Directory to extract contents to
+        cancel_check: Optional callable that returns True if extraction should be cancelled
 
     Returns:
         True if extraction succeeded, False otherwise
@@ -115,28 +120,37 @@ def extract_archive(archive: Path, dest_dir: Path) -> bool:
     # 1. Optimize for ZIP files - use built-in module
     if suffix == ".zip":
         try:
-            return _extract_zip(archive, dest_dir)
+            return _extract_zip(archive, dest_dir, cancel_check)
+        except InterruptedError:
+            raise
         except Exception as e:
             log.warning("zipfile extraction failed (%s), trying 7-zip/patool", e)
             # Fallthrough to 7-Zip/patool
 
     # 2. Try direct 7-Zip extraction (faster than patool overhead)
     # Works for .rar, .7z, and failed .zip
-    if _extract_with_7zip(archive, dest_dir):
+    if _extract_with_7zip(archive, dest_dir, cancel_check):
         return True
 
     # 3. Fallback to patool (handles standard detection and other edge cases)
-    return _extract_with_patool(archive, dest_dir)
+    return _extract_with_patool(archive, dest_dir, cancel_check)
 
 
-def _extract_zip(archive: Path, dest_dir: Path) -> bool:
+def _extract_zip(
+    archive: Path, dest_dir: Path, cancel_check: Callable[[], bool] | None = None
+) -> bool:
     """Extract a ZIP archive using Python's built-in zipfile module."""
     with zipfile.ZipFile(archive, "r") as z:
-        z.extractall(dest_dir)
+        for member in z.infolist():
+            if cancel_check and cancel_check():
+                raise InterruptedError("Extraction cancelled")
+            z.extract(member, dest_dir)
     return True
 
 
-def _extract_with_7zip(archive: Path, dest_dir: Path) -> bool:
+def _extract_with_7zip(
+    archive: Path, dest_dir: Path, cancel_check: Callable[[], bool] | None = None
+) -> bool:
     """Attempt extraction using 7-Zip subprocess directly."""
     exe = _find_7zip()
     if not exe:
@@ -153,21 +167,41 @@ def _extract_with_7zip(archive: Path, dest_dir: Path) -> bool:
         else:
             creation_flags = 0
 
-        # Suppress output unless error
-        subprocess.check_call(
+        proc = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             creationflags=creation_flags,
         )
+
+        if cancel_check:
+            while proc.poll() is None:
+                if cancel_check():
+                    proc.kill()
+                    proc.wait()
+                    raise InterruptedError("Extraction cancelled")
+                time.sleep(0.1)
+
+        proc.wait()
+        if proc.returncode != 0:
+            err = proc.stderr.read().decode(errors="ignore") if proc.stderr else ""
+            raise subprocess.CalledProcessError(proc.returncode, cmd, stderr=err)
+
         return True
+    except InterruptedError:
+        raise
     except Exception as e:
         log.debug("Direct 7-Zip extraction failed/skipped: %s", e)
         return False
 
 
-def _extract_with_patool(archive: Path, dest_dir: Path) -> bool:
+def _extract_with_patool(
+    archive: Path, dest_dir: Path, cancel_check: Callable[[], bool] | None = None
+) -> bool:
     """Extract an archive using patool (auto-detects format from content)."""
+    if cancel_check and cancel_check():
+        raise InterruptedError("Extraction cancelled")
+
     try:
         import patoolib
     except ImportError:

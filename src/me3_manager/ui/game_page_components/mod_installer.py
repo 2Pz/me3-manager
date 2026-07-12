@@ -123,6 +123,29 @@ def _copy_item(src: Path, dst: Path) -> bool:
         return False
 
 
+class ActionWorker(QThread):
+    """Generic worker for running a synchronous function in a background thread."""
+
+    finished_signal = Signal(bool, str)
+
+    def __init__(self, action_func, *args, **kwargs):
+        super().__init__()
+        self.action_func = action_func
+        self.args = args
+        self.kwargs = kwargs
+        self.success = False
+        self.error_msg = ""
+
+    def run(self):
+        try:
+            self.action_func(*self.args, **self.kwargs)
+            self.success = True
+        except Exception as e:
+            self.success = False
+            self.error_msg = str(e)
+        self.finished_signal.emit(self.success, self.error_msg)
+
+
 class InstallWorker(QThread):
     """Background worker for file copy operations."""
 
@@ -703,11 +726,42 @@ class ModInstaller:
             extract_dir = Path(tmp) / "extract"
             extract_dir.mkdir(parents=True, exist_ok=True)
 
-            try:
-                extract_archive(archive, extract_dir)
-            except Exception as e:
-                self._log.exception("Archive extraction failed for %s", archive)
-                self._show_error(tr("download_file_not_vaild") + f"\n\n{e}")
+            progress = QProgressDialog(
+                tr("extracting_status"),
+                tr("cancel_button"),
+                0,
+                0,
+                self.game_page,
+            )
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setAutoClose(False)
+            progress.setAutoReset(False)
+
+            worker = ActionWorker(
+                extract_archive,
+                archive,
+                extract_dir,
+                cancel_check=lambda: worker.isInterruptionRequested(),
+            )
+            worker.finished_signal.connect(lambda s, m: progress.close())
+            progress.canceled.connect(worker.requestInterruption)
+
+            worker.start()
+            progress.exec()
+            worker.wait()
+
+            if not worker.success:
+                if "cancel" in worker.error_msg.lower():
+                    self._log.info("Archive extraction cancelled by user.")
+                else:
+                    self._log.exception(
+                        "Archive extraction failed for %s: %s",
+                        archive,
+                        worker.error_msg,
+                    )
+                    self._show_error(
+                        tr("download_file_not_vaild") + f"\n\n{worker.error_msg}"
+                    )
                 return []
 
             installed = self.install_mod(
@@ -825,29 +879,67 @@ class ModInstaller:
         with TemporaryDirectory(dir=str(temp_root)) as tmp_dir:
             staged_items = []
 
-            for src, dest_rel in items_to_install:
-                # Ensure dest_rel is a Path
-                dest_rel = Path(dest_rel)
+            def do_staging():
+                def copy_with_cancel(src_f, dst_f, **kwargs):
+                    if QThread.currentThread().isInterruptionRequested():
+                        raise InterruptedError("Staging cancelled")
+                    return shutil.copy2(src_f, dst_f, **kwargs)
 
-                # Determine staged path
-                staged_path = Path(tmp_dir) / dest_rel
+                for src, dest_rel in items_to_install:
+                    if QThread.currentThread().isInterruptionRequested():
+                        raise InterruptedError("Staging cancelled")
 
-                # Ensure parent directory exists in temp staging area
-                staged_path.parent.mkdir(parents=True, exist_ok=True)
+                    # Ensure dest_rel is a Path
+                    dest_rel_path = Path(dest_rel)
 
-                if src.is_dir():
-                    shutil.copytree(
-                        src,
-                        staged_path,
-                        symlinks=False,
-                        ignore_dangling_symlinks=True,
-                        dirs_exist_ok=True,
-                    )
+                    # Determine staged path
+                    staged_path = Path(tmp_dir) / dest_rel_path
+
+                    # Ensure parent directory exists in temp staging area
+                    staged_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    if src.is_dir():
+                        shutil.copytree(
+                            src,
+                            staged_path,
+                            symlinks=False,
+                            ignore_dangling_symlinks=True,
+                            dirs_exist_ok=True,
+                            copy_function=copy_with_cancel,
+                        )
+                    else:
+                        copy_with_cancel(src, staged_path, follow_symlinks=False)
+
+                    staged_items.append((staged_path, dest_rel_path))
+
+            progress = QProgressDialog(
+                tr("staging_status"),
+                tr("cancel_button"),
+                0,
+                0,
+                self.game_page,
+            )
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setAutoClose(False)
+            progress.setAutoReset(False)
+
+            worker = ActionWorker(do_staging)
+            worker.finished_signal.connect(lambda s, m: progress.close())
+            progress.canceled.connect(worker.requestInterruption)
+
+            worker.start()
+            progress.exec()
+            worker.wait()
+
+            if not worker.success:
+                if (
+                    "cancelled" in worker.error_msg.lower()
+                    or "cancel" in worker.error_msg.lower()
+                ):
+                    self._log.info("Staging cancelled by user.")
                 else:
-                    shutil.copy2(src, staged_path, follow_symlinks=False)
-
-                # Pass tuple to _copy_with_progress so InstallWorker uses relative path
-                staged_items.append((staged_path, dest_rel))
+                    self._log.exception("Staging failed: %s", worker.error_msg)
+                return False
 
             return self._copy_with_progress(staged_items)
 
