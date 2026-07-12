@@ -448,6 +448,8 @@
   "nexus_selected_mod_status": "已选：{mod_name}",
   "nexus_downloading_status": "正在下载...",
   "nexus_installing_status": "正在安装...",
+  "extracting_status": "正在解压...",
+  "staging_status": "正在准备文件...",
   "nexus_install_success_status": "安装成功。",
   "nexus_install_cancelled_status": "安装已取消。",
   "nexus_download_failed_status": "下载失败：{error}",

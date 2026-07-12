@@ -448,6 +448,8 @@
   "nexus_selected_mod_status": "المحدد: {mod_name}",
   "nexus_downloading_status": "جاري التحميل...",
   "nexus_installing_status": "جاري التثبيت...",
+  "extracting_status": "جاري استخراج الملفات...",
+  "staging_status": "جاري تحضير الملفات...",
   "nexus_install_success_status": "تم التثبيت بنجاح.",
   "nexus_install_cancelled_status": "تم إلغاء التثبيت.",
   "nexus_download_failed_status": "فشل التحميل: {error}",

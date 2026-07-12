@@ -448,6 +448,8 @@
   "nexus_selected_mod_status": "Selected: {mod_name}",
   "nexus_downloading_status": "Downloading…",
   "nexus_installing_status": "Installing…",
+  "extracting_status": "Extracting…",
+  "staging_status": "Staging files…",
   "nexus_install_success_status": "Installed successfully.",
   "nexus_install_cancelled_status": "Install cancelled.",
   "nexus_download_failed_status": "Download failed: {error}",
