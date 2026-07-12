@@ -400,6 +400,7 @@
   "gamepage_savefile_warning": "Your current profile does not use a custom save file. To protect your vanilla saves, configure a unique save file name in Profile Settings.",
   "gamepage_multiple_reg_warning": "Conflict: Multiple regulation.bin files active. The game only loads one. Disable conflicting mods or merge them with Smithbox.",
   "gamepage_configure_savefile_button": "Configure Save File...",
+  "gamepage_custom_settings_title": "<b>Active Custom Settings:</b><br/>• ",
   "profile_compare_title": "Compare Profiles - {game_name}",
   "profile_compare_header": "Select two profiles to compare their enabled DLLs and packages.",
   "profile_compare_side_title": "Profile ({side})",

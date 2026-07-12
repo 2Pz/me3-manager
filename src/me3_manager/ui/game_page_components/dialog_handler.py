@@ -62,6 +62,8 @@ class DialogHandler:
                 self.game_page._update_status(
                     tr("config_path_saved_status", mod_name=mod_name)
                 )
+                if hasattr(self.game_page, "update_custom_settings_banner"):
+                    self.game_page.update_custom_settings_banner()
 
     def open_advanced_options(self, mod_path: str):
         """Opens the advanced load order options dialog for a mod."""
@@ -103,6 +105,8 @@ class DialogHandler:
                 self.game_page._update_status(
                     tr("advanced_options_updated_status", mod_name=mod_name)
                 )
+                if hasattr(self.game_page, "update_custom_settings_banner"):
+                    self.game_page.update_custom_settings_banner()
         except Exception as e:
             QMessageBox.warning(
                 self.game_page,
@@ -116,7 +120,9 @@ class DialogHandler:
             dialog = GameOptionsDialog(
                 self.game_name, self.config_manager, self.game_page
             )
-            dialog.exec()
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                if hasattr(self.game_page, "update_custom_settings_banner"):
+                    self.game_page.update_custom_settings_banner()
         except Exception as e:
             QMessageBox.warning(
                 self.game_page,
@@ -136,6 +142,8 @@ class DialogHandler:
                 )
                 self.game_page.load_mods(reset_page=False)
                 self.game_page._update_status(tr("status_ready"))
+                if hasattr(self.game_page, "update_custom_settings_banner"):
+                    self.game_page.update_custom_settings_banner()
                 # Refresh banner state
                 try:
                     self.game_page.update_custom_savefile_warning()

@@ -400,6 +400,7 @@
   "gamepage_savefile_warning": "البروفايل الحالي ما يستخدم ملف حفظ مخصص. لحماية تخزيناتك العادية، اضبط اسم ملف حفظ مميز من إعدادات البروفايل.",
   "gamepage_multiple_reg_warning": "تعارض: أكثر من ملف regulation.bin شغال. اللعبة تحمل ملف واحد بس. عطّل المودات المتعارضة أو ادمجها ببرنامج Smithbox.",
   "gamepage_configure_savefile_button": "إعداد ملف الحفظ...",
+  "gamepage_custom_settings_title": "<b>إعدادات مخصصة نشطة:</b><br/>• ",
   "profile_compare_title": "مقارنة البروفايلات - {game_name}",
   "profile_compare_header": "اختر بروفايلين عشان تقارن الـ DLLs والبكجات المفعّلة.",
   "profile_compare_side_title": "بروفايل ({side})",
