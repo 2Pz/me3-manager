@@ -625,6 +625,40 @@ class GameOptionsDialog(GameDialogBase):
                 tr("browse_error_message", error=str(e)),
             )
 
+    def _ensure_config_location(self, selected_config_path: Path):
+        """Helper to set and use a new config location."""
+        if hasattr(self.config_manager, "me3_info") and self.config_manager.me3_info:
+            success = self.config_manager.me3_info.ensure_single_config(
+                selected_config_path
+            )
+
+            if success:
+                if hasattr(self.config_manager, "set_me3_config_path"):
+                    self.config_manager.set_me3_config_path(
+                        self.game_name, str(selected_config_path)
+                    )
+                self.load_current_settings()
+                QMessageBox.information(
+                    self,
+                    tr("config_updated_title"),
+                    tr(
+                        "config_updated_message",
+                        selected_config_path=selected_config_path,
+                    ),
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    tr("config_setup_error_title"),
+                    tr("config_setup_error_message"),
+                )
+        else:
+            QMessageBox.warning(
+                self,
+                tr("feature_not_available_title"),
+                tr("feature_not_available_message"),
+            )
+
     def browse_executable(self):
         """Browse for game executable"""
         from me3_manager.ui.game_page_components.page_utils import select_executable
