@@ -24,7 +24,6 @@ import tomlkit
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QDialog,
-    QDialogButtonBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -1050,7 +1049,8 @@ class ModInstaller:
 
             # Check for nexus_link dependencies and download if needed
             # Done after confirmation so user knows what they are importing first
-            if not self._handle_nexus_dependencies(profile_data):
+            deps_success, warnings = self._handle_nexus_dependencies(profile_data)
+            if not deps_success:
                 return []
 
             # Check for custom install script in profile metadata
@@ -1272,15 +1272,18 @@ class ModInstaller:
             _apply_configs(profile_data.get("packages", []))
 
             # Show success dialog LAST (after all prompts and config are applied)
-            dialog = QDialog(self.game_page)
-            dialog.setWindowTitle(tr("import_complete_title"))
-            layout = QVBoxLayout()
-            layout.addWidget(QLabel(tr("import_complete_success_header")))
-            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-            button_box.accepted.connect(dialog.accept)
-            layout.addWidget(button_box)
-            dialog.setLayout(layout)
-            dialog.exec()
+            msg = QMessageBox(self.game_page)
+            msg.setWindowTitle(tr("import_complete_title"))
+
+            if warnings:
+                msg.setText(tr("import_complete_with_warnings"))
+                msg.setIcon(QMessageBox.Icon.Warning)
+                msg.setInformativeText("\n\n".join(warnings))
+            else:
+                msg.setText(tr("import_complete_success_header"))
+                msg.setIcon(QMessageBox.Icon.Information)
+
+            msg.exec()
 
             self.game_page.load_mods()
             return final_folder_names
@@ -1327,17 +1330,18 @@ class ModInstaller:
                 return True
         return False
 
-    def _handle_nexus_dependencies(self, profile_data: dict) -> bool:
+    def _handle_nexus_dependencies(self, profile_data: dict) -> tuple[bool, list[str]]:
         """Check for and download missing mods from nexus_link entries.
 
         Args:
             profile_data: Normalized profile data with natives and packages
 
         Returns:
-            True if successful or no dependencies, False if user cancelled
+            Tuple of (True if successful or no dependencies/False if cancelled, list of warning messages)
         """
         # Collect all nexus_link entries from both natives and packages
         nexus_deps = []
+        warnings = []
 
         # Helper to process entries
         def _process_entries(entries, type_label):
@@ -1366,7 +1370,7 @@ class ModInstaller:
         _process_entries(profile_data.get("packages", []), "package")
 
         if not nexus_deps:
-            return True
+            return True, []
 
         # Check if we have nexus service available
         nexus_service = getattr(self.game_page, "nexus_service", None)
@@ -1383,7 +1387,7 @@ class ModInstaller:
                 QMessageBox.StandardButton.Ok,
             )
             # Always cancel - user must log in to proceed
-            return False
+            return False, []
 
         # Filter to only mods that aren't already installed
         # For now, we'll just show all and let download_from_nexus handle duplicates
@@ -1420,7 +1424,7 @@ class ModInstaller:
         )
 
         if reply != QMessageBox.StandardButton.Yes:
-            return False
+            return False, []
 
         try:
             # Download each missing dependency
@@ -1518,17 +1522,15 @@ class ModInstaller:
 
                 except Exception as e:
                     self._log.error(f"Failed to download {dep['url']}: {e}")
-                    QMessageBox.warning(
-                        self.game_page,
-                        tr("ERROR"),
-                        tr("nexus_download_failed", url=dep["url"], error=str(e)),
+                    warnings.append(
+                        f"{dep['mod_name']} - {tr('nexus_download_failed_status', error=str(e))}"
                     )
-                    # Stop the entire installation on failure
-                    raise
+                    # Continue the installation so other mods can still be downloaded
+                    continue
         finally:
             pass  # Sidebar is no longer touched during fetch
 
-        return True
+        return True, warnings
 
     # =========================================================================
     # HELPER METHODS

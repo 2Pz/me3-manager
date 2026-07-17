@@ -31,6 +31,7 @@ from me3_manager.services.community_service import CommunityService
 from me3_manager.services.export_service import ExportService
 from me3_manager.services.nexus_service import (
     NexusError,
+    NexusForbiddenError,
     NexusMod,
     NexusModFile,
     NexusService,
@@ -972,10 +973,25 @@ class GamePage(QWidget):
                 )
                 if links:
                     url = links[0].url
-            except NexusError as e:
-                # Free users frequently get 403 here; fall back to WebView automation.
-                log.info("API download_link blocked; falling back to WebView: %s", e)
-                url = None
+            except NexusForbiddenError as e:
+                # Fall back to browser download ONLY if the 403 seems to be a Premium restriction.
+                # If Nexus returned a specific file error (e.g. quarantined), raise it to show in GUI.
+                error_msg = str(e).lower()
+                is_premium_block = (
+                    "forbidden by nexus api" in error_msg
+                    or "premium" in error_msg
+                    or "membership" in error_msg
+                    or "upgrade" in error_msg
+                )
+
+                if is_premium_block:
+                    log.info(
+                        "API download_link blocked (Premium required); falling back to browser: %s",
+                        e,
+                    )
+                    url = None
+                else:
+                    raise e
 
             # Use Nexus mod name as folder name, or override if install_name provided
             if install_name:
@@ -1199,6 +1215,10 @@ class GamePage(QWidget):
             self._update_status(tr("nexus_download_failed_status", error=str(e)))
             if sidebar:
                 sidebar.set_status(tr("nexus_download_failed_status", error=str(e)))
+
+            if ignore_sidebar:
+                raise e
+
             return []
 
     def _update_nexus_metadata_after_install(
