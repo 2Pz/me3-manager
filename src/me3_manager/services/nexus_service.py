@@ -29,6 +29,12 @@ class NexusError(RuntimeError):
     pass
 
 
+class NexusForbiddenError(NexusError):
+    """Raised specifically for HTTP 403 errors (e.g. Premium required or file quarantined)."""
+
+    pass
+
+
 @dataclass(frozen=True)
 class NexusUser:
     user_id: int | None
@@ -248,7 +254,7 @@ class NexusService:
             raise NexusError("Unauthorized: invalid or missing Nexus API key.")
         if resp.status_code == 403:
             msg = NexusService._extract_error_message(resp)
-            raise NexusError(msg or "Forbidden by Nexus API (HTTP 403).")
+            raise NexusForbiddenError(msg or "Forbidden by Nexus API (HTTP 403).")
 
         try:
             resp.raise_for_status()
