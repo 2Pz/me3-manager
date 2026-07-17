@@ -92,13 +92,13 @@ name = "cx-freeze"
 version = "8.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cabarchive", marker = "sys_platform == 'win32'" },
-    { name = "cx-logging", marker = "platform_machine != 'ARM64' and sys_platform == 'win32'" },
-    { name = "filelock", marker = "(platform_machine != 'aarch64' and platform_machine != 'armv7l' and platform_machine != 'i686' and platform_machine != 'ppc64le' and platform_machine != 's390x' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
-    { name = "lief", marker = "sys_platform == 'win32'" },
-    { name = "packaging", marker = "(platform_machine != 'aarch64' and platform_machine != 'armv7l' and platform_machine != 'i686' and platform_machine != 'ppc64le' and platform_machine != 's390x' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
-    { name = "setuptools", marker = "(platform_machine != 'aarch64' and platform_machine != 'armv7l' and platform_machine != 'i686' and platform_machine != 'ppc64le' and platform_machine != 's390x' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
-    { name = "striprtf", marker = "sys_platform == 'win32'" },
+    { name = "cabarchive" },
+    { name = "cx-logging", marker = "platform_machine != 'ARM64'" },
+    { name = "filelock" },
+    { name = "lief" },
+    { name = "packaging" },
+    { name = "setuptools" },
+    { name = "striprtf" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7c/5b/4b3f55f008c3bc06c211ce8905e11384f7e40c6eb3d63c3fadebf2af3fe3/cx_freeze-8.4.0.tar.gz", hash = "sha256:8e2e332f571529c7b55cc58521add9de222c4a681620a537b1d29c5d17a24041", size = 2994705, upload-time = "2025-08-11T06:41:20.893Z" }
 wheels = [
@@ -156,7 +156,7 @@ wheels = [
 
 [[package]]
 name = "me3-manager"
-version = "1.4.9"
+version = "1.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
