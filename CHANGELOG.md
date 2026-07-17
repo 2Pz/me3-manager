@@ -3,6 +3,45 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.4.9
+**Released:** July 17, 2026
+
+
+### ✨ New Features
+
+- Improve mod installation responsiveness with cancel support ([135d36b](https://github.com/2Pz/me3-manager/commit/135d36ba45c148c5a15ff7b247b29c6d8c042889))
+
+
+
+### 🔧 Bug Fixes
+
+- Explicitly copy OpenSSL DLLs to root on Windows to prevent Applink crashes `[build]` ([d1ca328](https://github.com/2Pz/me3-manager/commit/d1ca32813eb233ffda074a1d8a5da2f891b23515))
+
+- Exclude libxkbcommon and remove problematic plugin path override `[linux]` ([0e48bc5](https://github.com/2Pz/me3-manager/commit/0e48bc5dc53a1f73605a1fb8e169853a455ebfa5))
+
+
+
+### 🎨 User Interface
+
+- Centralize game page notification banners ([64c0d1d](https://github.com/2Pz/me3-manager/commit/64c0d1dac6f277f0c39503f22e0138c3837f3a64))
+
+- Clearly list failed mod downloads in the final import report ([64079bb](https://github.com/2Pz/me3-manager/commit/64079bbf153e935d440bd026a9d0838269dd4476))
+
+
+
+### ♻️ Code Refactoring
+
+- Extract shared patterns across the codebase to reduce duplication ([f3b0710](https://github.com/2Pz/me3-manager/commit/f3b0710ef23786b490346179d75b39b3a11e1faf))
+
+
+
+### 🧹 Maintenance
+
+- Bump project version to 1.4.9 ([ab72621](https://github.com/2Pz/me3-manager/commit/ab726211d21a0b7ec1d708e4ec122153f5cd5808))
+
+
+
+---
 ## 📦 Release 1.4.8
 **Released:** June 25, 2026
 
@@ -921,6 +960,7 @@
 
 
 ---
+[1.4.9]: https://github.com/2Pz/me3-manager/compare/1.4.8..1.4.9
 [1.4.8]: https://github.com/2Pz/me3-manager/compare/1.4.7..1.4.8
 [1.4.7]: https://github.com/2Pz/me3-manager/compare/1.4.6..1.4.7
 [1.4.6]: https://github.com/2Pz/me3-manager/compare/1.4.5..1.4.6
