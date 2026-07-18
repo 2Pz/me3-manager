@@ -63,6 +63,9 @@ class TomlHighlighter(QSyntaxHighlighter):
             "savefile",
             "disable_arxan",
             "start_online",
+            "mem_patch",
+            "mem_patch_heap_size",
+            "debug_properties",
             "nexus_link",
             "config",
         ]

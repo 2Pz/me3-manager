@@ -3,21 +3,22 @@ Profile Settings Dialog for ME3 Manager.
 Provides a user-friendly interface for configuring profile-level settings like savefile and start_online.
 """
 
+import json
 import shutil
 import sys
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -62,13 +63,9 @@ class ProfileSettingsDialog(GameDialogBase):
         # Save File Settings group
         savefile_group = QGroupBox(tr("savefile_settings_group"))
         savefile_group.setStyleSheet(StyleUtils.get_group_style())
-        savefile_layout = QFormLayout(savefile_group)
+        savefile_layout = QVBoxLayout(savefile_group)
         savefile_layout.setSpacing(8)
         savefile_layout.setContentsMargins(12, 12, 12, 12)
-        savefile_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        savefile_layout.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
         savefile_group.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
@@ -77,10 +74,12 @@ class ProfileSettingsDialog(GameDialogBase):
         self.custom_savefile_cb = QCheckBox(tr("use_custom_savefile"))
         self.custom_savefile_cb.setStyleSheet(StyleUtils.get_checkbox_style())
         self.custom_savefile_cb.toggled.connect(self.on_custom_savefile_toggled)
-        savefile_layout.addRow("", self.custom_savefile_cb)
+        savefile_layout.addWidget(self.custom_savefile_cb)
 
         # Savefile name and extension layout
         savefile_input_layout = QHBoxLayout()
+
+        savefile_input_layout.addWidget(QLabel(tr("savefile_name_label")))
 
         # Savefile name input
         self.savefile_edit = NoEnterLineEdit()
@@ -101,11 +100,11 @@ class ProfileSettingsDialog(GameDialogBase):
         self.extension_combo.hide()  # Hidden until .co2 is supported
         savefile_input_layout.addWidget(self.extension_combo)
 
-        savefile_layout.addRow(tr("savefile_name_label"), savefile_input_layout)
+        savefile_layout.addLayout(savefile_input_layout)
 
         # Savefile info
         savefile_info = QLabel(tr("savefile_info"))
-        savefile_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
+        savefile_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 4px;")
         savefile_info.setWordWrap(True)
         savefile_layout.addWidget(savefile_info)
 
@@ -120,13 +119,9 @@ class ProfileSettingsDialog(GameDialogBase):
         # Online Settings group
         online_group = QGroupBox(tr("online_settings_group"))
         online_group.setStyleSheet(StyleUtils.get_group_style())
-        online_layout = QFormLayout(online_group)
+        online_layout = QVBoxLayout(online_group)
         online_layout.setSpacing(8)
         online_layout.setContentsMargins(12, 12, 12, 12)
-        online_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        online_layout.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
         online_group.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
@@ -134,24 +129,20 @@ class ProfileSettingsDialog(GameDialogBase):
         # Start online checkbox
         self.start_online_cb = QCheckBox(tr("start_online_checkbox"))
         self.start_online_cb.setStyleSheet(StyleUtils.get_checkbox_style())
-        online_layout.addRow(tr("start_online_label"), self.start_online_cb)
+        online_layout.addWidget(self.start_online_cb)
 
         # Online info
         online_info = QLabel(tr("start_online_info"))
-        online_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
+        online_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 4px;")
         online_info.setWordWrap(True)
         online_layout.addWidget(online_info)
 
         # Compatibility Settings group
         compat_group = QGroupBox(tr("compatibility_settings_group"))
         compat_group.setStyleSheet(StyleUtils.get_group_style())
-        compat_layout = QFormLayout(compat_group)
+        compat_layout = QVBoxLayout(compat_group)
         compat_layout.setSpacing(8)
         compat_layout.setContentsMargins(12, 12, 12, 12)
-        compat_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        compat_layout.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
         compat_group.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
@@ -159,42 +150,107 @@ class ProfileSettingsDialog(GameDialogBase):
         # Disable Arxan checkbox
         self.disable_arxan_cb = QCheckBox(tr("disable_arxan_checkbox"))
         self.disable_arxan_cb.setStyleSheet(StyleUtils.get_checkbox_style())
-        compat_layout.addRow(tr("disable_arxan_label"), self.disable_arxan_cb)
+        compat_layout.addWidget(self.disable_arxan_cb)
 
         # Disable Arxan info
         disable_arxan_info = QLabel(tr("disable_arxan_info"))
         disable_arxan_info.setStyleSheet(
-            "color: #ffaa00; font-size: 11px; margin-top: 8px;"
+            "color: #ffaa00; font-size: 11px; margin-top: 4px;"
         )
         disable_arxan_info.setWordWrap(True)
         compat_layout.addWidget(disable_arxan_info)
 
+        compat_layout.addSpacing(8)
+
+        # Memory Patch checkbox
+        self.mem_patch_cb = QCheckBox(tr("mem_patch_checkbox"))
+        self.mem_patch_cb.setStyleSheet(StyleUtils.get_checkbox_style())
+        self.mem_patch_cb.toggled.connect(self.on_mem_patch_toggled)
+        compat_layout.addWidget(self.mem_patch_cb)
+
+        # Mem Patch info
+        mem_patch_info = QLabel(tr("mem_patch_info"))
+        mem_patch_info.setStyleSheet(
+            "color: #ffaa00; font-size: 11px; margin-top: 4px;"
+        )
+        mem_patch_info.setWordWrap(True)
+        compat_layout.addWidget(mem_patch_info)
+
+        compat_layout.addSpacing(8)
+
+        # Memory Patch Heap Size
+        heap_layout = QHBoxLayout()
+        heap_layout.addWidget(QLabel(tr("mem_patch_heap_size_label")))
+        self.mem_patch_heap_size_spin = QSpinBox()
+        self.mem_patch_heap_size_spin.setRange(0, 999999)
+        self.mem_patch_heap_size_spin.setSpecialValueText(tr("default"))
+        self.mem_patch_heap_size_spin.setStyleSheet(
+            StyleUtils._get_input_widget_style("QSpinBox")
+        )
+        self.mem_patch_heap_size_spin.setEnabled(False)
+        heap_layout.addWidget(self.mem_patch_heap_size_spin)
+        heap_layout.addStretch()
+        compat_layout.addLayout(heap_layout)
+
+        # Heap Size info
+        heap_size_info = QLabel(tr("mem_patch_heap_size_info"))
+        heap_size_info.setStyleSheet(
+            "color: #ffaa00; font-size: 11px; margin-top: 4px;"
+        )
+        heap_size_info.setWordWrap(True)
+        compat_layout.addWidget(heap_size_info)
+
+        compat_layout.addSpacing(8)
+
+        # Debug Properties
+        debug_layout = QHBoxLayout()
+        debug_layout.addWidget(QLabel(tr("debug_properties_label")))
+        self.debug_properties_edit = QLineEdit()
+        self.debug_properties_edit.setPlaceholderText(
+            tr("debug_properties_placeholder")
+        )
+        self.debug_properties_edit.setStyleSheet(
+            StyleUtils._get_input_widget_style("QLineEdit")
+        )
+        debug_layout.addWidget(self.debug_properties_edit, 1)
+        compat_layout.addLayout(debug_layout)
+
+        debug_properties_info = QLabel(tr("debug_properties_info"))
+        debug_properties_info.setStyleSheet(
+            "color: #ffaa00; font-size: 11px; margin-top: 4px;"
+        )
+        debug_properties_info.setWordWrap(True)
+        compat_layout.addWidget(debug_properties_info)
+
         # Profile Version group
         version_group = QGroupBox(tr("profile_version_group"))
         version_group.setStyleSheet(StyleUtils.get_group_style())
-        version_layout = QFormLayout(version_group)
+        version_layout = QVBoxLayout(version_group)
         version_layout.setSpacing(8)
         version_layout.setContentsMargins(12, 12, 12, 12)
-        version_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        version_layout.setFieldGrowthPolicy(
-            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow
-        )
         version_group.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
         )
 
+        version_combo_layout = QHBoxLayout()
+        version_combo_layout.addWidget(QLabel(tr("default_profile_version_label")))
         self.version_combo = QComboBox()
         self.version_combo.addItem("v1")
         self.version_combo.addItem("v2")
         # FIXME: Disable v2 (index 1) as it is not supported yet
         self.version_combo.model().item(1).setEnabled(False)
         self.version_combo.setStyleSheet(StyleUtils.get_combobox_style())
-        version_layout.addRow(tr("default_profile_version_label"), self.version_combo)
+        version_combo_layout.addWidget(self.version_combo)
+        version_combo_layout.addStretch()
+        version_layout.addLayout(version_combo_layout)
 
         version_info = QLabel(tr("default_profile_version_info"))
-        version_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 8px;")
+        version_info.setStyleSheet("color: #ffaa00; font-size: 11px; margin-top: 4px;")
         version_info.setWordWrap(True)
         version_layout.addWidget(version_info)
+
+        # Hide the profile version section as requested, but keep it easy to re-enable
+        version_group.setVisible(False)
 
         # Steam Integration group
         steam_group = QGroupBox(tr("steam_integration_header"))
@@ -223,14 +279,14 @@ class ProfileSettingsDialog(GameDialogBase):
         left_col = QVBoxLayout()
         left_col.setSpacing(12)
         left_col.addWidget(savefile_group)
+        left_col.addWidget(online_group)
         left_col.addWidget(version_group)
+        left_col.addWidget(steam_group)
         left_col.addStretch()
 
         right_col = QVBoxLayout()
         right_col.setSpacing(12)
-        right_col.addWidget(online_group)
         right_col.addWidget(compat_group)
-        right_col.addWidget(steam_group)
         right_col.addStretch()
 
         columns_layout.addLayout(left_col, 1)
@@ -431,6 +487,29 @@ class ProfileSettingsDialog(GameDialogBase):
                 disable_arxan = config_data.get("disable_arxan", False)
                 self.disable_arxan_cb.setChecked(bool(disable_arxan))
 
+                # Load mem_patch setting
+                mem_patch = config_data.get("mem_patch", False)
+                self.mem_patch_cb.setChecked(bool(mem_patch))
+
+                # Load mem_patch_heap_size setting
+                mem_patch_heap_size = config_data.get("mem_patch_heap_size")
+                if mem_patch_heap_size is not None:
+                    self.mem_patch_heap_size_spin.setValue(int(mem_patch_heap_size))
+                else:
+                    self.mem_patch_heap_size_spin.setValue(0)
+
+                # Load debug_properties setting
+                debug_properties = config_data.get("debug_properties", {})
+                if debug_properties:
+                    try:
+                        self.debug_properties_edit.setText(json.dumps(debug_properties))
+                    except Exception:
+                        self.debug_properties_edit.setText("")
+                else:
+                    self.debug_properties_edit.setText("")
+
+                self.on_mem_patch_toggled(bool(mem_patch))
+
                 # Detect Seamless Co-op enablement via natives entries
                 try:
                     self.seamless_enabled = False
@@ -451,6 +530,10 @@ class ProfileSettingsDialog(GameDialogBase):
                 self.custom_savefile_cb.setChecked(False)
                 self.start_online_cb.setChecked(False)
                 self.disable_arxan_cb.setChecked(False)
+                self.mem_patch_cb.setChecked(False)
+                self.mem_patch_heap_size_spin.setValue(0)
+                self.debug_properties_edit.setText("")
+                self.on_mem_patch_toggled(False)
                 self.on_custom_savefile_toggled(False)
                 self.current_settings = {}
                 self.seamless_enabled = False
@@ -471,6 +554,10 @@ class ProfileSettingsDialog(GameDialogBase):
             self.savefile_edit.clear()
         # Update warning visibility considering Seamless Co-op state
         self._update_savefile_warning_visibility()
+
+    def on_mem_patch_toggled(self, checked):
+        """Handle mem_patch checkbox toggle"""
+        self.mem_patch_heap_size_spin.setEnabled(checked)
 
     def _update_savefile_warning_visibility(self):
         try:
@@ -527,6 +614,36 @@ class ProfileSettingsDialog(GameDialogBase):
 
             # Update disable_arxan setting
             updated_config["disable_arxan"] = self.disable_arxan_cb.isChecked()
+
+            # Update mem_patch setting
+            updated_config["mem_patch"] = self.mem_patch_cb.isChecked()
+
+            if (
+                self.mem_patch_cb.isChecked()
+                and self.mem_patch_heap_size_spin.value() > 0
+            ):
+                updated_config["mem_patch_heap_size"] = (
+                    self.mem_patch_heap_size_spin.value()
+                )
+            else:
+                updated_config.pop("mem_patch_heap_size", None)
+
+            # Update debug_properties setting
+            debug_prop_text = self.debug_properties_edit.text().strip()
+            if debug_prop_text:
+                try:
+                    debug_props = json.loads(debug_prop_text)
+                    if isinstance(debug_props, dict):
+                        updated_config["debug_properties"] = debug_props
+                    else:
+                        raise ValueError("Debug properties must be a JSON object")
+                except Exception as e:
+                    QMessageBox.warning(
+                        self, tr("ERROR"), f"Invalid debug properties JSON: {e}"
+                    )
+                    return
+            else:
+                updated_config.pop("debug_properties", None)
 
             # Persist default profile version choice
             chosen_version = self.version_combo.currentText()

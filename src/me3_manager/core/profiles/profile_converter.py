@@ -105,6 +105,9 @@ class ProfileConverter:
             "savefile",
             "start_online",
             "disable_arxan",
+            "mem_patch",
+            "mem_patch_heap_size",
+            "debug_properties",
             "supports",
             "description",
             "metadata",
@@ -213,6 +216,12 @@ class ProfileConverter:
             result["disable_arxan"] = bool(game_tbl.get("disable_arxan"))
         if "start_online" in game_tbl:
             result["start_online"] = bool(game_tbl.get("start_online"))
+        if "mem_patch" in game_tbl:
+            result["mem_patch"] = bool(game_tbl.get("mem_patch"))
+        if "mem_patch_heap_size" in game_tbl:
+            result["mem_patch_heap_size"] = int(game_tbl.get("mem_patch_heap_size"))
+        if "debug_properties" in game_tbl:
+            result["debug_properties"] = game_tbl.get("debug_properties")
         if "description" in game_tbl:
             result["description"] = game_tbl.get("description")
 
@@ -331,6 +340,12 @@ class ProfileConverter:
             game_tbl["disable_arxan"] = bool(data["disable_arxan"])
         if "start_online" in data:
             game_tbl["start_online"] = bool(data["start_online"])
+        if "mem_patch" in data:
+            game_tbl["mem_patch"] = bool(data["mem_patch"])
+        if "mem_patch_heap_size" in data:
+            game_tbl["mem_patch_heap_size"] = int(data["mem_patch_heap_size"])
+        if "debug_properties" in data:
+            game_tbl["debug_properties"] = data["debug_properties"]
         if "description" in data and isinstance(data["description"], str):
             game_tbl["description"] = data["description"]
         if game_name:

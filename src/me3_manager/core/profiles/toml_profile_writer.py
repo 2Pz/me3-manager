@@ -72,7 +72,6 @@ class TomlProfileWriter:
         doc.add(tomlkit.nl())
         doc.add("profileVersion", requested_version)
 
-        # Add optional global settings only for v1. For v2 these go under [game]
         if requested_version != "v2":
             if "savefile" in config_data and config_data["savefile"]:
                 doc.add("savefile", config_data["savefile"])
@@ -80,6 +79,16 @@ class TomlProfileWriter:
                 doc.add("start_online", config_data["start_online"])
             if "disable_arxan" in config_data:
                 doc.add("disable_arxan", config_data["disable_arxan"])
+            if "mem_patch" in config_data:
+                doc.add("mem_patch", config_data["mem_patch"])
+            if "mem_patch_heap_size" in config_data:
+                doc.add("mem_patch_heap_size", config_data["mem_patch_heap_size"])
+            if "debug_properties" in config_data:
+                # Add as an inline table to avoid weird multi-line table formatting issues at top-level
+                inline = tomlkit.inline_table()
+                for k, v in config_data["debug_properties"].items():
+                    inline[k] = v
+                doc.add("debug_properties", inline)
 
         # Add supports section (v1) as an array of tables
         if requested_version != "v2":
