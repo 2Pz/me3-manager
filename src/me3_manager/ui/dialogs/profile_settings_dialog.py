@@ -301,7 +301,7 @@ class ProfileSettingsDialog(GameDialogBase):
                 if resolved:
                     exe = resolved
             startdir = str(profile_path.parent)
-            launch_options = f'launch --game {cli_id} -p "{profile_path}"'
+            launch_options = f'-q launch --game {cli_id} -p "{profile_path}"'
 
             from pathlib import Path as _Path
 
