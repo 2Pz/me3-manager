@@ -38,22 +38,11 @@ class PlatformUtils:
         Prepare an external command for execution, adding necessary wrappers
         on Linux/Flatpak. Keeps behavior minimal to avoid surprises.
         """
-        # Resolve me3 executable explicitly on Windows in case PATH is not updated
+        # Resolve me3 executable explicitly across platforms in case PATH is not updated
         try:
-            if sys.platform == "win32" and isinstance(cmd, list) and cmd:
+            if isinstance(cmd, list) and cmd:
                 if str(cmd[0]).lower() == "me3":
-                    resolved = PlatformUtils._find_me3_executable_windows()
-                    if resolved:
-                        cmd = [resolved] + list(cmd[1:])
-        except Exception:
-            # Best-effort; fall through to default behavior
-            pass
-
-        # Resolve me3 executable explicitly on Linux where PATH may be minimal (e.g., SteamOS Game Mode)
-        try:
-            if sys.platform == "linux" and isinstance(cmd, list) and cmd:
-                if str(cmd[0]).lower() == "me3":
-                    resolved = PlatformUtils._find_me3_executable_linux()
+                    resolved = PlatformUtils.find_me3_executable()
                     if resolved:
                         cmd = [resolved] + list(cmd[1:])
         except Exception:
@@ -77,6 +66,11 @@ class PlatformUtils:
         try:
             if sys.platform != "win32":
                 return None
+
+            # 0) Check portable ME3 installation directory first
+            portable_exe = PlatformUtils._find_portable_me3("me3.exe")
+            if portable_exe:
+                return portable_exe
 
             # 1) Check current PATH first
             me3_path = shutil.which("me3")
@@ -168,6 +162,11 @@ class PlatformUtils:
             if sys.platform != "linux":
                 return None
 
+            # 0) Check portable ME3 installation directory first
+            portable_exe = PlatformUtils._find_portable_me3("me3")
+            if portable_exe:
+                return portable_exe
+
             me3_path = shutil.which("me3")
             if me3_path and Path(me3_path).is_file():
                 return me3_path
@@ -212,6 +211,37 @@ class PlatformUtils:
         except Exception:
             return None
         return None
+
+    @staticmethod
+    def _find_portable_me3(exe_name: str) -> str | None:
+        """Helper to resolve portable ME3 binary across candidate directories."""
+        try:
+            from me3_manager.core.paths.profile_paths import (
+                get_custom_me3_location,
+                get_me3_bin_dir,
+            )
+
+            custom_loc = get_custom_me3_location()
+            candidates = [get_me3_bin_dir() / exe_name]
+            if custom_loc:
+                candidates.insert(0, custom_loc / "bin" / exe_name)
+                candidates.insert(1, custom_loc / exe_name)
+                candidates.insert(2, custom_loc.parent / "bin" / exe_name)
+
+            for cand in candidates:
+                if cand.is_file():
+                    if sys.platform == "win32" or os.access(cand, os.X_OK):
+                        return str(cand)
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def find_me3_executable() -> str | None:
+        """Find the ME3 executable across platforms, prioritizing the portable install."""
+        if sys.platform == "win32":
+            return PlatformUtils._find_me3_executable_windows()
+        return PlatformUtils._find_me3_executable_linux()
 
     @staticmethod
     def open_path(path: str, run_file: bool = False) -> bool:
@@ -337,25 +367,17 @@ class PlatformUtils:
         program = args_list[0]
         rest = args_list[1:]
 
-        if sys.platform == "win32":
-            # Resolve me3.exe explicitly if needed
-            try:
-                if str(program).lower() == "me3":
-                    resolved = PlatformUtils._find_me3_executable_windows()
-                    if resolved:
-                        program = resolved
-            except Exception:
-                pass
-            return program, rest
-
-        # Resolve me3 explicitly on Linux
+        # Resolve me3 executable explicitly across platforms in case PATH is not updated
         try:
             if str(program).lower() == "me3":
-                resolved = PlatformUtils._find_me3_executable_linux()
+                resolved = PlatformUtils.find_me3_executable()
                 if resolved:
                     program = resolved
         except Exception:
             pass
+
+        if sys.platform == "win32":
+            return program, rest
 
         # On Flatpak, ensure we spawn on host when invoking me3 (absolute or bare)
         if PlatformUtils.is_flatpak() and os.path.basename(str(program)) == "me3":

@@ -58,6 +58,7 @@ class SettingsManager:
             True if successful, False otherwise
         """
         try:
+            self.settings_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.settings_file, "w", encoding="utf-8") as f:
                 json.dump(self._settings_cache, f, indent=4)
             return True
@@ -147,6 +148,7 @@ class SettingsManager:
             "active_profiles": {},
             "custom_config_paths": {},
             "me3_config_paths": {},
+            "custom_me3_location": None,
             # Nexus integration settings (API key now; SSO fields later).
             "nexus": {},
         }

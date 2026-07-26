@@ -394,12 +394,14 @@ class ModEngine3Manager(QMainWindow):
         self.config_manager.refresh_me3_info()
         self.me3_version = self.get_me3_version()
 
-        if old_version != self.me3_version:
-            # Update footer label
-            self.update_footer_text()
+        # Update footer label
+        self.update_footer_text()
 
-            # Trigger a full refresh of the application state
-            self.perform_global_refresh()
+        # Ensure all profile directories and mod folders exist
+        self.config_manager.ensure_directories()
+
+        # Trigger a full refresh of the application state
+        self.perform_global_refresh()
 
         log.info("ME3 version updated: %s -> %s", old_version, self.me3_version)
 
@@ -491,6 +493,8 @@ class ModEngine3Manager(QMainWindow):
     def show_settings_dialog(self):
         dialog = SettingsDialog(self)
         dialog.exec()
+        self.refresh_me3_status()
+        self.perform_global_refresh()
 
     def check_for_updates(self):
         """Check for available ME3 updates using the version manager."""

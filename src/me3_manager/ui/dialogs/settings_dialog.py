@@ -6,8 +6,10 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDoubleSpinBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QTabWidget,
     QVBoxLayout,
@@ -154,6 +156,40 @@ class SettingsDialog(QDialog):
 
         steam_status.setWordWrap(True)
         layout.addWidget(steam_status)
+
+        layout.addSpacing(8)
+
+        # Portable Installation Section
+        portable_header = QLabel(tr("portable_me3_header"))
+        portable_header.setObjectName("SectionHeader")
+        layout.addWidget(portable_header)
+
+        portable_layout = QHBoxLayout()
+        portable_layout.setSpacing(10)
+
+        self.portable_loc_edit = QLineEdit()
+        self.portable_loc_edit.setPlaceholderText(tr("portable_me3_placeholder"))
+        current_loc = self.config_manager.get_custom_me3_location() or ""
+        self.portable_loc_edit.setText(current_loc)
+        self.portable_loc_edit.setReadOnly(True)
+        portable_layout.addWidget(self.portable_loc_edit)
+
+        browse_btn = QPushButton(tr("browse_button"))
+        browse_btn.setFixedWidth(90)
+        browse_btn.clicked.connect(self.on_browse_portable_loc)
+        portable_layout.addWidget(browse_btn)
+
+        clear_btn = QPushButton(tr("clear_button"))
+        clear_btn.setFixedWidth(80)
+        clear_btn.clicked.connect(self.on_clear_portable_loc)
+        portable_layout.addWidget(clear_btn)
+
+        layout.addLayout(portable_layout)
+
+        portable_note = QLabel(tr("portable_me3_note"))
+        portable_note.setObjectName("StatusInfo")
+        portable_note.setWordWrap(True)
+        layout.addWidget(portable_note)
 
         layout.addStretch()
         return tab
@@ -357,3 +393,31 @@ class SettingsDialog(QDialog):
     def on_check_mod_updates_toggled(self, checked):
         """Handle check for Nexus mod updates setting change"""
         self.config_manager.set_check_mod_updates_on_startup(checked)
+
+    def _update_portable_me3_location(self, location: str | None) -> None:
+        """Update portable ME3 location and trigger parent UI refresh."""
+        self.config_manager.set_custom_me3_location(location)
+        self.portable_loc_edit.setText(location or "")
+        parent = self.parent()
+        if parent:
+            if hasattr(parent, "refresh_me3_status"):
+                parent.refresh_me3_status()
+            if hasattr(parent, "perform_global_refresh"):
+                parent.perform_global_refresh()
+
+    def on_browse_portable_loc(self):
+        """Browse and update custom ME3 installation location."""
+        from pathlib import Path
+
+        default_dir = self.portable_loc_edit.text() or str(Path.home())
+        selected_dir = QFileDialog.getExistingDirectory(
+            self,
+            tr("select_me3_install_directory"),
+            default_dir,
+        )
+        if selected_dir:
+            self._update_portable_me3_location(selected_dir)
+
+    def on_clear_portable_loc(self):
+        """Clear custom ME3 installation location and reset to default."""
+        self._update_portable_me3_location(None)

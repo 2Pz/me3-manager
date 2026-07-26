@@ -47,6 +47,7 @@ class HelpAboutDialog(QDialog):
         super().__init__(main_window)
         self.main_window = main_window
         self.version_manager = self.main_window.version_manager
+        self.initial_setup = initial_setup
         self.setMinimumWidth(550)
         self.setStyleSheet("""
             QDialog { background-color: #252525; color: #ffffff; }
@@ -208,7 +209,7 @@ class HelpAboutDialog(QDialog):
         if links:
             self._display_links(links)
 
-    def _setup_windows_buttons(self, layout):
+    def _add_update_button(self, layout):
         self.update_cli_button = QPushButton(tr("update_me3_button"))
         self.update_cli_button.clicked.connect(self.handle_update_cli)
         if (
@@ -219,41 +220,69 @@ class HelpAboutDialog(QDialog):
             self.update_cli_button.setToolTip(tr("me3_not_installed_tip"))
         layout.addWidget(self.update_cli_button)
 
-        versions_info = self.version_manager.get_available_versions()
+    def _add_action_button(
+        self, layout, text_key, handler, available, version_str=None
+    ):
+        btn_text = tr(text_key)
+        if version_str:
+            btn_text += f" ({version_str})"
+        btn = QPushButton(btn_text)
+        btn.clicked.connect(handler)
+        if not available:
+            btn.setDisabled(True)
+        layout.addWidget(btn)
+        return btn
 
-        btn_text = f"{tr('stable_installer_button_win')}"
-        if versions_info["stable"]["version"]:
-            btn_text += f" ({versions_info['stable']['version']})"
-        self.stable_button = QPushButton(btn_text)
-        self.stable_button.clicked.connect(self.handle_download)
-        if not versions_info["stable"]["available"]:
-            self.stable_button.setDisabled(True)
-        layout.addWidget(self.stable_button)
+    def _setup_platform_buttons(self, layout, stable_key, stable_handler, custom_key):
+        is_installed = (
+            self.main_window.config_manager.me3_info_manager.get_me3_installation_status()
+            != Status.NOT_INSTALLED
+        )
+        if is_installed and not getattr(self, "initial_setup", False):
+            self._add_update_button(layout)
+            self.uninstall_button = self._add_action_button(
+                layout, "uninstall_me3_button", self.handle_uninstall_me3, True
+            )
+        else:
+            info = self.version_manager.get_available_versions()["stable"]
+            self.stable_button = self._add_action_button(
+                layout, stable_key, stable_handler, info["available"], info["version"]
+            )
+            self.custom_button = self._add_action_button(
+                layout,
+                custom_key,
+                self.handle_custom_install,
+                info["available"],
+                info["version"],
+            )
 
-        custom_btn_text = f"{tr('custom_installer_button_win')}"
-        if versions_info["stable"]["version"]:
-            custom_btn_text += f" ({versions_info['stable']['version']})"
-        self.custom_button = QPushButton(custom_btn_text)
-        # self.custom_button.setObjectName("DownloadStableButton")
-        self.custom_button.clicked.connect(self.handle_custom_install)
-        if not versions_info["stable"]["available"]:
-            self.custom_button.setDisabled(True)
-        layout.addWidget(self.custom_button)
+    def _setup_windows_buttons(self, layout):
+        self._setup_platform_buttons(
+            layout,
+            "stable_installer_button_win",
+            self.handle_download,
+            "custom_installer_button_win",
+        )
 
     def _setup_linux_buttons(self, layout):
-        versions_info = self.version_manager.get_available_versions()
-        btn_text = tr("stable_installer_button_linux")
-        if versions_info["stable"]["version"]:
-            btn_text += f" ({versions_info['stable']['version']})"
-        self.stable_button = QPushButton(btn_text)
-        # self.stable_button.setObjectName("DownloadStableButton")
-        self.stable_button.clicked.connect(self.handle_linux_install)
-        if not versions_info["stable"]["available"]:
-            self.stable_button.setDisabled(True)
-        layout.addWidget(self.stable_button)
+        custom_key = (
+            "custom_installer_button_linux"
+            if tr("custom_installer_button_linux") != "custom_installer_button_linux"
+            else "custom_installer_button_win"
+        )
+        self._setup_platform_buttons(
+            layout,
+            "stable_installer_button_linux",
+            self.handle_linux_install,
+            custom_key,
+        )
+
+    def handle_uninstall_me3(self):
+        if self.version_manager.uninstall_me3():
+            self.accept()
 
     def handle_custom_install(self):
-        self.version_manager.custom_install_windows_me3()
+        self.version_manager.custom_install_me3()
         self.accept()
 
     def handle_update_cli(self):

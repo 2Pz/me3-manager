@@ -21,7 +21,7 @@ class ProfileManager:
         try:
             import tomllib
 
-            if not profile_path.exists():
+            if not profile_path.is_file():
                 return {
                     "profileVersion": "v1",
                     "natives": [],
@@ -50,7 +50,7 @@ class ProfileManager:
     def ensure_format(profile_path: Path) -> None:
         """If the profile uses old inline arrays, migrate to AOT using TomlProfileWriter."""
         try:
-            if not profile_path.exists():
+            if not profile_path.is_file():
                 return
             with open(profile_path, "r", encoding="utf-8") as f:
                 content = f.read()

@@ -87,17 +87,30 @@ class NexusMetadataManager:
         # In-memory cache for search results (never saved to disk)
         self._runtime_cache: dict[str, TrackedNexusMod] = {}
 
+    @property
+    def current_storage_root(self) -> Path:
+        from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
+            get_me3_profiles_root,
+        )
+
+        if get_custom_me3_location():
+            return get_me3_profiles_root()
+        return self.storage_root
+
     def _legacy_base_dir(self) -> Path:
         # Kept for backward compatibility with older logic; not used directly.
-        return self.storage_root / "nexus" / "metadata"
+        return self.current_storage_root / "nexus" / "metadata"
 
     def _game_dir(self) -> Path:
         safe_game = "".join(
             ch for ch in self.game_name if ch.isalnum() or ch in ("_", "-", " ")
         ).strip()
         safe_game = safe_game.replace(" ", "_") or "game"
-        p = self.storage_root / ".me3_manager" / safe_game
-        p.mkdir(parents=True, exist_ok=True)
+        root = self.current_storage_root
+        p = root / ".me3_manager" / safe_game
+        if root.exists():
+            p.mkdir(parents=True, exist_ok=True)
         return p
 
     def ensure_dirs(self) -> None:

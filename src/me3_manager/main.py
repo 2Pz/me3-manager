@@ -77,11 +77,10 @@ def main():
     ui_scale = 1.0
     saved_lang = "system"
     try:
-        from me3_manager.core.paths.profile_paths import get_me3_profiles_root
+        from me3_manager.core.paths.profile_paths import get_manager_settings_path
         from me3_manager.core.settings.settings_manager import SettingsManager
 
-        config_root = get_me3_profiles_root()
-        settings_file = config_root.parent / "manager_settings.json"
+        settings_file = get_manager_settings_path()
 
         # Use SettingsManager to load configuration safely
         if settings_file.exists():

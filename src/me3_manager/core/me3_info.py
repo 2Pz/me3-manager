@@ -80,7 +80,8 @@ class ME3InfoManager:
                 # Fallback: try via login shell on Linux (Steam Deck Game Mode PATH)
                 if sys.platform != "win32":
                     try:
-                        shell_cmd = " ".join(shlex.quote(x) for x in ["me3", "info"])
+                        cmd_parts = self._prepare_command(["me3", "info"])
+                        shell_cmd = " ".join(shlex.quote(x) for x in cmd_parts)
                         returncode, stdout, stderr = CommandRunner.run(
                             ["bash", "-l", "-c", shell_cmd],
                             timeout=15,
@@ -205,6 +206,14 @@ class ME3InfoManager:
 
     def get_profile_directory(self) -> Path | None:
         """Get the ME3 profile directory path."""
+        from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
+            get_me3_profiles_root,
+        )
+
+        if get_custom_me3_location():
+            return get_me3_profiles_root()
+
         info = self.get_me3_info()
         if info and "profile_directory" in info:
             return Path(info["profile_directory"])
@@ -353,40 +362,40 @@ class ME3InfoManager:
 
         return None
 
+    def _is_config_path_writable(self, config_path: Path) -> bool:
+        """Check if a config path's ancestor is writable without creating directories."""
+        target = config_path.parent
+        while not target.exists() and target.parent != target:
+            target = target.parent
+        if not target.exists():
+            return False
+
+        test_file = target / ".me3_test_write"
+        try:
+            with open(test_file, "w") as f:
+                f.write("test")
+            test_file.unlink()
+            return True
+        except (PermissionError, OSError):
+            return False
+
     def get_primary_config_path(self) -> Path | None:
         """
         Get the primary ME3 config path for creation when me3.toml not found.
         First tries to find an existing config, then falls back to the first accessible path.
         """
-        # First, try to find an existing config file
         existing_config = self.find_existing_config()
         if existing_config:
             return existing_config
 
-        # If no existing config, return the first accessible path for creation
         paths = self.get_me3_config_paths()
         if not paths:
             return None
 
         for config_path in paths:
-            try:
-                # Test if we can create a file in this directory
-                config_path.parent.mkdir(parents=True, exist_ok=True)
-                # Test write permission by creating a temporary file
-                test_file = config_path.parent / ".me3_test_write"
-                try:
-                    with open(test_file, "w") as f:
-                        f.write("test")
-                    test_file.unlink()  # Remove test file
-                    return config_path
-                except (PermissionError, OSError) as e:
-                    log.error("Cannot write to %s: %s", config_path.parent, e)
-                    continue
-            except (PermissionError, OSError) as e:
-                log.error("Cannot access directory %s: %s", config_path.parent, e)
-                continue
+            if self._is_config_path_writable(config_path):
+                return config_path
 
-        # Fallback to first path if all else fails
         return paths[0] if paths else None
 
     def get_available_config_paths(self) -> list[Path]:
@@ -395,26 +404,7 @@ class ME3InfoManager:
         Returns paths where we have write permission.
         """
         paths = self.get_me3_config_paths()
-        available_paths = []
-
-        for config_path in paths:
-            try:
-                # Ensure parent directory exists or can be created
-                config_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Test write permission
-                test_file = config_path.parent / ".me3_test_write"
-                try:
-                    with open(test_file, "w") as f:
-                        f.write("test")
-                    test_file.unlink()
-                    available_paths.append(config_path)
-                except (PermissionError, OSError):
-                    continue
-            except (PermissionError, OSError):
-                continue
-
-        return available_paths
+        return [p for p in paths if self._is_config_path_writable(p)]
 
     def cleanup_other_configs(self, keep_config_path: Path) -> list[Path]:
         """

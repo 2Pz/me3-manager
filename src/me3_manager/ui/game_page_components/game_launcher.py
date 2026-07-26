@@ -28,6 +28,7 @@ class GameLauncher(GamePageComponent):
                 if not self._handle_me3_not_installed():
                     return  # User aborted installation
 
+            self.config_manager.ensure_directories(self.game_name)
             profile_path = self.config_manager.get_profile_path(self.game_name)
             if not profile_path.exists():
                 QMessageBox.warning(
@@ -51,7 +52,14 @@ class GameLauncher(GamePageComponent):
                 self._launch_with_custom_exe(custom_exe_path, cli_id, str(profile_path))
                 return
 
-            command_args = ["me3", "launch", "--game", cli_id, "-p", str(profile_path)]
+            command_args = [
+                "me3",
+                "launch",
+                "-g",
+                cli_id,
+                "-p",
+                str(profile_path),
+            ]
             if hasattr(main_window, "terminal"):
                 self._launch_in_terminal(command_args, main_window.terminal)
             else:
