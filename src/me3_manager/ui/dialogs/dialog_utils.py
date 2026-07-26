@@ -134,13 +134,14 @@ class StyleUtils:
         pressed: str,
         weight: str = "500",
         padding: str = "8px 16px",
+        border: str = "none",
     ) -> str:
         """Get button stylesheet with specified colors."""
         return f"""
             QPushButton {{
                 background-color: {bg};
                 color: #ffffff;
-                border: none;
+                border: {border};
                 border-radius: 6px;
                 padding: {padding};
                 font-size: 13px;
@@ -164,6 +165,17 @@ class StyleUtils:
     def get_button_style() -> str:
         """Get regular button stylesheet"""
         return StyleUtils._get_button_style("#3d3d3d", "#4d4d4d", "#2d2d2d")
+
+    @staticmethod
+    def get_bordered_button_style() -> str:
+        """Get bordered button stylesheet used in settings-style dialogs."""
+        return StyleUtils._get_button_style(
+            "#2d2d2d",
+            "#3d3d3d",
+            "#1d1d1d",
+            padding="10px 20px",
+            border="1px solid #3d3d3d",
+        )
 
     @staticmethod
     def get_cancel_button_style() -> str:
