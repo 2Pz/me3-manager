@@ -205,16 +205,14 @@ class ConfigFacade:
         # update() auto-saves; explicit save ensures durability in legacy paths
         self.settings_manager.save_settings()
 
-    def add_game(
-        self, name: str, mods_dir: str, profile: str, cli_id: str, executable: str
-    ):
+    def add_game(self, *args, **kwargs):
         """Add a new game configuration."""
-        success = self.game_registry.add_game(
-            name, mods_dir, profile, cli_id, executable
-        )
+        success = self.game_registry.add_game(*args, **kwargs)
         if success:
+            game_name = args[0] if args else kwargs.get("name")
             self._sync_legacy_attributes()
-            self.path_manager.ensure_directories(name)
+            if game_name:
+                self.path_manager.ensure_directories(game_name)
             self.setup_file_watcher()
             self._save_settings()
         return success

@@ -87,6 +87,13 @@ class GameRegistry:
                         saved_games[game_name][key] = default_value
                         updated = True
                     elif (
+                        key == "nexus_domain"
+                        and not saved_games[game_name].get(key)
+                        and default_value
+                    ):
+                        saved_games[game_name][key] = default_value
+                        updated = True
+                    elif (
                         key == "executable"
                         and saved_games[game_name][key] != default_value
                     ):
@@ -142,7 +149,13 @@ class GameRegistry:
         return games.get(game_name, {}).copy() if game_name in games else None
 
     def add_game(
-        self, name: str, mods_dir: str, profile: str, cli_id: str, executable: str
+        self,
+        name: str,
+        mods_dir: str,
+        profile: str,
+        cli_id: str,
+        executable: str,
+        nexus_domain: str = "",
     ) -> bool:
         """
         Add a new game configuration.
@@ -153,23 +166,23 @@ class GameRegistry:
             profile: Profile filename
             cli_id: CLI identifier
             executable: Executable filename
+            nexus_domain: Optional Nexus Mods game domain (e.g., "sekiro")
 
         Returns:
             True if successful
         """
         games = self.settings_manager.get("games", {})
 
-        # Check if game already existsif name in games:
-
         if name in games:
             return False
+
+        default_domain = self.DEFAULT_GAMES.get(name, {}).get("nexus_domain", "")
         games[name] = {
             "mods_dir": mods_dir,
             "profile": profile,
             "cli_id": cli_id,
             "executable": executable,
-            # Optional: Nexus Mods game domain (e.g., "eldenring")
-            "nexus_domain": "",
+            "nexus_domain": nexus_domain or default_domain,
         }
         self.settings_manager.set("games", games)
         game_order = self.settings_manager.get("game_order", [])
@@ -224,9 +237,9 @@ class GameRegistry:
     def get_game_nexus_domain(self, game_name: str) -> str | None:
         """Get Nexus Mods game domain for a game (e.g., 'eldenring')."""
         game = self.get_game(game_name)
-        if not game:
-            return None
-        val = game.get("nexus_domain")
+        val = game.get("nexus_domain") if game else None
+        if not val and game_name in self.DEFAULT_GAMES:
+            val = self.DEFAULT_GAMES[game_name].get("nexus_domain")
         return str(val) if val else None
 
     def get_game_order(self) -> list[str]:
