@@ -240,6 +240,9 @@ class HelpAboutDialog(QDialog):
         )
         if is_installed and not getattr(self, "initial_setup", False):
             self._add_update_button(layout)
+            self.change_version_button = self._add_action_button(
+                layout, "change_version_button", self.handle_change_version, True
+            )
             self.uninstall_button = self._add_action_button(
                 layout, "uninstall_me3_button", self.handle_uninstall_me3, True
             )
@@ -276,6 +279,17 @@ class HelpAboutDialog(QDialog):
             self.handle_linux_install,
             custom_key,
         )
+
+    def handle_change_version(self):
+        from me3_manager.ui.dialogs.version_select_dialog import (
+            show_version_select_dialog,
+        )
+
+        def _on_selected(version_tag: str):
+            self.version_manager.install_specific_version(version_tag)
+            self.accept()
+
+        show_version_select_dialog(self, self.version_manager, _on_selected)
 
     def handle_uninstall_me3(self):
         if self.version_manager.uninstall_me3():

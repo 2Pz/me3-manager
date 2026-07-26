@@ -531,5 +531,17 @@
   "admin_warning_msg": "تشغيل مدير Mod Engine 3 كمسؤول ممكن يخلي بعض الميزات، زي سحب وإفلات الملفات، توقف عن العمل.\n\nالأفضل تشغل التطبيق بشكل عادي إلا إذا كان ضروري.",
   "nexus_recommended_options_title": "فيه خيارات مُوصى بها متوفرة",
   "nexus_recommended_options_desc": "الكوميونتي قدم إعدادات مُوصى بها لهذا المود في البروفايلات التالية.\nلو سمحت اختر إعدادات البروفايل اللي تبي تطبقها، أو اختر 'بدون' عشان تثبته بالإعدادات الافتراضية.",
-  "nexus_no_recommended_options": "بدون (إعدادات افتراضية)"
+  "nexus_no_recommended_options": "بدون (إعدادات افتراضية)",
+  "change_version_button": "تغيير إصدار ME3",
+  "select_version_title": "اختيار إصدار ME3",
+  "select_version_description": "اختر إصدار للتثبيت. تقدر تنزل إصدار أقدم أو تحدث تثبيت ME3.",
+  "installed_version_label": "الإصدار المثبت حالياً: {version}",
+  "latest_label": "(الأحدث)",
+  "current_label": "(مثبت)",
+  "release_notes_label": "ملاحظات الإصدار",
+  "install_version_button": "تثبيت",
+  "fetching_versions": "جاري جلب الإصدارات المتاحة...",
+  "no_versions_found": "ما قدرنا نجيب الإصدارات المتاحة من GitHub.",
+  "confirm_version_change_title": "تأكيد تغيير الإصدار",
+  "confirm_version_change": "هذا بيثبت ME3 {version}، ويستبدل التثبيت الحالي ({current_version}).\n\nتبي تكمل؟"
 }

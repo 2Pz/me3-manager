@@ -531,5 +531,17 @@
   "admin_warning_msg": "Running Mod Engine 3 Manager as Administrator can cause some features, like dragging and dropping files, to stop working.\n\nIt is recommended to run the application normally unless required.",
   "nexus_recommended_options_title": "Recommended Options Available",
   "nexus_recommended_options_desc": "The community has provided recommended settings for this mod in the following profiles.\nPlease select which profile's settings you'd like to apply, or choose 'None' to install with default settings.",
-  "nexus_no_recommended_options": "None (Default Settings)"
+  "nexus_no_recommended_options": "None (Default Settings)",
+  "change_version_button": "Change ME3 Version",
+  "select_version_title": "Select ME3 Version",
+  "select_version_description": "Select a version to install. You can downgrade or upgrade your ME3 installation.",
+  "installed_version_label": "Currently Installed: {version}",
+  "latest_label": "(latest)",
+  "current_label": "(installed)",
+  "release_notes_label": "Release Notes",
+  "install_version_button": "Install",
+  "fetching_versions": "Fetching available versions...",
+  "no_versions_found": "Could not fetch available versions from GitHub.",
+  "confirm_version_change_title": "Confirm Version Change",
+  "confirm_version_change": "This will install ME3 {version}, replacing your current installation ({current_version}).\n\nDo you want to continue?"
 }

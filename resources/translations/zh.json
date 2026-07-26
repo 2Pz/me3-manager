@@ -531,5 +531,17 @@
   "admin_warning_msg": "以管理员身份运行 Mod Engine 3 管理器可能会导致一些功能（例如拖放文件）停止工作。\n\n除非必要，否则建议正常运行应用程序。",
   "nexus_recommended_options_title": "提供推荐选项",
   "nexus_recommended_options_desc": "社区在以下配置文件中为此模组提供了推荐设置。\n请选择您想应用的配置文件设置，或选择“无”以使用默认设置安装。",
-  "nexus_no_recommended_options": "无（默认设置）"
+  "nexus_no_recommended_options": "无（默认设置）",
+  "change_version_button": "更改 ME3 版本",
+  "select_version_title": "选择 ME3 版本",
+  "select_version_description": "选择要安装的版本。您可以降级或升级 ME3 安装。",
+  "installed_version_label": "当前已安装: {version}",
+  "latest_label": "(最新)",
+  "current_label": "(已安装)",
+  "release_notes_label": "发行说明",
+  "install_version_button": "安装",
+  "fetching_versions": "正在获取可用版本...",
+  "no_versions_found": "无法从 GitHub 获取可用版本。",
+  "confirm_version_change_title": "确认版本更改",
+  "confirm_version_change": "这将安装 ME3 {version}，替换您当前的安装 ({current_version})。\n\n是否继续？"
 }

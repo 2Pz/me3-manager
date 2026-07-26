@@ -300,6 +300,13 @@ class ME3VersionManager(QObject):
             return None
         return None
 
+    @staticmethod
+    def _default_asset_name(asset_name: str | None) -> str:
+        """Return the platform-appropriate asset name when none is given."""
+        if asset_name is not None:
+            return asset_name
+        return "me3_installer.exe" if sys.platform == "win32" else "installer.sh"
+
     def _fetch_github_release_info(
         self, asset_name: str | None = None
     ) -> tuple[str | None, str | None]:
@@ -308,14 +315,26 @@ class ME3VersionManager(QObject):
         Args:
             asset_name: Override asset name. If None, auto-detects based on platform.
         """
-        if asset_name is None:
-            asset_name = (
-                "me3_installer.exe" if sys.platform == "win32" else "installer.sh"
-            )
+        asset_name = self._default_asset_name(asset_name)
         release = self.me3_service.fetch_latest_release()
         version_tag = self.me3_service.get_latest_version_tag(release)
         url = self.me3_service.get_asset_url(release, asset_name)
         return version_tag, url
+
+    def _fetch_github_release_info_for_version(
+        self, version_tag: str, asset_name: str | None = None
+    ) -> tuple[str | None, str | None]:
+        """Fetch release info for a specific version tag.
+
+        Args:
+            version_tag: The version tag to fetch (e.g. 'v0.12.1').
+            asset_name: Override asset name. If None, auto-detects based on platform.
+        """
+        asset_name = self._default_asset_name(asset_name)
+        release = self.me3_service.fetch_release_by_tag(version_tag)
+        tag = self.me3_service.get_latest_version_tag(release)
+        url = self.me3_service.get_asset_url(release, asset_name)
+        return tag, url
 
     def _open_file_or_directory(self, path: str, run_file: bool = False):
         """Open a file or directory using the system's default application."""
@@ -370,6 +389,44 @@ class ME3VersionManager(QObject):
     def _is_portable_install_windows(self) -> bool:
         """Alias for backwards compatibility."""
         return self._is_portable_install()
+
+    def install_specific_version(self, version_tag: str):
+        """Install a specific ME3 version (upgrade or downgrade).
+
+        Routes through the appropriate platform-specific installation
+        method with the chosen version's download URL.
+        """
+        current_version = self.config_manager.get_me3_version()
+        current_tag = (
+            f"v{current_version}"
+            if current_version and not current_version.startswith("v")
+            else current_version
+        )
+
+        # Confirm the version change with the user
+        reply = QMessageBox.question(
+            self.parent,
+            tr("confirm_version_change_title"),
+            tr(
+                "confirm_version_change",
+                version=version_tag,
+                current_version=current_tag or tr("not_installed"),
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        # Kill any running me3 processes before replacing binaries
+        self.kill_me3_processes()
+
+        if self._is_portable_install():
+            self.custom_install_me3(version_tag=version_tag)
+        elif sys.platform == "win32":
+            self.download_windows_installer(version_tag=version_tag)
+        else:
+            self.install_linux_me3(version_tag=version_tag)
 
     def update_me3_cli(self):
         """Update ME3 CLI using 'me3 update' command."""
@@ -428,15 +485,24 @@ class ME3VersionManager(QObject):
                 tr("update_failed_text", clean_output=clean_output),
             )
 
-    def download_windows_installer(self):
-        """Download Windows ME3 installer."""
+    def download_windows_installer(self, version_tag: str | None = None):
+        """Download Windows ME3 installer.
+
+        Args:
+            version_tag: If provided, download this specific version instead of latest.
+        """
         if sys.platform != "win32":
             QMessageBox.warning(
                 self.parent, tr("platform_error"), tr("platform_error_text_win")
             )
             return
 
-        version, download_url = self._fetch_github_release_info()
+        if version_tag:
+            version, download_url = self._fetch_github_release_info_for_version(
+                version_tag
+            )
+        else:
+            version, download_url = self._fetch_github_release_info()
         if not download_url:
             QMessageBox.warning(
                 self.parent,
@@ -545,8 +611,15 @@ class ME3VersionManager(QObject):
         """Backwards compatibility wrapper for custom_install_me3."""
         self.custom_install_me3()
 
-    def custom_install_me3(self, target_dir: str | Path | None = None):
-        """Download and install ME3 portable distribution for Windows or Linux."""
+    def custom_install_me3(
+        self, target_dir: str | Path | None = None, version_tag: str | None = None
+    ):
+        """Download and install ME3 portable distribution for Windows or Linux.
+
+        Args:
+            target_dir: Override the installation directory.
+            version_tag: If provided, install this specific version instead of latest.
+        """
         if sys.platform not in ("win32", "linux"):
             QMessageBox.warning(
                 self.parent,
@@ -561,8 +634,13 @@ class ME3VersionManager(QObject):
             else "me3-linux-amd64.tar.gz"
         )
 
-        # Get the archive download URL
-        version, download_url = self._fetch_github_release_info(asset_name)
+        # Get the archive download URL (specific version or latest)
+        if version_tag:
+            version, download_url = self._fetch_github_release_info_for_version(
+                version_tag, asset_name
+            )
+        else:
+            version, download_url = self._fetch_github_release_info(asset_name)
         if not download_url:
             QMessageBox.warning(
                 self.parent,
@@ -742,8 +820,15 @@ class ME3VersionManager(QObject):
         else:
             QMessageBox.warning(self.parent, tr("installation_failed"), message)
 
-    def install_linux_me3(self, custom_installer_url: str = None):
-        """Install or update ME3 on Linux using installer script."""
+    def install_linux_me3(
+        self, custom_installer_url: str = None, version_tag: str | None = None
+    ):
+        """Install or update ME3 on Linux using installer script.
+
+        Args:
+            custom_installer_url: Override the installer script URL.
+            version_tag: If provided, install this specific version instead of latest.
+        """
         if sys.platform == "win32":
             QMessageBox.warning(
                 self.parent, tr("platform_error"), tr("platform_error_text_linux")
@@ -753,6 +838,11 @@ class ME3VersionManager(QObject):
         if custom_installer_url:
             installer_url = custom_installer_url
             script_type = "custom"
+        elif version_tag:
+            version, installer_url = self._fetch_github_release_info_for_version(
+                version_tag
+            )
+            script_type = version_tag
         else:
             version, installer_url = self._fetch_github_release_info()
             script_type = "latest"
@@ -777,9 +867,12 @@ class ME3VersionManager(QObject):
 
         # Prepare environment variables
         env_vars = {}
-        latest_version = self._fetch_github_version_python()
-        if latest_version:
-            env_vars["VERSION"] = latest_version
+        if version_tag:
+            env_vars["VERSION"] = version_tag
+        else:
+            latest_version = self._fetch_github_version_python()
+            if latest_version:
+                env_vars["VERSION"] = latest_version
 
         self.progress_dialog = self._create_progress_dialog(
             title=tr("installing_me3"),
