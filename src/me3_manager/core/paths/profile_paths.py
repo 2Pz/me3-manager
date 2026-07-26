@@ -34,7 +34,10 @@ def get_custom_me3_location() -> Path | None:
                 data = json.load(f)
                 custom_loc = data.get("custom_me3_location")
                 if custom_loc and isinstance(custom_loc, str) and custom_loc.strip():
-                    return Path(custom_loc.strip())
+                    p = Path(custom_loc.strip())
+                    if p.name.lower() == "bin":
+                        p = p.parent
+                    return p
         except Exception:
             pass
     return None

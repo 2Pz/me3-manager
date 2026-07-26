@@ -68,14 +68,9 @@ class PlatformUtils:
                 return None
 
             # 0) Check portable ME3 installation directory first
-            try:
-                from me3_manager.core.paths.profile_paths import get_me3_bin_dir
-
-                portable_exe = get_me3_bin_dir() / "me3.exe"
-                if portable_exe.is_file():
-                    return str(portable_exe)
-            except Exception:
-                pass
+            portable_exe = PlatformUtils._find_portable_me3("me3.exe")
+            if portable_exe:
+                return portable_exe
 
             # 1) Check current PATH first
             me3_path = shutil.which("me3")
@@ -168,14 +163,9 @@ class PlatformUtils:
                 return None
 
             # 0) Check portable ME3 installation directory first
-            try:
-                from me3_manager.core.paths.profile_paths import get_me3_bin_dir
-
-                portable_exe = get_me3_bin_dir() / "me3"
-                if portable_exe.is_file() and os.access(portable_exe, os.X_OK):
-                    return str(portable_exe)
-            except Exception:
-                pass
+            portable_exe = PlatformUtils._find_portable_me3("me3")
+            if portable_exe:
+                return portable_exe
 
             me3_path = shutil.which("me3")
             if me3_path and Path(me3_path).is_file():
@@ -220,6 +210,30 @@ class PlatformUtils:
                     continue
         except Exception:
             return None
+        return None
+
+    @staticmethod
+    def _find_portable_me3(exe_name: str) -> str | None:
+        """Helper to resolve portable ME3 binary across candidate directories."""
+        try:
+            from me3_manager.core.paths.profile_paths import (
+                get_custom_me3_location,
+                get_me3_bin_dir,
+            )
+
+            custom_loc = get_custom_me3_location()
+            candidates = [get_me3_bin_dir() / exe_name]
+            if custom_loc:
+                candidates.insert(0, custom_loc / "bin" / exe_name)
+                candidates.insert(1, custom_loc / exe_name)
+                candidates.insert(2, custom_loc.parent / "bin" / exe_name)
+
+            for cand in candidates:
+                if cand.is_file():
+                    if sys.platform == "win32" or os.access(cand, os.X_OK):
+                        return str(cand)
+        except Exception:
+            pass
         return None
 
     @staticmethod

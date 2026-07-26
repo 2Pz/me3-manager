@@ -94,13 +94,27 @@ class ConfigFacade:
         """Get user-defined custom ME3 installation location path string."""
         from me3_manager.core.paths.profile_paths import get_custom_me3_location
 
+        cached_loc = self.settings_manager.get("custom_me3_location")
+        if cached_loc and isinstance(cached_loc, str) and cached_loc.strip():
+            p = Path(cached_loc.strip())
+            if p.name.lower() == "bin":
+                p = p.parent
+            return str(p)
+
         loc = get_custom_me3_location()
         return str(loc) if loc else None
 
-    def set_custom_me3_location(self, location: str | None) -> None:
+    def set_custom_me3_location(self, location: str | Path | None) -> None:
         """Set or clear user-defined custom ME3 installation location."""
-        if location and str(location).strip():
-            self.settings_manager.set("custom_me3_location", str(location).strip())
+        if location:
+            loc_str = str(location).strip()
+            if loc_str:
+                p = Path(loc_str)
+                if p.name.lower() == "bin":
+                    loc_str = str(p.parent)
+                self.settings_manager.set("custom_me3_location", loc_str)
+            else:
+                self.settings_manager.set("custom_me3_location", None)
         else:
             self.settings_manager.set("custom_me3_location", None)
         self.refresh_me3_info()

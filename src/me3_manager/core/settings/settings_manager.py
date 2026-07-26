@@ -148,6 +148,7 @@ class SettingsManager:
             "active_profiles": {},
             "custom_config_paths": {},
             "me3_config_paths": {},
+            "custom_me3_location": None,
             # Nexus integration settings (API key now; SSO fields later).
             "nexus": {},
         }
