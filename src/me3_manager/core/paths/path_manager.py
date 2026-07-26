@@ -384,8 +384,15 @@ class PathManager:
             game_name: Optional specific game to ensure directories for
         """
         from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
             get_default_os_profiles_root,
         )
+
+        # Do not create profile/mod directories if ME3 is not installed
+        if not get_custom_me3_location():
+            default_root = get_default_os_profiles_root()
+            if not default_root.exists():
+                return
 
         # Ensure config root exists
         self.config_root.mkdir(parents=True, exist_ok=True)

@@ -109,7 +109,8 @@ class NexusMetadataManager:
         safe_game = safe_game.replace(" ", "_") or "game"
         root = self.current_storage_root
         p = root / ".me3_manager" / safe_game
-        p.mkdir(parents=True, exist_ok=True)
+        if root.exists():
+            p.mkdir(parents=True, exist_ok=True)
         return p
 
     def ensure_dirs(self) -> None:

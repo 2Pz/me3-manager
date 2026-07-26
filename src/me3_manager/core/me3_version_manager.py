@@ -1004,6 +1004,31 @@ class ME3VersionManager(QObject):
             except Exception as e:
                 log.warning("Error updating Linux PATH during uninstall: %s", e)
 
+    def kill_me3_processes(self) -> None:
+        """Kill any running me3 background processes to release file locks."""
+        import time
+
+        try:
+            if sys.platform == "win32":
+                for proc in ("me3.exe", "me3-launcher.exe"):
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/IM", proc],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        check=False,
+                    )
+            else:
+                for proc in ("me3", "me3-launcher"):
+                    subprocess.run(
+                        ["pkill", "-9", "-f", proc],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        check=False,
+                    )
+            time.sleep(0.2)
+        except Exception as e:
+            log.debug("Failed to kill me3 processes: %s", e)
+
     def uninstall_me3(self) -> bool:
         """Uninstall ME3 completely, deleting binaries, custom/official installations, PATH entries, and AppData/settings."""
         from me3_manager.core.paths.profile_paths import (
@@ -1086,7 +1111,23 @@ class ME3VersionManager(QObject):
             except Exception:
                 paths_to_show.append("ME3 Installation")
 
-        paths_str = "\n".join(f" - {p}" for p in paths_to_show)
+        final_show = []
+        for p in paths_to_show:
+            try:
+                p_obj = Path(p).resolve()
+                if any(
+                    p_obj != Path(other).resolve()
+                    and p_obj.is_relative_to(Path(other).resolve())
+                    for other in paths_to_show
+                ):
+                    continue
+                p_str = str(p_obj)
+            except Exception:
+                p_str = str(p)
+            if p_str not in final_show:
+                final_show.append(p_str)
+
+        paths_str = "\n".join(f" - {p}" for p in final_show)
 
         reply = QMessageBox.question(
             self.parent,
@@ -1098,6 +1139,9 @@ class ME3VersionManager(QObject):
         if reply != QMessageBox.StandardButton.Yes:
             return False
 
+        # Terminate any background me3 process to release file locks
+        self.kill_me3_processes()
+
         # 0. Unhook active Qt QFileSystemWatcher paths to prevent access denied / change notification errors
         try:
             if (
@@ -1107,11 +1151,47 @@ class ME3VersionManager(QObject):
                 dirs = self.config_manager.file_watcher.directories()
                 if dirs:
                     self.config_manager.file_watcher.removePaths(dirs)
+                files = self.config_manager.file_watcher.files()
+                if files:
+                    self.config_manager.file_watcher.removePaths(files)
+            if (
+                hasattr(self.config_manager, "file_watcher_handler")
+                and self.config_manager.file_watcher_handler
+            ):
+                fw = getattr(self.config_manager.file_watcher_handler, "watcher", None)
+                if fw:
+                    dirs = fw.directories()
+                    if dirs:
+                        fw.removePaths(dirs)
+                    files = fw.files()
+                    if files:
+                        fw.removePaths(files)
         except Exception as e:
             log.warning("Could not unhook file watcher during uninstall: %s", e)
 
         # 1. Remove ME3 path from system/user PATH
         self._remove_me3_from_user_path(paths_to_clean)
+
+        # Helper for recursive force deletion on Windows
+        def _force_rmtree(path_to_remove: Path):
+            if not path_to_remove or not path_to_remove.exists():
+                return
+            import stat
+
+            def _onerror(func, path, exc_info):
+                try:
+                    os.chmod(path, stat.S_IWRITE)
+                    func(path)
+                except Exception:
+                    pass
+
+            try:
+                shutil.rmtree(path_to_remove, onerror=_onerror)
+            except Exception:
+                try:
+                    shutil.rmtree(path_to_remove, ignore_errors=True)
+                except Exception as e:
+                    log.warning("Failed to force remove %s: %s", path_to_remove, e)
 
         # 2. Official uninstallation (wait synchronously for completion)
         if sys.platform == "win32":
@@ -1131,12 +1211,7 @@ class ME3VersionManager(QObject):
                 except Exception as e:
                     log.warning("Failed to run uninstaller %s: %s", uninstaller_exe, e)
             if official_win_base and official_win_base.exists():
-                try:
-                    shutil.rmtree(official_win_base, ignore_errors=True)
-                except Exception as e:
-                    log.warning(
-                        "Failed to delete directory %s: %s", official_win_base, e
-                    )
+                _force_rmtree(official_win_base)
         elif sys.platform == "linux":
             if official_linux_bin and official_linux_bin.exists():
                 try:
@@ -1146,11 +1221,8 @@ class ME3VersionManager(QObject):
 
         # 3. Custom uninstallation
         if custom_exists and custom_loc and custom_loc.exists():
-            try:
-                log.info("Removing custom ME3 directory: %s", custom_loc)
-                shutil.rmtree(custom_loc, ignore_errors=True)
-            except Exception as e:
-                log.warning("Failed to delete custom directory %s: %s", custom_loc, e)
+            log.info("Removing custom ME3 directory: %s", custom_loc)
+            _force_rmtree(custom_loc)
 
         # 4. Fallback check if binary exists directly
         try:
@@ -1158,9 +1230,15 @@ class ME3VersionManager(QObject):
             exe_name = "me3.exe" if sys.platform == "win32" else "me3"
             exe_path = bin_path / exe_name
             if exe_path.exists():
+                import stat
+
+                try:
+                    os.chmod(exe_path, stat.S_IWRITE)
+                except Exception:
+                    pass
                 exe_path.unlink(missing_ok=True)
         except Exception as e:
-            log.warning("Failed fallback binary uninstall: %s", e)
+            log.debug("Fallback binary cleanup: %s", e)
 
         # 5. Delete manager settings, profiles, and AppData directory (C:\Users\...\AppData\Local\garyttierney)
         log.info("Deleting manager settings, profiles, and app data.")
@@ -1174,29 +1252,20 @@ class ME3VersionManager(QObject):
                 pass
 
         if sys.platform == "win32":
-            if base_appdata and base_appdata.exists():
-                try:
-                    shutil.rmtree(base_appdata, ignore_errors=True)
-                except Exception as e:
-                    log.warning("Failed to delete %s: %s", base_appdata, e)
+            if base_appdata:
+                _force_rmtree(base_appdata)
         else:
             xdg_config = (
                 Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "me3"
             )
             if xdg_config.exists():
-                try:
-                    shutil.rmtree(xdg_config, ignore_errors=True)
-                except Exception as e:
-                    log.warning("Failed to delete %s: %s", xdg_config, e)
+                _force_rmtree(xdg_config)
             xdg_data = (
                 Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
                 / "garyttierney"
             )
             if xdg_data.exists():
-                try:
-                    shutil.rmtree(xdg_data, ignore_errors=True)
-                except Exception as e:
-                    log.warning("Failed to delete %s: %s", xdg_data, e)
+                _force_rmtree(xdg_data)
 
         # Refresh state and notify user
         try:
