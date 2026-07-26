@@ -3,6 +3,39 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.5.0
+**Released:** July 26, 2026
+
+
+### ✨ New Features
+
+- Add -q flag to steam profile launch options ([6eaefdb](https://github.com/2Pz/me3-manager/commit/6eaefdbb92c4079eb72590b551487664ab311583))
+
+- Add missing ME3 profile settings `[profiles]` ([7d31a28](https://github.com/2Pz/me3-manager/commit/7d31a2884b290ab2573b22317562e387bc2b20a6))
+
+- Install ME3 executable and mod folders in user-defined location ([4d7e64f](https://github.com/2Pz/me3-manager/commit/4d7e64f974b83056ba5deba3180ea37b5dfb85de))
+
+- Handle ME3 custom/official uninstallation and directory setup `[installer]` ([77dbe7f](https://github.com/2Pz/me3-manager/commit/77dbe7fee810f03e5d03a8cb50279e5a7740530e))
+
+- Allow selecting ME3 version to install or downgrade `[ui]` ([7de3024](https://github.com/2Pz/me3-manager/commit/7de30242ef061e9df413fe453e40f4ee6f7d9755))
+
+
+
+### 🔧 Bug Fixes
+
+- Handle non-premium API download restrictions with browser fallback `[nexus]` ([96141b7](https://github.com/2Pz/me3-manager/commit/96141b7da4ab74eaa1504268dca132c27b2f79f5))
+
+- Resolve missing nexus domains and enable mod search across all games ([a01ed12](https://github.com/2Pz/me3-manager/commit/a01ed128ce846f1199143c50e00b269fc7c704ed))
+
+
+
+### 🧹 Maintenance
+
+- Bump project version to 1.5.0 ([ea60da9](https://github.com/2Pz/me3-manager/commit/ea60da9f1da96a3e9f5a2629f82f6d644ba3929a))
+
+
+
+---
 ## 📦 Release 1.4.9
 **Released:** July 17, 2026
 
@@ -960,6 +993,7 @@
 
 
 ---
+[1.5.0]: https://github.com/2Pz/me3-manager/compare/1.4.9..1.5.0
 [1.4.9]: https://github.com/2Pz/me3-manager/compare/1.4.8..1.4.9
 [1.4.8]: https://github.com/2Pz/me3-manager/compare/1.4.7..1.4.8
 [1.4.7]: https://github.com/2Pz/me3-manager/compare/1.4.6..1.4.7
