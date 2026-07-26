@@ -1581,24 +1581,25 @@ class ME3CustomInstaller(QObject):
     def _refresh_environment(self):
         """Refresh environment variables without requiring logout/restart."""
         try:
-            # Broadcast WM_SETTINGCHANGE message to all windows
-            HWND_BROADCAST = 0xFFFF
-            WM_SETTINGCHANGE = 0x001A
+            if sys.platform == "win32":
+                # Broadcast WM_SETTINGCHANGE message to all windows
+                HWND_BROADCAST = 0xFFFF
+                WM_SETTINGCHANGE = 0x001A
 
-            result = ctypes.windll.user32.SendMessageTimeoutW(
-                HWND_BROADCAST,
-                WM_SETTINGCHANGE,
-                0,
-                "Environment",
-                2,  # SMTO_ABORTIFHUNG
-                5000,  # 5 second timeout
-                None,
-            )
+                result = ctypes.windll.user32.SendMessageTimeoutW(
+                    HWND_BROADCAST,
+                    WM_SETTINGCHANGE,
+                    0,
+                    "Environment",
+                    2,  # SMTO_ABORTIFHUNG
+                    5000,  # 5 second timeout
+                    None,
+                )
 
-            if result == 0:
-                log.warning("Failed to broadcast environment variable changes")
-            else:
-                log.debug("Successfully broadcasted environment variable changes")
+                if result == 0:
+                    log.warning("Failed to broadcast environment variable changes")
+                else:
+                    log.debug("Successfully broadcasted environment variable changes")
 
             # IMPORTANT: Also refresh the current process's environment
             self._refresh_current_process_path()
