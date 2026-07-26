@@ -25,3 +25,17 @@ def test_custom_me3_location_resolution(tmp_path, monkeypatch):
     assert get_me3_profiles_root() == custom_dir / "config" / "profiles"
     assert get_me3_root() == custom_dir
     assert get_me3_bin_dir() == custom_dir / "bin"
+
+
+def test_config_facade_set_custom_me3_location(tmp_path):
+    from me3_manager.core.config_facade import ConfigFacade
+
+    facade = ConfigFacade()
+    custom_dir = tmp_path / "custom_location"
+
+    facade.set_custom_me3_location(str(custom_dir))
+    assert facade.get_custom_me3_location() == str(custom_dir)
+    assert facade.config_root == custom_dir / "config" / "profiles"
+
+    facade.set_custom_me3_location(None)
+    assert facade.get_custom_me3_location() is None

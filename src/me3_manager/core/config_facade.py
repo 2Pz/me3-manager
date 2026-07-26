@@ -103,9 +103,9 @@ class ConfigFacade:
             self.settings_manager.set("custom_me3_location", str(location).strip())
         else:
             self.settings_manager.set("custom_me3_location", None)
-        self.path_manager.refresh_config_root()
-        self.config_root = self.path_manager.config_root
-        self.path_manager.ensure_directories()
+        self.refresh_me3_info()
+        self.ensure_directories()
+        self.setup_file_watcher()
 
     def get_all_games(self) -> dict[str, dict[str, str]]:
         """Get all registered games (live view from registry)."""

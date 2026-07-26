@@ -363,7 +363,7 @@
   "steam_not_found_status": "ما لقيت ستيم أو ME3 مو مثبت",
   "steam_path_unavailable_tooltip": "مسار ستيم مو متاح - لازم يكون ME3 مثبت",
   "portable_me3_header": "موقع التثبيت المحمول (Portable)",
-  "portable_me3_placeholder": "مسار النظام الافتراضي (%LOCALAPPDATA%)",
+  "portable_me3_placeholder": "المسار الذي يحتوي على مجلد bin",
   "portable_me3_note": "يخزن جميع إعدادات ME3 والملفات الشخصية ومجلدات المودات داخل هذا المجلد لضمان المحمولية التامة.",
   "me3_updates_header": "تحديثات Mod Engine 3",
   "check_for_updates_checkbox": "تحقق من تحديثات ME3 عند التشغيل",

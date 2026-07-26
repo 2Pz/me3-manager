@@ -363,7 +363,7 @@
   "steam_not_found_status": "Steam not found or ME3 not installed",
   "steam_path_unavailable_tooltip": "Steam path not available - requires ME3 to be installed",
   "portable_me3_header": "Portable Installation Location",
-  "portable_me3_placeholder": "Default system path (%LOCALAPPDATA%)",
+  "portable_me3_placeholder": "Location where bin folder is",
   "portable_me3_note": "Stores configuration, profiles, and mod folders inside this custom directory for complete portability.",
   "me3_updates_header": "Mod Engine 3 Updates",
   "check_for_updates_checkbox": "Check for ME3 updates on startup",

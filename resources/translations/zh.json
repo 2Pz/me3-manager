@@ -363,7 +363,7 @@
   "steam_not_found_status": "未找到 Steam 或 ME3 未安装",
   "steam_path_unavailable_tooltip": "Steam 路径不可用 - 需要安装 ME3",
   "portable_me3_header": "便携版 ME3 安装路径",
-  "portable_me3_placeholder": "默认系统路径 (%LOCALAPPDATA%)",
+  "portable_me3_placeholder": "bin 文件夹所在的路径",
   "portable_me3_note": "将所有 ME3 配置、配置文件和 Mod 文件夹存储在此自定义目录中，以实现完全便携。",
   "me3_updates_header": "Mod Engine 3 更新",
   "check_for_updates_checkbox": "启动时检查 ME3 更新",

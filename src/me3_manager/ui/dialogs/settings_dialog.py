@@ -394,6 +394,17 @@ class SettingsDialog(QDialog):
         """Handle check for Nexus mod updates setting change"""
         self.config_manager.set_check_mod_updates_on_startup(checked)
 
+    def _update_portable_me3_location(self, location: str | None) -> None:
+        """Update portable ME3 location and trigger parent UI refresh."""
+        self.config_manager.set_custom_me3_location(location)
+        self.portable_loc_edit.setText(location or "")
+        parent = self.parent()
+        if parent:
+            if hasattr(parent, "refresh_me3_status"):
+                parent.refresh_me3_status()
+            if hasattr(parent, "perform_global_refresh"):
+                parent.perform_global_refresh()
+
     def on_browse_portable_loc(self):
         """Browse and update custom ME3 installation location."""
         from pathlib import Path
@@ -405,10 +416,8 @@ class SettingsDialog(QDialog):
             default_dir,
         )
         if selected_dir:
-            self.config_manager.set_custom_me3_location(selected_dir)
-            self.portable_loc_edit.setText(selected_dir)
+            self._update_portable_me3_location(selected_dir)
 
     def on_clear_portable_loc(self):
         """Clear custom ME3 installation location and reset to default."""
-        self.config_manager.set_custom_me3_location(None)
-        self.portable_loc_edit.setText("")
+        self._update_portable_me3_location(None)
