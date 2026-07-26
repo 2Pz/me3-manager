@@ -598,9 +598,11 @@ class NexusService:
                 continue
 
         if j is None:
+            if isinstance(last_err, NexusError):
+                raise last_err
             raise NexusError(
                 str(last_err) if last_err else "Failed to request download link."
-            )
+            ) from last_err
 
         data = j.get("data")
         if data is None and isinstance(j.get("links"), list):
