@@ -973,15 +973,19 @@ class GamePage(QWidget):
                 )
                 if links:
                     url = links[0].url
-            except NexusForbiddenError as e:
-                # Fall back to browser download ONLY if the 403 seems to be a Premium restriction.
+            except (NexusForbiddenError, NexusError) as e:
+                # Fall back to browser download ONLY if the error seems to be a Premium restriction.
                 # If Nexus returned a specific file error (e.g. quarantined), raise it to show in GUI.
                 error_msg = str(e).lower()
                 is_premium_block = (
-                    "forbidden by nexus api" in error_msg
+                    isinstance(e, NexusForbiddenError)
+                    or "forbidden" in error_msg
                     or "premium" in error_msg
                     or "membership" in error_msg
                     or "upgrade" in error_msg
+                    or "permission" in error_msg
+                    or "visting nexusmods.com" in error_msg
+                    or "visiting nexusmods.com" in error_msg
                 )
 
                 if is_premium_block:
