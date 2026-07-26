@@ -255,6 +255,27 @@ class ME3VersionManager(QObject):
             dialog.setCancelButton(None)
         return dialog
 
+    def _confirm_action_with_checkbox(
+        self,
+        title: str,
+        text: str,
+        checkbox_text: str,
+        default_button=QMessageBox.StandardButton.Yes,
+    ) -> tuple[bool, bool]:
+        """Show a Yes/No confirmation dialog with an optional checkbox."""
+        msg_box = QMessageBox(self.parent)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(text)
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg_box.setDefaultButton(default_button)
+        checkbox = QCheckBox(checkbox_text)
+        checkbox.setChecked(False)
+        msg_box.setCheckBox(checkbox)
+        return msg_box.exec() == QMessageBox.StandardButton.Yes, checkbox.isChecked()
+
     def _prepare_command(self, cmd: list) -> list:
         """Enhanced command preparation with better environment handling."""
         return PlatformUtils.prepare_command(cmd)
@@ -480,6 +501,10 @@ class ME3VersionManager(QObject):
                 current_version,
             )
             self._stop_installation_monitoring()
+            if hasattr(self.path_manager, "refresh_config_root"):
+                self.path_manager.refresh_config_root()
+            if hasattr(self.path_manager, "ensure_directories"):
+                self.path_manager.ensure_directories()
             self.refresh_callback()
 
             # Show success message if ME3 was newly installed
@@ -601,8 +626,8 @@ class ME3VersionManager(QObject):
         if hasattr(self.path_manager, "ensure_directories"):
             self.path_manager.ensure_directories()
 
-        # Get installation path from PathManager (now resolves to custom_location/bin)
-        install_path = self.path_manager.get_me3_binary_path()
+        # Get installation path from selected custom location
+        install_path = Path(selected_dir) / "bin"
         install_path.mkdir(parents=True, exist_ok=True)
 
         # Confirm installation
@@ -629,24 +654,14 @@ class ME3VersionManager(QObject):
                 install_path=str(install_path),
             )
 
-        msg_box = QMessageBox(self.parent)
-        msg_box.setWindowTitle(title_str)
-        msg_box.setText(question_str)
-        msg_box.setIcon(QMessageBox.Icon.Question)
-        msg_box.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        confirmed, add_to_path = self._confirm_action_with_checkbox(
+            title_str,
+            question_str,
+            tr("add_to_path_checkbox"),
+            default_button=QMessageBox.StandardButton.Yes,
         )
-        msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
-
-        checkbox = QCheckBox(tr("add_to_path_checkbox"))
-        checkbox.setChecked(False)
-        msg_box.setCheckBox(checkbox)
-
-        reply = msg_box.exec()
-        if reply != QMessageBox.StandardButton.Yes:
+        if not confirmed:
             return
-
-        add_to_path = checkbox.isChecked()
 
         # Setup temporary file
         import tempfile
@@ -665,7 +680,11 @@ class ME3VersionManager(QObject):
 
         self._start_worker(
             ME3CustomInstaller(
-                download_url, temp_path, self.path_manager, add_to_path=add_to_path
+                download_url,
+                temp_path,
+                self.path_manager,
+                add_to_path=add_to_path,
+                install_path=install_path,
             ),
             self._on_custom_install_finished,
             self.progress_dialog.setValue,
@@ -681,8 +700,12 @@ class ME3VersionManager(QObject):
     ):
         """Handle completion of custom ME3 installation."""
         self._cleanup_thread()
+        if hasattr(self.path_manager, "refresh_config_root"):
+            self.path_manager.refresh_config_root()
         if hasattr(self.path_manager, "ensure_directories"):
             self.path_manager.ensure_directories()
+        if hasattr(self.config_manager, "setup_file_watcher"):
+            self.config_manager.setup_file_watcher()
 
         # Refresh ME3 status and trigger app refresh
         self.refresh_callback()
@@ -882,6 +905,328 @@ class ME3VersionManager(QObject):
             ),
         }
 
+    def _remove_me3_from_user_path(self, paths_to_remove: list[str] | None = None):
+        """Remove ME3 installation paths from user PATH (Registry on Windows, shell profiles on Linux)."""
+        norm_remove = set()
+        if paths_to_remove:
+            for p in paths_to_remove:
+                if p:
+                    norm_remove.add(os.path.normpath(p).lower())
+                    norm_remove.add(os.path.normpath(os.path.join(p, "bin")).lower())
+
+        if sys.platform == "win32":
+            try:
+                import winreg
+
+                with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER, r"Environment", 0, winreg.KEY_ALL_ACCESS
+                ) as key:
+                    try:
+                        current_path, _ = winreg.QueryValueEx(key, "Path")
+                    except FileNotFoundError:
+                        current_path = ""
+
+                    paths = [p.strip() for p in current_path.split(";") if p.strip()]
+                    cleaned_paths = []
+                    for path in paths:
+                        norm = os.path.normpath(path).lower()
+                        if (
+                            norm.endswith(("\\me3\\bin", "\\garyttierney\\me3\\bin"))
+                            or norm in norm_remove
+                        ):
+                            log.info(
+                                "Removing ME3 path from Windows user PATH: %s", path
+                            )
+                        else:
+                            cleaned_paths.append(path)
+
+                    new_path_value = ";".join(cleaned_paths)
+                    winreg.SetValueEx(
+                        key, "Path", 0, winreg.REG_EXPAND_SZ, new_path_value
+                    )
+
+                # Broadcast environment update
+                HWND_BROADCAST = 0xFFFF
+                WM_SETTINGCHANGE = 0x001A
+                ctypes.windll.user32.SendMessageTimeoutW(
+                    HWND_BROADCAST, WM_SETTINGCHANGE, 0, "Environment", 2, 5000, None
+                )
+            except Exception as e:
+                log.warning("Error updating registry PATH during uninstall: %s", e)
+
+            # Update current process PATH environment variable
+            try:
+                curr = os.environ.get("PATH", "").split(";")
+                cleaned = []
+                for p in curr:
+                    norm = os.path.normpath(p).lower()
+                    if not (
+                        norm.endswith(("\\me3\\bin", "\\garyttierney\\me3\\bin"))
+                        or norm in norm_remove
+                    ):
+                        cleaned.append(p)
+                os.environ["PATH"] = ";".join(cleaned)
+            except Exception as e:
+                log.warning("Error updating process PATH during uninstall: %s", e)
+        else:
+            try:
+                home = Path.home()
+                target_files = [home / ".bashrc", home / ".profile", home / ".zshrc"]
+                for rc_file in target_files:
+                    if not rc_file.exists():
+                        continue
+                    try:
+                        with open(rc_file, "r", encoding="utf-8", errors="ignore") as f:
+                            lines = f.readlines()
+                        new_lines = []
+                        for line in lines:
+                            skip = False
+                            if "me3" in line.lower() and "PATH" in line:
+                                skip = True
+                            for r in norm_remove:
+                                if r in line.lower():
+                                    skip = True
+                                    break
+                            if not skip:
+                                new_lines.append(line)
+                        with open(rc_file, "w", encoding="utf-8") as f:
+                            f.writelines(new_lines)
+                    except Exception as e:
+                        log.warning("Failed to update %s: %s", rc_file, e)
+
+                curr = os.environ.get("PATH", "").split(":")
+                cleaned = []
+                for p in curr:
+                    norm = p.replace("\\", "/").rstrip("/").lower()
+                    if not (norm.endswith("/.local/bin") or norm in norm_remove):
+                        cleaned.append(p)
+                os.environ["PATH"] = ":".join(cleaned)
+            except Exception as e:
+                log.warning("Error updating Linux PATH during uninstall: %s", e)
+
+    def uninstall_me3(self) -> bool:
+        """Uninstall ME3 completely, deleting binaries, custom/official installations, PATH entries, and AppData/settings."""
+        from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
+        )
+
+        custom_loc = get_custom_me3_location()
+        custom_exists = custom_loc and custom_loc.exists()
+
+        official_exists = False
+        official_win_base = None
+        official_linux_bin = None
+        uninstaller_exe = None
+
+        if sys.platform == "win32":
+            localappdata = Path(
+                os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+            )
+            for subpath in ("Programs/garyttierney/me3", "garyttierney/me3"):
+                target_dir = localappdata / subpath
+                if target_dir.exists():
+                    official_exists = True
+                    if not official_win_base:
+                        official_win_base = target_dir
+                    for exe in target_dir.glob("*.exe"):
+                        if exe.name.lower().startswith(("unins", "uninstall", "maint")):
+                            uninstaller_exe = exe
+                            break
+                if uninstaller_exe:
+                    break
+        elif sys.platform == "linux":
+            official_linux_bin = Path.home() / ".local" / "bin" / "me3"
+            official_exists = official_linux_bin.exists()
+
+        base_appdata = None
+        if sys.platform == "win32":
+            base_appdata = (
+                Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+                / "garyttierney"
+            )
+        else:
+            base_appdata = (
+                Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "me3"
+            )
+
+        paths_to_show = []
+        paths_to_clean = []
+
+        if custom_exists and custom_loc:
+            p_str = str(custom_loc)
+            if p_str not in paths_to_show:
+                paths_to_show.append(p_str)
+            paths_to_clean.append(p_str)
+            paths_to_clean.append(str(custom_loc / "bin"))
+
+        if official_exists:
+            if sys.platform == "win32" and official_win_base:
+                p_str = str(official_win_base)
+                if p_str not in paths_to_show and p_str != str(base_appdata):
+                    paths_to_show.append(p_str)
+                paths_to_clean.append(p_str)
+                paths_to_clean.append(str(official_win_base / "bin"))
+            elif sys.platform == "linux" and official_linux_bin:
+                p_str = str(official_linux_bin)
+                if p_str not in paths_to_show:
+                    paths_to_show.append(p_str)
+                paths_to_clean.append(p_str)
+
+        if base_appdata and base_appdata.exists():
+            p_str = str(base_appdata)
+            if p_str not in paths_to_show:
+                paths_to_show.append(p_str)
+            paths_to_clean.append(p_str)
+
+        if not paths_to_show:
+            try:
+                bin_path = self.path_manager.get_me3_binary_path()
+                paths_to_show.append(str(bin_path))
+                paths_to_clean.append(str(bin_path))
+            except Exception:
+                paths_to_show.append("ME3 Installation")
+
+        paths_str = "\n".join(f" - {p}" for p in paths_to_show)
+
+        reply = QMessageBox.question(
+            self.parent,
+            tr("uninstall_me3_confirm_title"),
+            tr("uninstall_me3_confirm", path=paths_str),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return False
+
+        # 0. Unhook active Qt QFileSystemWatcher paths to prevent access denied / change notification errors
+        try:
+            if (
+                hasattr(self.config_manager, "file_watcher")
+                and self.config_manager.file_watcher
+            ):
+                dirs = self.config_manager.file_watcher.directories()
+                if dirs:
+                    self.config_manager.file_watcher.removePaths(dirs)
+        except Exception as e:
+            log.warning("Could not unhook file watcher during uninstall: %s", e)
+
+        # 1. Remove ME3 path from system/user PATH
+        self._remove_me3_from_user_path(paths_to_clean)
+
+        # 2. Official uninstallation (wait synchronously for completion)
+        if sys.platform == "win32":
+            if uninstaller_exe and uninstaller_exe.exists():
+                try:
+                    log.info(
+                        "Running official uninstaller synchronously: %s",
+                        uninstaller_exe,
+                    )
+                    proc = subprocess.Popen(
+                        [str(uninstaller_exe), "/SILENT", "/SUPPRESSMSGBOXES"]
+                    )
+                    try:
+                        proc.wait(timeout=30)
+                    except subprocess.TimeoutExpired:
+                        log.warning("Uninstaller timed out, continuing cleanup.")
+                except Exception as e:
+                    log.warning("Failed to run uninstaller %s: %s", uninstaller_exe, e)
+            if official_win_base and official_win_base.exists():
+                try:
+                    shutil.rmtree(official_win_base, ignore_errors=True)
+                except Exception as e:
+                    log.warning(
+                        "Failed to delete directory %s: %s", official_win_base, e
+                    )
+        elif sys.platform == "linux":
+            if official_linux_bin and official_linux_bin.exists():
+                try:
+                    official_linux_bin.unlink(missing_ok=True)
+                except Exception as e:
+                    log.warning("Failed to delete %s: %s", official_linux_bin, e)
+
+        # 3. Custom uninstallation
+        if custom_exists and custom_loc and custom_loc.exists():
+            try:
+                log.info("Removing custom ME3 directory: %s", custom_loc)
+                shutil.rmtree(custom_loc, ignore_errors=True)
+            except Exception as e:
+                log.warning("Failed to delete custom directory %s: %s", custom_loc, e)
+
+        # 4. Fallback check if binary exists directly
+        try:
+            bin_path = self.path_manager.get_me3_binary_path()
+            exe_name = "me3.exe" if sys.platform == "win32" else "me3"
+            exe_path = bin_path / exe_name
+            if exe_path.exists():
+                exe_path.unlink(missing_ok=True)
+        except Exception as e:
+            log.warning("Failed fallback binary uninstall: %s", e)
+
+        # 5. Delete manager settings, profiles, and AppData directory (C:\Users\...\AppData\Local\garyttierney)
+        log.info("Deleting manager settings, profiles, and app data.")
+        if (
+            hasattr(self.path_manager, "settings_manager")
+            and self.path_manager.settings_manager
+        ):
+            try:
+                self.path_manager.settings_manager.clear(auto_save=False)
+            except Exception:
+                pass
+
+        if sys.platform == "win32":
+            if base_appdata and base_appdata.exists():
+                try:
+                    shutil.rmtree(base_appdata, ignore_errors=True)
+                except Exception as e:
+                    log.warning("Failed to delete %s: %s", base_appdata, e)
+        else:
+            xdg_config = (
+                Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "me3"
+            )
+            if xdg_config.exists():
+                try:
+                    shutil.rmtree(xdg_config, ignore_errors=True)
+                except Exception as e:
+                    log.warning("Failed to delete %s: %s", xdg_config, e)
+            xdg_data = (
+                Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+                / "garyttierney"
+            )
+            if xdg_data.exists():
+                try:
+                    shutil.rmtree(xdg_data, ignore_errors=True)
+                except Exception as e:
+                    log.warning("Failed to delete %s: %s", xdg_data, e)
+
+        # Refresh state and notify user
+        try:
+            if (
+                hasattr(self.config_manager, "me3_info_manager")
+                and self.config_manager.me3_info_manager
+            ):
+                self.config_manager.me3_info_manager.refresh_info()
+            elif hasattr(self.config_manager, "refresh_me3_info"):
+                self.config_manager.refresh_me3_info()
+        except Exception as e:
+            log.warning("Error refreshing me3_info after uninstall: %s", e)
+
+        if hasattr(self.path_manager, "refresh_config_root"):
+            try:
+                self.path_manager.refresh_config_root()
+            except Exception:
+                pass
+
+        if self.refresh_callback:
+            try:
+                self.refresh_callback()
+            except Exception as e:
+                log.warning("Error during refresh_callback after uninstall: %s", e)
+
+        QMessageBox.information(
+            self.parent, tr("uninstall_complete_title"), tr("uninstall_complete")
+        )
+        return True
+
 
 class ME3CustomInstaller(QObject):
     """Handles downloading and installing ME3 portable distribution for Windows."""
@@ -890,15 +1235,24 @@ class ME3CustomInstaller(QObject):
     install_finished = Signal(int, int, str)  # status_code, return_code, message
 
     def __init__(
-        self, url: str, temp_path: str, path_manager, add_to_path: bool = False
+        self,
+        url: str,
+        temp_path: str,
+        path_manager,
+        add_to_path: bool = False,
+        install_path: Path | str | None = None,
     ):
         super().__init__()
         self.url = url
         self.temp_path = temp_path
         self.path_manager = path_manager
         self.add_to_path = add_to_path
-        # Use PathManager to get the installation path
-        self.install_path = self.path_manager.get_me3_binary_path()
+        # Use explicit install_path if provided, otherwise fallback to PathManager
+        self.install_path = (
+            Path(install_path)
+            if install_path
+            else self.path_manager.get_me3_binary_path()
+        )
         self._is_cancelled = False
 
     @staticmethod

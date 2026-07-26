@@ -47,6 +47,7 @@ class HelpAboutDialog(QDialog):
         super().__init__(main_window)
         self.main_window = main_window
         self.version_manager = self.main_window.version_manager
+        self.initial_setup = initial_setup
         self.setMinimumWidth(550)
         self.setStyleSheet("""
             QDialog { background-color: #252525; color: #ffffff; }
@@ -233,18 +234,27 @@ class HelpAboutDialog(QDialog):
         return btn
 
     def _setup_platform_buttons(self, layout, stable_key, stable_handler, custom_key):
-        self._add_update_button(layout)
-        info = self.version_manager.get_available_versions()["stable"]
-        self.stable_button = self._add_action_button(
-            layout, stable_key, stable_handler, info["available"], info["version"]
+        is_installed = (
+            self.main_window.config_manager.me3_info_manager.get_me3_installation_status()
+            != Status.NOT_INSTALLED
         )
-        self.custom_button = self._add_action_button(
-            layout,
-            custom_key,
-            self.handle_custom_install,
-            info["available"],
-            info["version"],
-        )
+        if is_installed and not getattr(self, "initial_setup", False):
+            self._add_update_button(layout)
+            self.uninstall_button = self._add_action_button(
+                layout, "uninstall_me3_button", self.handle_uninstall_me3, True
+            )
+        else:
+            info = self.version_manager.get_available_versions()["stable"]
+            self.stable_button = self._add_action_button(
+                layout, stable_key, stable_handler, info["available"], info["version"]
+            )
+            self.custom_button = self._add_action_button(
+                layout,
+                custom_key,
+                self.handle_custom_install,
+                info["available"],
+                info["version"],
+            )
 
     def _setup_windows_buttons(self, layout):
         self._setup_platform_buttons(
@@ -266,6 +276,10 @@ class HelpAboutDialog(QDialog):
             self.handle_linux_install,
             custom_key,
         )
+
+    def handle_uninstall_me3(self):
+        if self.version_manager.uninstall_me3():
+            self.accept()
 
     def handle_custom_install(self):
         self.version_manager.custom_install_me3()

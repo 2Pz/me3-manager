@@ -103,32 +103,17 @@ class NexusMetadataManager:
         return self.current_storage_root / "nexus" / "metadata"
 
     def _game_dir(self) -> Path:
-        from me3_manager.core.paths.profile_paths import (
-            get_custom_me3_location,
-            get_default_os_profiles_root,
-        )
-
         safe_game = "".join(
             ch for ch in self.game_name if ch.isalnum() or ch in ("_", "-", " ")
         ).strip()
         safe_game = safe_game.replace(" ", "_") or "game"
         root = self.current_storage_root
         p = root / ".me3_manager" / safe_game
-        if get_custom_me3_location() or root != get_default_os_profiles_root():
-            p.mkdir(parents=True, exist_ok=True)
+        p.mkdir(parents=True, exist_ok=True)
         return p
 
     def ensure_dirs(self) -> None:
         """Ensure the metadata directory exists on disk."""
-        from me3_manager.core.paths.profile_paths import (
-            get_custom_me3_location,
-            get_default_os_profiles_root,
-        )
-
-        root = self.current_storage_root
-        if not get_custom_me3_location() and root == get_default_os_profiles_root():
-            return
-
         try:
             self._game_dir()
         except Exception:

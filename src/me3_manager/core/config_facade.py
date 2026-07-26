@@ -382,9 +382,9 @@ class ConfigFacade:
         self.path_manager.set_me3_config_path(game_name, config_path)
         self._sync_legacy_attributes()
 
-    def ensure_directories(self):
+    def ensure_directories(self, game_name: str | None = None):
         """Ensure all necessary directories exist."""
-        self.path_manager.ensure_directories()
+        self.path_manager.ensure_directories(game_name)
 
     # File Watcher (delegated to FileWatcher)
     def setup_file_watcher(self):

@@ -398,6 +398,9 @@ class ModEngine3Manager(QMainWindow):
             # Update footer label
             self.update_footer_text()
 
+            # Ensure all profile directories and mod folders exist
+            self.config_manager.ensure_directories()
+
             # Trigger a full refresh of the application state
             self.perform_global_refresh()
 

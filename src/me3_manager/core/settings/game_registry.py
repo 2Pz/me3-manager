@@ -123,7 +123,10 @@ class GameRegistry:
         Returns:
             Dictionary of game configurations
         """
-        return self.settings_manager.get("games", {}).copy()
+        saved_games = self.settings_manager.get("games")
+        if not saved_games:
+            return self.DEFAULT_GAMES.copy()
+        return saved_games.copy()
 
     def get_game(self, game_name: str) -> dict[str, str] | None:
         """
@@ -135,7 +138,7 @@ class GameRegistry:
         Returns:
             Game configuration dictionary or None
         """
-        games = self.settings_manager.get("games", {})
+        games = self.get_all_games()
         return games.get(game_name, {}).copy() if game_name in games else None
 
     def add_game(

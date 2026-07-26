@@ -102,9 +102,7 @@ class PathManager:
         mods_dir_name = self.game_registry.get_game_mods_dir(game_name)
         if mods_dir_name:
             return self.config_root / mods_dir_name
-
-        # Fallback
-        return self.config_root / f"{game_name.lower()}-mods"
+        return self.config_root / f"{game_name}-mods"
 
     def get_profile_path(self, game_name: str) -> Path:
         """
@@ -125,13 +123,11 @@ class PathManager:
         ):
             return Path(active_profile["profile_path"])
 
-        # Default to config_root/profile
+        # Default to config_root/profile from game_registry
         profile_name = self.game_registry.get_game_profile_name(game_name)
         if profile_name:
             return self.config_root / profile_name
-
-        # Fallback
-        return self.config_root / f"{game_name.lower()}-default.me3"
+        return self.config_root / f"{game_name}-default.me3"
 
     def _find_native_entry(
         self, natives: list[dict], search_path: str, mods_root: Path
@@ -388,16 +384,8 @@ class PathManager:
             game_name: Optional specific game to ensure directories for
         """
         from me3_manager.core.paths.profile_paths import (
-            get_custom_me3_location,
             get_default_os_profiles_root,
         )
-
-        # Do not auto-create legacy AppData profiles or mod folders if no custom ME3 location is configured
-        if (
-            not get_custom_me3_location()
-            and self.config_root == get_default_os_profiles_root()
-        ):
-            return
 
         # Ensure config root exists
         self.config_root.mkdir(parents=True, exist_ok=True)
