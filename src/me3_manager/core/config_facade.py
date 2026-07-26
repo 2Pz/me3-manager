@@ -175,7 +175,18 @@ class ConfigFacade:
 
     def _save_settings(self):
         """Legacy method for saving settings."""
-        # Only persist fields that are intended to be user-editable and not derived
+        # Clean and deduplicate profiles per game to prevent duplicate profile entries
+        for g_name, p_list in list(self.profiles.items()):
+            if isinstance(p_list, list):
+                seen = set()
+                clean_list = []
+                for p in p_list:
+                    p_id = p.get("id")
+                    if p_id and p_id not in seen:
+                        seen.add(p_id)
+                        clean_list.append(p)
+                self.profiles[g_name] = clean_list
+
         payload = {
             "games": self.game_registry.get_all_games(),
             "game_order": self.game_registry.get_game_order(),
@@ -186,6 +197,10 @@ class ConfigFacade:
             "custom_config_paths": self.custom_config_paths,
             "me3_config_paths": self.me3_config_paths,
         }
+        custom_loc = self.get_custom_me3_location()
+        if custom_loc:
+            payload["custom_me3_location"] = custom_loc
+
         self.settings_manager.update(payload)
         # update() auto-saves; explicit save ensures durability in legacy paths
         self.settings_manager.save_settings()
@@ -418,52 +433,67 @@ class ConfigFacade:
         """Get all profiles for a game."""
         profiles = self.settings_manager.get("profiles", {})
         game_profiles = profiles.get(game_name, [])
+        unique_profiles = []
+        seen_ids = set()
         for p in game_profiles:
-            if p.get("id") == "default":
-                p["mods_path"] = str(self.path_manager.get_mods_dir(game_name))
-                p["profile_path"] = str(self.path_manager.get_profile_path(game_name))
-        return game_profiles
+            p_id = p.get("id")
+            if p_id and p_id not in seen_ids:
+                seen_ids.add(p_id)
+                if p_id == "default":
+                    p["mods_path"] = str(self.path_manager.get_mods_dir(game_name))
+                    p["profile_path"] = str(
+                        self.path_manager.get_profile_path(game_name)
+                    )
+                unique_profiles.append(p)
+
+        if len(unique_profiles) != len(game_profiles):
+            profiles[game_name] = unique_profiles
+            self.settings_manager.set("profiles", profiles)
+            self.profiles = profiles
+
+        return unique_profiles
 
     def get_active_profile(self, game_name: str) -> dict | None:
         """Get active profile for a game."""
         profiles = self.get_profiles_for_game(game_name)
-        if not profiles:
-            default_mods_path = self.path_manager.get_mods_dir(game_name)
-            default_profile_file_path = self.path_manager.get_profile_path(game_name)
-            new_profile = {
-                "id": "default",
-                "name": "Default",
-                "profile_path": str(default_profile_file_path),
-                "mods_path": str(default_mods_path),
-            }
-            from me3_manager.core.paths.profile_paths import (
-                get_custom_me3_location,
-            )
-
-            if get_custom_me3_location():
-                default_mods_path.mkdir(parents=True, exist_ok=True)
-                # Write an initial profile file using default profile version
-                initial_profile = self._create_default_profile_data()
-                try:
-                    self._write_toml_config(
-                        default_profile_file_path, initial_profile, game_name
-                    )
-                except Exception:
-                    pass
-            if game_name not in self.profiles:
-                self.profiles[game_name] = []
-            self.profiles[game_name].append(new_profile)
-            self.active_profiles[game_name] = "default"
-            self._save_settings()
-            return new_profile
-
         active_id = self.active_profiles.get(game_name, "default")
+
         for profile in profiles:
             if profile.get("id") == active_id:
                 return profile
         if profiles:
             return profiles[0]
-        return None
+
+        # No profiles exist, create initial default profile safely
+        default_mods_path = self.path_manager.get_mods_dir(game_name)
+        default_profile_file_path = self.path_manager.get_profile_path(game_name)
+        new_profile = {
+            "id": "default",
+            "name": "Default",
+            "profile_path": str(default_profile_file_path),
+            "mods_path": str(default_mods_path),
+        }
+        from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
+        )
+
+        if get_custom_me3_location():
+            default_mods_path.mkdir(parents=True, exist_ok=True)
+            initial_profile = self._create_default_profile_data()
+            try:
+                self._write_toml_config(
+                    default_profile_file_path, initial_profile, game_name
+                )
+            except Exception:
+                pass
+
+        if game_name not in self.profiles:
+            self.profiles[game_name] = []
+        if not any(p.get("id") == "default" for p in self.profiles[game_name]):
+            self.profiles[game_name].insert(0, new_profile)
+        self.active_profiles[game_name] = "default"
+        self._save_settings()
+        return new_profile
 
     def set_active_profile(self, game_name: str, profile_id: str):
         """Set active profile for a game."""
