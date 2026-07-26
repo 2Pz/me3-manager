@@ -339,23 +339,20 @@ class ProfileSettingsDialog(GameDialogBase):
             # Prefer absolute path to 'me3' if we can resolve it, else rely on PATH
             exe = "me3"
             try:
-                bin_dir = self.config_manager.path_manager.get_me3_binary_path()
-                exe_candidate = bin_dir / (
-                    "me3.exe" if sys.platform == "win32" else "me3"
-                )
-                if exe_candidate.exists():
-                    exe = str(exe_candidate)
-            except Exception:
-                pass
-
-            # On Linux (e.g., Steam Deck), ensure we have a full path since Steam
-            # launches shortcuts without a proper PATH environment
-            if sys.platform == "linux" and exe == "me3":
                 from me3_manager.utils.platform_utils import PlatformUtils
 
-                resolved = PlatformUtils._find_me3_executable_linux()
+                resolved = PlatformUtils.find_me3_executable()
                 if resolved:
                     exe = resolved
+                else:
+                    bin_dir = self.config_manager.path_manager.get_me3_binary_path()
+                    exe_candidate = bin_dir / (
+                        "me3.exe" if sys.platform == "win32" else "me3"
+                    )
+                    if exe_candidate.exists():
+                        exe = str(exe_candidate)
+            except Exception:
+                pass
             startdir = str(profile_path.parent)
             launch_options = f'-q launch --game {cli_id} -p "{profile_path}"'
 
@@ -386,8 +383,10 @@ class ProfileSettingsDialog(GameDialogBase):
 
             # Derive a stable base under the ME3 config root (…/me3)
             try:
-                base_me3_dir = (
-                    self.config_manager.path_manager.config_root.parent.parent
+                from me3_manager.core.paths.profile_paths import get_me3_root
+
+                base_me3_dir = get_me3_root(
+                    self.config_manager.path_manager.config_root
                 )
             except Exception:
                 base_me3_dir = _Path.home() / (

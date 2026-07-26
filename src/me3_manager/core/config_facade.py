@@ -51,16 +51,9 @@ class ConfigFacade:
 
     def _get_initial_settings_path(self) -> Path:
         """Get the initial settings file path."""
-        from me3_manager.core.paths.profile_paths import get_me3_profiles_root
+        from me3_manager.core.paths.profile_paths import get_manager_settings_path
 
-        # Try to get from ME3 info
-        if self.me3_info_manager and self.me3_info_manager.is_me3_installed():
-            profile_dir = self.me3_info_manager.get_profile_directory()
-            if profile_dir:
-                return Path(profile_dir).parent / "manager_settings.json"
-
-        config_root = get_me3_profiles_root()
-        return config_root.parent / "manager_settings.json"
+        return get_manager_settings_path()
 
     def _sync_legacy_attributes(self):
         """Sync legacy attributes for backward compatibility."""
@@ -96,6 +89,23 @@ class ConfigFacade:
         }
 
     # Clean accessors (preferred over legacy attributes)
+
+    def get_custom_me3_location(self) -> str | None:
+        """Get user-defined custom ME3 installation location path string."""
+        from me3_manager.core.paths.profile_paths import get_custom_me3_location
+
+        loc = get_custom_me3_location()
+        return str(loc) if loc else None
+
+    def set_custom_me3_location(self, location: str | None) -> None:
+        """Set or clear user-defined custom ME3 installation location."""
+        if location and str(location).strip():
+            self.settings_manager.set("custom_me3_location", str(location).strip())
+        else:
+            self.settings_manager.set("custom_me3_location", None)
+        self.path_manager.refresh_config_root()
+        self.config_root = self.path_manager.config_root
+        self.path_manager.ensure_directories()
 
     def get_all_games(self) -> dict[str, dict[str, str]]:
         """Get all registered games (live view from registry)."""
@@ -393,7 +403,12 @@ class ConfigFacade:
     def get_profiles_for_game(self, game_name: str) -> list[dict]:
         """Get all profiles for a game."""
         profiles = self.settings_manager.get("profiles", {})
-        return profiles.get(game_name, [])
+        game_profiles = profiles.get(game_name, [])
+        for p in game_profiles:
+            if p.get("id") == "default":
+                p["mods_path"] = str(self.path_manager.get_mods_dir(game_name))
+                p["profile_path"] = str(self.path_manager.get_profile_path(game_name))
+        return game_profiles
 
     def get_active_profile(self, game_name: str) -> dict | None:
         """Get active profile for a game."""
@@ -407,15 +422,20 @@ class ConfigFacade:
                 "profile_path": str(default_profile_file_path),
                 "mods_path": str(default_mods_path),
             }
-            default_mods_path.mkdir(parents=True, exist_ok=True)
-            # Write an initial profile file using default profile version
-            initial_profile = self._create_default_profile_data()
-            try:
-                self._write_toml_config(
-                    default_profile_file_path, initial_profile, game_name
-                )
-            except Exception:
-                pass
+            from me3_manager.core.paths.profile_paths import (
+                get_custom_me3_location,
+            )
+
+            if get_custom_me3_location():
+                default_mods_path.mkdir(parents=True, exist_ok=True)
+                # Write an initial profile file using default profile version
+                initial_profile = self._create_default_profile_data()
+                try:
+                    self._write_toml_config(
+                        default_profile_file_path, initial_profile, game_name
+                    )
+                except Exception:
+                    pass
             if game_name not in self.profiles:
                 self.profiles[game_name] = []
             self.profiles[game_name].append(new_profile)

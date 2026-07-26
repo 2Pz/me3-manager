@@ -498,10 +498,6 @@ class GameOptionsDialog(GameDialogBase):
                     )
                     / "me3"
                 )
-                try:
-                    default_dir.mkdir(parents=True, exist_ok=True)
-                except Exception:
-                    pass
                 default_file = default_dir / "me3.toml"
 
                 file_name, _ = QFileDialog.getSaveFileName(

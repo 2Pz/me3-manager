@@ -29,7 +29,15 @@ class PathManager:
 
     def _initialize_config_root(self):
         """Initialize the configuration root directory."""
-        from me3_manager.core.paths.profile_paths import get_me3_profiles_root
+        from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
+            get_me3_profiles_root,
+        )
+
+        # Prioritize user custom ME3 installation location over CLI system defaults
+        if get_custom_me3_location():
+            self._config_root = get_me3_profiles_root()
+            return
 
         # Try to get dynamic config root from ME3
         if self.me3_info:
@@ -49,7 +57,16 @@ class PathManager:
         Returns:
             Path to config root
         """
-        return self._config_root
+        from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
+            get_me3_profiles_root,
+        )
+
+        custom = get_custom_me3_location()
+        if custom:
+            return custom / "config" / "profiles"
+
+        return self._config_root or get_me3_profiles_root()
 
     def get_settings_file_path(self) -> Path:
         """
@@ -58,7 +75,9 @@ class PathManager:
         Returns:
             Path to manager_settings.json
         """
-        return self.config_root.parent / "manager_settings.json"
+        from me3_manager.core.paths.profile_paths import get_manager_settings_path
+
+        return get_manager_settings_path()
 
     def get_mods_dir(self, game_name: str) -> Path:
         """
@@ -70,9 +89,13 @@ class PathManager:
         Returns:
             Path to mods directory
         """
-        # Check for custom mods path in active profile
+        # Check for custom mods path in active profile (skip if it is the default profile)
         active_profile = self._get_active_profile(game_name)
-        if active_profile and active_profile.get("mods_path"):
+        if (
+            active_profile
+            and active_profile.get("id") != "default"
+            and active_profile.get("mods_path")
+        ):
             return Path(active_profile["mods_path"])
 
         # Default to config_root/mods_dir
@@ -93,9 +116,13 @@ class PathManager:
         Returns:
             Path to profile file
         """
-        # Check for custom profile path in active profile
+        # Check for custom profile path in active profile (skip if it is the default profile)
         active_profile = self._get_active_profile(game_name)
-        if active_profile and active_profile.get("profile_path"):
+        if (
+            active_profile
+            and active_profile.get("id") != "default"
+            and active_profile.get("profile_path")
+        ):
             return Path(active_profile["profile_path"])
 
         # Default to config_root/profile
@@ -349,10 +376,9 @@ class PathManager:
         Returns:
             Path to the binary installation directory.
         """
-        # self.config_root is .../me3/config/profiles
-        # We want .../me3/bin
-        me3_root = self.config_root.parent.parent
-        return me3_root / "bin"
+        from me3_manager.core.paths.profile_paths import get_me3_bin_dir
+
+        return get_me3_bin_dir(self.config_root)
 
     def ensure_directories(self, game_name: str | None = None) -> None:
         """
@@ -361,6 +387,18 @@ class PathManager:
         Args:
             game_name: Optional specific game to ensure directories for
         """
+        from me3_manager.core.paths.profile_paths import (
+            get_custom_me3_location,
+            get_default_os_profiles_root,
+        )
+
+        # Do not auto-create legacy AppData profiles or mod folders if no custom ME3 location is configured
+        if (
+            not get_custom_me3_location()
+            and self.config_root == get_default_os_profiles_root()
+        ):
+            return
+
         # Ensure config root exists
         self.config_root.mkdir(parents=True, exist_ok=True)
 
@@ -369,6 +407,9 @@ class PathManager:
             games = {game_name: self.game_registry.get_game(game_name)}
         else:
             games = self.game_registry.get_all_games()
+
+        profiles = self.settings_manager.get("profiles", {})
+        profiles_modified = False
 
         for name, game_info in games.items():
             if game_info:
@@ -379,8 +420,54 @@ class PathManager:
                 # Ensure profile exists
                 profile_path = self.get_profile_path(name)
                 if not profile_path.exists():
-                    # Profile creation would be handled by ProfileManager
-                    pass
+                    import shutil
+
+                    from me3_manager.core.paths.profile_paths import (
+                        get_default_os_profiles_root,
+                    )
+                    from me3_manager.core.profiles.profile_manager import (
+                        ProfileManager,
+                    )
+
+                    default_os_profile = (
+                        get_default_os_profiles_root() / profile_path.name
+                    )
+                    if (
+                        default_os_profile != profile_path
+                        and default_os_profile.is_file()
+                    ):
+                        try:
+                            shutil.copy2(default_os_profile, profile_path)
+                        except Exception:
+                            pass
+                    if not profile_path.exists():
+                        try:
+                            ProfileManager.write_profile(
+                                profile_path,
+                                {
+                                    "profileVersion": "v1",
+                                    "natives": [],
+                                    "packages": [],
+                                    "supports": [],
+                                },
+                                name,
+                            )
+                        except Exception:
+                            pass
+
+                # Update stored paths in manager_settings.json for the default profile
+                game_profiles = profiles.get(name, [])
+                for p in game_profiles:
+                    if p.get("id") == "default":
+                        if p.get("mods_path") != str(mods_dir) or p.get(
+                            "profile_path"
+                        ) != str(profile_path):
+                            p["mods_path"] = str(mods_dir)
+                            p["profile_path"] = str(profile_path)
+                            profiles_modified = True
+
+        if profiles_modified and self.settings_manager:
+            self.settings_manager.set("profiles", profiles)
 
     def normalize_path(self, path_str: str) -> str:
         """
@@ -486,6 +573,4 @@ class PathManager:
         """Refresh the config root from ME3 info if available."""
         if self.me3_info:
             self.me3_info.refresh_info()
-            dynamic_profile_dir = self.me3_info.get_profile_directory()
-            if dynamic_profile_dir:
-                self._config_root = Path(dynamic_profile_dir)
+        self._initialize_config_root()
