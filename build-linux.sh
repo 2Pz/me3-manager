@@ -47,6 +47,25 @@ with open('me3-manager.spec', 'w') as f:
     f.write(content)
 "
 
+echo "Checking for libxcb-cursor.so.0 on this build machine..."
+xcb_cursor_path=$(ldconfig -p | grep 'libxcb-cursor\.so\.0' | awk '{print $NF}' | head -n1)
+if [ -z "$xcb_cursor_path" ]; then
+	echo "ERROR: libxcb-cursor.so.0 not found on this build machine."
+	echo "Install it first, e.g.: sudo apt install libxcb-cursor0"
+	exit 1
+fi
+echo "Found libxcb-cursor.so.0 at $xcb_cursor_path"
+
+echo "Patching spec file to bundle libxcb-cursor.so.0..."
+python3 -c "
+with open('me3-manager.spec', 'r') as f:
+    content = f.read()
+patch = \"\n# Bundle libxcb-cursor.so.0 explicitly: Qt 6.5+ dlopens it at runtime\n# for cursor theme loading in the xcb platform plugin, so PyInstaller's\n# linker-based dependency analysis never discovers it on its own.\na.binaries += [('libxcb-cursor.so.0', '$xcb_cursor_path', 'BINARY')]\n\"
+content = content.replace('pyz = PYZ(a.pure)', patch + 'pyz = PYZ(a.pure)')
+with open('me3-manager.spec', 'w') as f:
+    f.write(content)
+"
+
 echo "Building with PyInstaller..."
 pyinstaller --clean --noconfirm \
 	--distpath "dist/linux-$version" \
