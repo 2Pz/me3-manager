@@ -231,6 +231,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --dev
 
+      - name: Install system build dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libxcb-cursor0
+
       - name: Build Linux AppImage
         if: matrix.os == 'ubuntu-latest'
         run: |

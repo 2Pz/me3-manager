@@ -34,6 +34,8 @@ jobs:
       - uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6 # v6.6.1
       - name: Install dependencies
         run: uv sync --locked --dev
+      - name: Install system build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libxcb-cursor0
       - name: Get me3-manager version from pyproject.toml
         id: get_version
         run: echo "version=$(uv version --short)" >> "$GITHUB_OUTPUT"
