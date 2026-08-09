@@ -1,6 +1,7 @@
 import re
 import shlex
 
+from ansi2html import Ansi2HTMLConverter
 from PySide6.QtCore import (
     QEasingCurve,
     QProcess,
@@ -34,6 +35,7 @@ class EmbeddedTerminal(QWidget):
         self._collapsed = False
         self._animation: QPropertyAnimation | None = None
         self._expanded_height = 200
+        self._converter = Ansi2HTMLConverter(inline=True)
         self.init_ui()
 
     def init_ui(self):
@@ -111,8 +113,9 @@ class EmbeddedTerminal(QWidget):
         # Terminal output
         self.output = QTextEdit()
         self.output.setReadOnly(True)
-        self.output.setFont(QFont("Consolas", 9))
+        self.output.setFont(QFont("Consolas", 10))
         self.output.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self.output.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.output.setStyleSheet("""
             QTextEdit {
                 background-color: #0c0c0c;
@@ -120,6 +123,7 @@ class EmbeddedTerminal(QWidget):
                 border: 1px solid #3d3d3d;
                 border-radius: 4px;
                 padding: 8px;
+                line-height: 1.35;
             }
         """)
         self.output.setMaximumHeight(self._expanded_height)
@@ -149,7 +153,7 @@ class EmbeddedTerminal(QWidget):
             self._animation
             and self._animation.state() == QPropertyAnimation.State.Running
         ):
-            return  # Don't interrupt running animation
+            self._animation.stop()
 
         self._collapsed = not self._collapsed
 
@@ -183,68 +187,12 @@ class EmbeddedTerminal(QWidget):
 
     def parse_ansi_to_html(self, text: str) -> str:
         """Converts text with ANSI escape codes to HTML for display in QTextEdit."""
-        ansi_colors = {
-            "30": "black",
-            "31": "#CD3131",
-            "32": "#0DBC79",
-            "33": "#E5E510",
-            "34": "#2472C8",
-            "35": "#BC3FBC",
-            "36": "#11A8CD",
-            "37": "#E5E5E5",
-            "90": "#767676",
-        }
-
-        ansi_escape_pattern = re.compile(r"(\x1B\[((?:\d|;)*)m)")
-        parts = ansi_escape_pattern.split(text)
-        html_output = ""
-        in_span = False
-
-        i = 0
-        while i < len(parts):
-            text_part = parts[i]
-
-            text_part = text_part.replace("&", "&").replace("<", "<").replace(">", ">")
-            text_part = text_part.replace("\n", "<br>")
-            html_output += text_part
-
-            i += 1
-            if i >= len(parts):
-                break
-
-            codes_str = parts[i + 1]
-
-            if in_span:
-                html_output += "</span>"
-                in_span = False
-
-            codes = codes_str.split(";")
-            if not codes or codes[0] in ("", "0"):
-                pass  # Span is already closed
-            else:
-                styles = []
-                for code in codes:
-                    if code in ansi_colors:
-                        styles.append(f"color:{ansi_colors.get(code)};")
-                    elif code == "1":
-                        styles.append("font-weight:bold;")
-                    elif code == "2":
-                        styles.append("opacity:0.7;")
-                    elif code == "3":
-                        styles.append("font-style:italic;")
-                    elif code == "4":
-                        styles.append("text-decoration:underline;")
-
-                if styles:
-                    html_output += f'<span style="{"".join(styles)}">'
-                    in_span = True
-
-            i += 2
-
-        if in_span:
-            html_output += "</span>"
-
-        return html_output
+        clean_text = re.sub(r"\x1b\][^\a\x1b]*(?:\a|\x1b\\)", "", text)
+        return (
+            self._converter.convert(clean_text, full=False)
+            .replace("font-weight: lighter", "color: gray")
+            .replace("\n", "<br>")
+        )
 
     def run_command(self, command, working_dir: str = None, skip_display: bool = False):
         """Run a command in the embedded terminal
@@ -265,7 +213,12 @@ class EmbeddedTerminal(QWidget):
 
         # Only display if not skipped
         if not skip_display:
-            self.output.append(f"$ {display_command}")
+            cursor = self.output.textCursor()
+            cursor.movePosition(cursor.MoveOperation.End)
+            self.output.setTextCursor(cursor)
+            if self.output.toPlainText():
+                self.output.append("")
+            self.output.insertHtml(f"$ {display_command}<br>")
 
         if self.process is not None:
             self.process.kill()

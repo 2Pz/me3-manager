@@ -6,10 +6,8 @@ ME3 executable, handling custom executable paths, and constructing the command
 to run the game via terminal or subprocess.
 """
 
-import shlex
 import subprocess
 
-from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import QMessageBox
 
 from me3_manager.ui.game_page_components.base_component import GamePageComponent
@@ -114,29 +112,12 @@ class GameLauncher(GamePageComponent):
                 tr("custom_exe_requires_terminal_info"),
             )
 
-    def _setup_terminal_process(self, terminal, display_command: str):
-        """
-        Common setup for terminal process: kill existing, create new QProcess,
-        set channel mode, and connect signals.
-        """
-        terminal.output.append(f"$ {display_command}")
-
-        if terminal.process is not None:
-            terminal.process.kill()
-            terminal.process.waitForFinished(1000)
-
-        terminal.process = QProcess(terminal)
-        terminal.process.setProcessChannelMode(
-            QProcess.ProcessChannelMode.MergedChannels
-        )
-        terminal.process.readyReadStandardOutput.connect(terminal.handle_stdout)
-        terminal.process.finished.connect(terminal.process_finished)
-
     def run_me3_with_custom_exe(
         self, exe_path: str, cli_id: str, profile_path: str, terminal
     ):
         """Constructs and runs the ME3 command for a custom executable in the terminal."""
         args = [
+            "me3",
             "launch",
             "--exe",
             exe_path,
@@ -146,21 +127,11 @@ class GameLauncher(GamePageComponent):
             "-p",
             profile_path,
         ]
-        display_command = f"me3 launch --exe {shlex.quote(exe_path)} --skip-steam-init --game {cli_id} -p {shlex.quote(profile_path)}"
-        self._setup_terminal_process(terminal, display_command)
-        # Sanitize environment to avoid leaking PyInstaller libs to child processes
-        terminal.process.setProcessEnvironment(
-            PlatformUtils.build_qprocess_environment()
-        )
-        # Use centralized list command prep for QProcess
-        program, qargs = PlatformUtils.prepare_list_command_for_qprocess(["me3"] + args)
-        terminal.process.start(program, qargs)
+        terminal.run_command(args)
 
     def _launch_in_terminal(self, command_args, terminal):
         """Launch the game command in the integrated terminal."""
-        display_command = " ".join(shlex.quote(arg) for arg in command_args)
-        self._setup_terminal_process(terminal, display_command)
-        terminal.run_command(command_args, skip_display=True)
+        terminal.run_command(command_args)
 
     def _launch_direct(self, command_args):
         """Launch the game command directly via a subprocess."""
