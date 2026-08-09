@@ -48,7 +48,7 @@ from me3_manager.ui.game_page_components.profile_handler import ProfileHandler
 from me3_manager.ui.game_page_components.style import GamePageStyle
 from me3_manager.ui.game_page_components.ui_builder import UiBuilder
 from me3_manager.utils.archive_utils import ARCHIVE_EXTENSIONS
-from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
+from me3_manager.utils.constants import ACCEPTABLE_FOLDERS, IGNORED_DLLS
 from me3_manager.utils.platform_utils import PlatformUtils
 from me3_manager.utils.translator import tr
 
@@ -1323,7 +1323,11 @@ class GamePage(QWidget):
             import logging
 
             log = logging.getLogger(__name__)
-            dlls_inside = list(folder_path.rglob("*.dll"))
+            dlls_inside = [
+                d
+                for d in folder_path.rglob("*.dll")
+                if d.name.lower() not in IGNORED_DLLS
+            ]
             log.debug("Found DLLs: %s", dlls_inside)
             if dlls_inside:
                 return str(dlls_inside[0].resolve())
