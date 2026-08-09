@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from me3_manager.core.nexus_metadata import NexusMetadataManager
-from me3_manager.utils.constants import ACCEPTABLE_FOLDERS
+from me3_manager.utils.constants import ACCEPTABLE_FOLDERS, IGNORED_DLLS
 from me3_manager.utils.path_utils import PathUtils
 
 
@@ -355,6 +355,8 @@ class ImprovedModManager:
 
             try:
                 for dll_file in folder.rglob("*.dll"):
+                    if dll_file.name.lower() in IGNORED_DLLS:
+                        continue
                     dll_path = str(dll_file)
                     config_key = self._get_config_key_for_mod(dll_path, game_name)
                     display_name = f"{folder.name}/{dll_file.stem}"
@@ -547,6 +549,8 @@ class ImprovedModManager:
                     # Check for child DLLs
                     try:
                         for dll in folder.rglob("*.dll"):
+                            if dll.name.lower() in IGNORED_DLLS:
+                                continue
                             config_key = self._get_config_key_for_mod(
                                 str(dll), game_name
                             )
