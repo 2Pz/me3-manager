@@ -1111,6 +1111,28 @@ class ModInstaller:
                     jail_dir=import_folder,
                 )
 
+            # Wrap standalone natives in a mod folder when no packages are defined
+            if not final_folder_names and items_to_install:
+                wrapper_name = self._sanitize_mod_name(
+                    mod_name_override or profile_base.name
+                )
+                if _validate_mod_name(wrapper_name):
+                    # Prefix all items' destinations with the wrapper folder
+                    wrapped_items = []
+                    for src, dest in items_to_install:
+                        dest_path = dest if isinstance(dest, Path) else Path(dest)
+                        wrapped_items.append((src, Path(wrapper_name) / dest_path))
+                    items_to_install.clear()
+                    items_to_install.extend(wrapped_items)
+
+                    # Update native entry paths to reflect the new location
+                    for native in profile_data.get("natives", []):
+                        if isinstance(native, dict) and native.get("path"):
+                            old_path = str(native["path"]).replace("\\", "/")
+                            native["path"] = f"{wrapper_name}/{old_path}"
+
+                    final_folder_names.append(wrapper_name)
+
             if (
                 not items_to_install
                 and not final_folder_names
