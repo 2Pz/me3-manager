@@ -1815,6 +1815,10 @@ class GamePage(QWidget):
         self._init_nexus_metadata()
         self.mod_list_handler.load_mods(reset_page)
         # Update banner after mods load to reflect current active profile settings
+        self.update_all_warning_banners()
+
+    def update_all_warning_banners(self):
+        """Updates all status banners that depend on the current mod state."""
         try:
             self.update_custom_savefile_warning()
             self.update_custom_settings_banner()

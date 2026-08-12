@@ -25,7 +25,12 @@ class ModActionHandler:
         self.mod_manager = game_page.mod_manager
 
     def _handle_result(
-        self, success: bool, message: str, error_title: str, delay_ms: int = 2000
+        self,
+        success: bool,
+        message: str,
+        error_title: str,
+        delay_ms: int = 2000,
+        full_reload: bool = True,
     ):
         """
         Common handler for mod operation results.
@@ -33,7 +38,10 @@ class ModActionHandler:
         """
         if success:
             self.game_page.status_label.setText(message)
-            self.game_page.load_mods(reset_page=False)
+            if full_reload:
+                self.game_page.load_mods(reset_page=False)
+            else:
+                self.game_page.mod_list_handler.refresh_mod_list()
             QTimer.singleShot(
                 delay_ms,
                 lambda: self.game_page.status_label.setText(tr("status_ready")),
@@ -54,13 +62,21 @@ class ModActionHandler:
 
         if is_group_toggle:
             success, message = self.mod_manager.set_container_enabled(
-                self.game_page.game_name, mod_path, enabled
+                self.game_page.game_name,
+                mod_path,
+                enabled,
+                cached_mods=self.game_page.mod_infos,
             )
         else:
             success, message = self.mod_manager.set_mod_enabled(
-                self.game_page.game_name, mod_path, enabled
+                self.game_page.game_name,
+                mod_path,
+                enabled,
+                cached_mods=self.game_page.mod_infos,
             )
-        self._handle_result(success, message, "toggle_mod_error_title")
+        self._handle_result(
+            success, message, "toggle_mod_error_title", full_reload=False
+        )
 
     def delete_mod(self, mod_path: str):
         """Deletes a mod after user confirmation."""

@@ -71,8 +71,6 @@ class NexusModDetailsSidebar(QWidget):
         if parent:
             parent.installEventFilter(self)
 
-    # ... (skipping unchanged methods) ...
-
     def populate_files(self, files: list[NexusModFile], selected_id: int | None = None):
         """Populate the file selection combobox."""
         self.file_combo.blockSignals(True)

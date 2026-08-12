@@ -532,8 +532,7 @@ class ImprovedModManager:
                 raw_path = package.get("path") or package.get("source")
                 if raw_path:
                     normalized_path = self._normalize_path(str(raw_path))
-                    if Path(normalized_path).is_absolute():
-                        enabled_status[normalized_path] = True
+                    enabled_status[normalized_path] = True
 
         # Special case: If a folder is NOT in packages but contains enabled natives,
         # it should be considered enabled for UI purposes (display as green).
@@ -686,7 +685,11 @@ class ImprovedModManager:
             self._write_improved_config(profile_path, config_data, game_name)
 
     def set_mod_enabled(
-        self, game_name: str, mod_path: str, enabled: bool
+        self,
+        game_name: str,
+        mod_path: str,
+        enabled: bool,
+        cached_mods: dict | None = None,
     ) -> tuple[bool, str]:
         """
         Set mod enabled status with improved logic.
@@ -698,34 +701,39 @@ class ImprovedModManager:
             config_data = self.config_manager._parse_toml_config(profile_path)
 
             if mod_path_obj.is_dir():
-                # IMPROVEMENT: If the folder is a "container" (native-only mod),
-                # toggling it should toggle its child DLLs instead of adding it to packages.
-                has_mod_content = self._analyze_folder_content(mod_path_obj)
+                # Check if it has any DLLs inside
+                has_dlls = any(
+                    f.suffix.lower() == ".dll" and f.name.lower() not in IGNORED_DLLS
+                    for f in mod_path_obj.rglob("*")
+                )
 
-                if not has_mod_content:
-                    # Native-only mod: toggle all contained DLLs
+                # ALWAYS toggle the package mod entry, even if it contains DLLs
+                # (A native-only mod can safely be added to 'packages', the game ignores it)
+                success, msg = self._set_package_enabled(
+                    config_data, str(mod_path_obj), enabled, game_name
+                )
+
+                if has_dlls:
+                    # Also toggle all contained DLLs
                     modified = False
                     try:
                         for dll in mod_path_obj.rglob("*.dll"):
+                            if dll.name.lower() in IGNORED_DLLS:
+                                continue
                             self._set_native_enabled(
                                 config_data, str(dll), enabled, game_name
                             )
+                            if cached_mods is not None and str(dll) in cached_mods:
+                                cached_mods[str(dll)].status = (
+                                    ModStatus.ENABLED if enabled else ModStatus.DISABLED
+                                )
                             modified = True
                     except (PermissionError, OSError):
                         pass
 
                     if modified:
-                        success, msg = (
-                            True,
-                            f"Toggled native mods in {mod_path_obj.name}",
-                        )
-                    else:
-                        success, msg = False, "No native mods found to toggle"
-                else:
-                    # Regular package mod: add/remove from packages
-                    success, msg = self._set_package_enabled(
-                        config_data, str(mod_path_obj), enabled, game_name
-                    )
+                        success = True
+                        msg = f"Toggled package and native mods in {mod_path_obj.name}"
             else:
                 # Handle DLL mod
                 success, msg = self._set_native_enabled(
@@ -734,6 +742,12 @@ class ImprovedModManager:
 
             if success:
                 self._write_improved_config(profile_path, config_data, game_name)
+
+                if cached_mods is not None and mod_path in cached_mods:
+                    cached_mods[mod_path].status = (
+                        ModStatus.ENABLED if enabled else ModStatus.DISABLED
+                    )
+
                 action = "enabled" if enabled else "disabled"
                 return True, f"Successfully {action} {mod_path_obj.name}"
             else:
@@ -924,7 +938,11 @@ class ImprovedModManager:
                 return True, "Package was already disabled"
 
     def set_container_enabled(
-        self, game_name: str, container_path: str, enabled: bool
+        self,
+        game_name: str,
+        container_path: str,
+        enabled: bool,
+        cached_mods: dict | None = None,
     ) -> tuple[bool, str]:
         """
         Enable/Disable a container (package) mod and all its children.
@@ -946,12 +964,15 @@ class ImprovedModManager:
             packages = config_data.get("packages", [])
 
             for pkg in packages:
-                if pkg.get("id") == mod_name or pkg.get("path") == normalized_path:
-                    container_entry = pkg
-                    break
+                if isinstance(pkg, dict):
+                    if pkg.get("id") == mod_name or pkg.get("path") == normalized_path:
+                        container_entry = pkg
+                        break
 
             # Get all mods to identify children
-            all_mods = self.get_all_mods(game_name)
+            all_mods = (
+                cached_mods if cached_mods is not None else self.get_all_mods(game_name)
+            )
             children = []
 
             for _path, mod_info in all_mods.items():
@@ -991,7 +1012,14 @@ class ImprovedModManager:
                             config_data, child.path, False, game_name
                         )
 
+                    if cached_mods is not None:
+                        child.status = ModStatus.DISABLED
+
                 self._write_improved_config(profile_path, config_data, game_name)
+
+                if cached_mods is not None and container_path in cached_mods:
+                    cached_mods[container_path].status = ModStatus.DISABLED
+
                 return True, f"Disabled container and {len(children)} children"
 
             else:
@@ -1026,6 +1054,13 @@ class ImprovedModManager:
                                 config_data, child.path, should_enable, game_name
                             )
 
+                        if cached_mods is not None:
+                            child.status = (
+                                ModStatus.ENABLED
+                                if should_enable
+                                else ModStatus.DISABLED
+                            )
+
                         if should_enable:
                             container_enabled_count += 1
                     msg = f"Restored container with {container_enabled_count} enabled mods"
@@ -1041,6 +1076,9 @@ class ImprovedModManager:
                             self._set_native_enabled(
                                 config_data, child.path, True, game_name
                             )
+
+                        if cached_mods is not None:
+                            child.status = ModStatus.ENABLED
                         container_enabled_count += 1
 
                     if not children:
@@ -1050,6 +1088,10 @@ class ImprovedModManager:
 
                 # Update config to save container enabled state
                 self._write_improved_config(profile_path, config_data, game_name)
+
+                if cached_mods is not None and container_path in cached_mods:
+                    cached_mods[container_path].status = ModStatus.ENABLED
+
                 return True, msg
 
         except Exception as e:
