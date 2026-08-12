@@ -107,6 +107,29 @@ class ModListHandler:
         self.apply_filters(reset_page=reset_page, source_mods=final_mods)
         gp.update_profile_dropdown()
 
+    def refresh_mod_list(self):
+        """Quickly syncs UI state without reading from disk, preserving visual stability."""
+        gp = self.game_page
+
+        from me3_manager.core.mod_manager import ModStatus
+
+        # 1. Sync all_mods_data with new status (which is already in gp.mod_infos)
+        for mod_path, info in gp.all_mods_data.items():
+            mod_info = gp.mod_infos.get(mod_path)
+            if mod_info:
+                info["enabled"] = mod_info.status == ModStatus.ENABLED
+
+        # 2. Update existing UI widgets directly to avoid layout rebuild/flicker
+        for mod_path, widget in gp.mod_widgets_map.items():
+            if mod_path in gp.mod_infos:
+                new_state = gp.mod_infos[mod_path].status == ModStatus.ENABLED
+                if widget.is_enabled != new_state:
+                    widget.is_enabled = new_state
+                    widget.update_toggle_button_ui()
+
+        # 3. Update warning banners that depend on enabled state (e.g. conflicts)
+        gp.update_all_warning_banners()
+
     def apply_filters(
         self, reset_page: bool = True, source_mods: dict[str, Any] | None = None
     ):
