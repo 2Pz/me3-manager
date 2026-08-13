@@ -3,6 +3,39 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.5.1
+**Released:** August 13, 2026
+
+
+### 🔧 Bug Fixes
+
+- Skip mod loader DLLs (ModEngine2, ME3) during mod scanning ([3b7719c](https://github.com/2Pz/me3-manager/commit/3b7719c695b2fadec472097826589bc35d7323f5))
+
+- Wrap native-only me3 profile mods in a folder during install ([309f10a](https://github.com/2Pz/me3-manager/commit/309f10adeab965c0b6b10595c4e87a9c3bea236a))
+
+- Ensure newest release appears in version selector `[me3_service]` ([04d4c41](https://github.com/2Pz/me3-manager/commit/04d4c41267999be72653394de8ad2b9596d6d3ea))
+
+
+
+### 🎨 User Interface
+
+- Improve terminal ANSI log rendering and formatting ([0c805b7](https://github.com/2Pz/me3-manager/commit/0c805b73660466ee83aa4153a01b6291ddba893f))
+
+
+
+### ⚡ Performance Improvements
+
+- Eliminate UI lag on mod toggle and fix nested mod state sync ([bbc666b](https://github.com/2Pz/me3-manager/commit/bbc666b3f3721b3888cc22448886a264c9eec8de))
+
+
+
+### 🧹 Maintenance
+
+- Bump project version to 1.5.1 ([e43dd01](https://github.com/2Pz/me3-manager/commit/e43dd01777da6ceca2cf86d4e2eb0c625edc6617))
+
+
+
+---
 ## 📦 Release 1.5.0
 **Released:** July 26, 2026
 
@@ -993,6 +1026,7 @@
 
 
 ---
+[1.5.1]: https://github.com/2Pz/me3-manager/compare/1.5.0..1.5.1
 [1.5.0]: https://github.com/2Pz/me3-manager/compare/1.4.9..1.5.0
 [1.4.9]: https://github.com/2Pz/me3-manager/compare/1.4.8..1.4.9
 [1.4.8]: https://github.com/2Pz/me3-manager/compare/1.4.7..1.4.8
