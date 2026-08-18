@@ -35,5 +35,5 @@ IGNORED_DLLS: set[str] = {
     "hooklibraryx64.dll",
     "minhook.x64.dll",
     "me3_mod_host.dll",
-    "libzstd.dll"
+    "libzstd.dll",
 }
