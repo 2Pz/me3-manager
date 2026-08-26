@@ -1140,7 +1140,7 @@ class ModInstaller:
                 and not (script_approved and install_script)
             ):
                 # Only cancel if truly nothing is happening (no folders register, no settings apply)
-                self.game_page.status_label.setText(tr("import_cancelled_status"))
+                self.game_page._update_status(tr("import_cancelled_status"))
                 return []
 
             # Stage and install
@@ -1209,7 +1209,7 @@ class ModInstaller:
                     parent=self.game_page,
                 )
                 if prompts_dialog.exec() != QDialog.DialogCode.Accepted:
-                    self.game_page.status_label.setText(tr("import_cancelled_status"))
+                    self.game_page._update_status(tr("import_cancelled_status"))
                     return []
 
                 user_values = prompts_dialog.get_values_by_config()

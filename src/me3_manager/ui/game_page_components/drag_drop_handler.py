@@ -10,7 +10,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QTimer
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QInputDialog
 
@@ -180,9 +179,6 @@ class DragDropHandler:
 
         if installed_any:
             self.game_page.load_mods(reset_page=False)
-            QTimer.singleShot(
-                3000, lambda: self.game_page.status_label.setText(tr("status_ready"))
-            )
 
     def _save_nexus_metadata_for_installed(
         self,

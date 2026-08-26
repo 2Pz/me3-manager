@@ -6,7 +6,7 @@ changing the number of items per page, and redrawing the list of visible mods.
 """
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from me3_manager.utils.translator import tr
 
@@ -38,6 +38,42 @@ class PaginationHandler:
         if self.game_page.current_page < self.game_page.total_pages:
             self.game_page.current_page += 1
             self.update_pagination()
+
+    def update_status_label(self, grouped_mods_all: dict[str, Any] | None = None):
+        """Updates the status label with the current count of showing/total/enabled mods."""
+        gp = self.game_page
+        if not hasattr(gp, "status_label"):
+            return
+
+        if grouped_mods_all is None:
+            grouped_mods_all = gp._group_mods_for_tree_display(
+                list(gp.filtered_mods.items())
+            )
+
+        group_keys = list(grouped_mods_all.keys())
+        total_mods_filtered = len(group_keys)
+        enabled_mods_filtered = sum(
+            1
+            for group_data in grouped_mods_all.values()
+            if (
+                group_data["parent"]["enabled"]
+                if group_data.get("type") == "parent_with_children"
+                else group_data.get("info", {}).get("enabled", False)
+            )
+        )
+        start_idx = (gp.current_page - 1) * gp.mods_per_page
+        end_idx = start_idx + gp.mods_per_page
+        showing_start = start_idx + 1 if total_mods_filtered > 0 else 0
+        showing_end = min(end_idx, total_mods_filtered)
+        gp.status_label.setText(
+            tr(
+                "showing_mods_status",
+                start=showing_start,
+                end=showing_end,
+                total=total_mods_filtered,
+                enabled=enabled_mods_filtered,
+            )
+        )
 
     def update_pagination(self):
         """
@@ -125,18 +161,4 @@ class PaginationHandler:
         gp.mods_layout.addStretch()
 
         # Update status label
-        total_mods_filtered = len(gp.filtered_mods)
-        enabled_mods_filtered = sum(
-            1 for info in gp.filtered_mods.values() if info["enabled"]
-        )
-        showing_start = start_idx + 1 if total_mods_filtered > 0 else 0
-        showing_end = min(end_idx, total_mods_filtered)
-        gp.status_label.setText(
-            tr(
-                "showing_mods_status",
-                start=showing_start,
-                end=showing_end,
-                total=total_mods_filtered,
-                enabled=enabled_mods_filtered,
-            )
-        )
+        self.update_status_label(grouped_mods_all)

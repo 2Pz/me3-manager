@@ -8,7 +8,6 @@ enabling/disabling, deleting, and adding external mods.
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from me3_manager.utils.translator import tr
@@ -29,23 +28,18 @@ class ModActionHandler:
         success: bool,
         message: str,
         error_title: str,
-        delay_ms: int = 2000,
         full_reload: bool = True,
     ):
         """
         Common handler for mod operation results.
-        Shows status message on success, warning dialog on failure.
+        Shows warning dialog on failure.
         """
         if success:
-            self.game_page.status_label.setText(message)
             if full_reload:
                 self.game_page.load_mods(reset_page=False)
             else:
                 self.game_page.mod_list_handler.refresh_mod_list()
-            QTimer.singleShot(
-                delay_ms,
-                lambda: self.game_page.status_label.setText(tr("status_ready")),
-            )
+                self.game_page.pagination_handler.update_status_label()
         else:
             QMessageBox.warning(self.game_page, tr(error_title), message)
 
@@ -106,7 +100,7 @@ class ModActionHandler:
             success, message = self.mod_manager.add_external_mod(
                 self.game_page.game_name, file_name
             )
-            self._handle_result(success, message, "add_external_mod_error_title", 3000)
+            self._handle_result(success, message, "add_external_mod_error_title")
 
     def add_external_package_mod(self):
         """Opens a folder dialog to add a new external package mod."""
@@ -120,4 +114,4 @@ class ModActionHandler:
             success, message = self.mod_manager.add_external_mod(
                 self.game_page.game_name, folder_path
             )
-            self._handle_result(success, message, "add_external_mod_error_title", 3000)
+            self._handle_result(success, message, "add_external_mod_error_title")

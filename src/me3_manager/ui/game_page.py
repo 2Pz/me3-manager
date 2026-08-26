@@ -206,9 +206,12 @@ class GamePage(QWidget):
     def _safe_disconnect(signal) -> None:
         """Disconnect all slots from a Qt signal without raising warnings/errors."""
         try:
-            # Directly disconnect all slots from the signal
-            # In PySide6, disconnect() with no args disconnects all slots
-            signal.disconnect()
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                # In PySide6, disconnect() with no args disconnects all slots
+                signal.disconnect()
         except (TypeError, RuntimeError, AttributeError):
             # AttributeError: signal may already be None or not have disconnect()
             # RuntimeError: signal may already be disconnected or has no slots
@@ -305,6 +308,7 @@ class GamePage(QWidget):
         self._safe_disconnect(sidebar.check_update_clicked)
         self._safe_disconnect(sidebar.close_clicked)
         self._safe_disconnect(sidebar.mod_root_changed)
+        self._safe_disconnect(sidebar.file_selected)
         self._safe_disconnect(sidebar.hidden)
 
         sidebar.link_clicked.connect(self.link_selected_nexus_mod)
@@ -2328,7 +2332,7 @@ class GamePage(QWidget):
             return True
         return False
 
-    def _update_status(self, message: str):
+    def _update_status(self, message: str, delay_ms: int = 3000):
         """Updates the status label with a message that fades after a delay."""
         self.status_label.setText(message)
-        QTimer.singleShot(3000, lambda: self.status_label.setText(tr("status_ready")))
+        QTimer.singleShot(delay_ms, self.pagination_handler.update_status_label)

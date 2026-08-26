@@ -399,6 +399,6 @@ class UiBuilder:
 
     def _create_status_section(self):
         """Create the status bar."""
-        self.game_page.status_label = QLabel(tr("status_ready"))
+        self.game_page.status_label = QLabel("")
         self.game_page.status_label.setStyleSheet("color: #888888; font-size: 11px;")
         self.game_page.main_layout.addWidget(self.game_page.status_label)

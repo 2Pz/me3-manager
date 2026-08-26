@@ -192,32 +192,44 @@ class StyleUtils:
         )
 
     @staticmethod
-    def get_combobox_style() -> str:
-        """Get combobox stylesheet"""
-        return (
-            StyleUtils._get_input_widget_style("QComboBox")
-            + """
-            QComboBox::drop-down {
+    def _get_combobox_arrow_and_popup_style(
+        arrow_color: str = "#ffffff",
+        view_bg: str = "#3d3d3d",
+        view_border: str = "#4d4d4d",
+        arrow_size: int = 5,
+        margin_right: int = 5,
+    ) -> str:
+        """Helper to generate QComboBox dropdown arrow and view styling."""
+        return f"""
+            QComboBox::drop-down {{
                 border: none;
                 width: 20px;
-            }
-            QComboBox::down-arrow {
+            }}
+            QComboBox::down-arrow {{
                 image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #ffffff;
-                margin-right: 5px;
-            }
-            QComboBox::down-arrow:disabled {
+                border-left: {arrow_size}px solid transparent;
+                border-right: {arrow_size}px solid transparent;
+                border-top: {arrow_size}px solid {arrow_color};
+                margin-right: {margin_right}px;
+            }}
+            QComboBox::down-arrow:disabled {{
                 border-top-color: #666666;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #3d3d3d;
-                border: 2px solid #4d4d4d;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {view_bg};
+                border: 1px solid {view_border};
                 selection-background-color: #0078d4;
                 color: #ffffff;
-            }
+            }}
         """
+
+    @staticmethod
+    def get_combobox_style() -> str:
+        """Get combobox stylesheet"""
+        return StyleUtils._get_input_widget_style(
+            "QComboBox"
+        ) + StyleUtils._get_combobox_arrow_and_popup_style(
+            arrow_color="#ffffff", view_bg="#3d3d3d", view_border="#4d4d4d"
         )
 
     @staticmethod
@@ -233,6 +245,19 @@ class StyleUtils:
                 font-size: {font_size};
             }}
         """
+
+    @staticmethod
+    def get_dark_compact_combobox_style(font_size: str = "11px") -> str:
+        """Get dark compact combobox stylesheet with dropdown arrow."""
+        return StyleUtils.get_dark_compact_widget_style(
+            "QComboBox", font_size
+        ) + StyleUtils._get_combobox_arrow_and_popup_style(
+            arrow_color="#888888",
+            view_bg="#2d2d2d",
+            view_border="#3d3d3d",
+            arrow_size=4,
+            margin_right=6,
+        )
 
     @staticmethod
     def setup_standard_dialog_layout(
