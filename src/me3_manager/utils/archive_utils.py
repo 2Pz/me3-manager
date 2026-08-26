@@ -9,6 +9,7 @@ falling back to patoolib for robustness.
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import shutil
 import subprocess
@@ -162,16 +163,19 @@ def _extract_with_7zip(
         # -o{dir}: output directory (no space after -o)
         cmd = [exe, "x", "-y", f"-o{dest_dir}", str(archive)]
 
+        kwargs = {}
         if platform.system() == "Windows":
-            creation_flags = subprocess.CREATE_NO_WINDOW
-        else:
-            creation_flags = 0
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+        # Fix PyInstaller subprocess LD_LIBRARY_PATH crash:
+        # https://pyinstaller.org/en/stable/runtime-information.html#ld-library-path-libpath-considerations
+        env = os.environ.copy()
+        env.pop("LD_LIBRARY_PATH", None)
+        if "LD_LIBRARY_PATH_ORIG" in env:
+            env["LD_LIBRARY_PATH"] = env["LD_LIBRARY_PATH_ORIG"]
 
         proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            creationflags=creation_flags,
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=env, **kwargs
         )
 
         if cancel_check:
@@ -212,5 +216,18 @@ def _extract_with_patool(
 
     # patool requires string paths
     # verbosity=-1 silences standard output
-    patoolib.extract_archive(str(archive), outdir=str(dest_dir), verbosity=-1)
+
+    # Fix PyInstaller subprocess LD_LIBRARY_PATH crash:
+    # https://pyinstaller.org/en/stable/runtime-information.html#ld-library-path-libpath-considerations
+    original_env = dict(os.environ)
+    try:
+        os.environ.pop("LD_LIBRARY_PATH", None)
+        if "LD_LIBRARY_PATH_ORIG" in original_env:
+            os.environ["LD_LIBRARY_PATH"] = original_env["LD_LIBRARY_PATH_ORIG"]
+
+        patoolib.extract_archive(str(archive), outdir=str(dest_dir), verbosity=-1)
+    finally:
+        os.environ.clear()
+        os.environ.update(original_env)
+
     return True
