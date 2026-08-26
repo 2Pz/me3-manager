@@ -38,11 +38,7 @@ class DialogHandler(GamePageComponent):
             self.game_name, self.config_manager, self.game_page
         )
         if editor_dialog.exec() == QDialog.DialogCode.Accepted:
-            self.game_page.status_label.setText(
-                tr("profile_saved_status", game_name=self.game_name)
-            )
             self.game_page.load_mods()
-            self.game_page._update_status(tr("status_ready"))
 
     def open_config_editor(self, mod_path: str):
         """Opens the config file editor for a specific mod."""
@@ -135,11 +131,7 @@ class DialogHandler(GamePageComponent):
                 self.game_name, self.config_manager, self.game_page
             )
             if dialog.exec() == QDialog.DialogCode.Accepted:
-                self.game_page.status_label.setText(
-                    tr("profile_settings_saved_status", game_name=self.game_name)
-                )
                 self.game_page.load_mods(reset_page=False)
-                self.game_page._update_status(tr("status_ready"))
                 self.game_page.update_custom_settings_banner()
                 # Refresh banner state
                 try:

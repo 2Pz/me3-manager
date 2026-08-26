@@ -485,27 +485,7 @@ class NexusModDetailsSidebar(QWidget):
         self.file_combo = QComboBox()
         self.file_combo.setToolTip(tr("nexus_file_tooltip"))
         self.file_combo.setStyleSheet(
-            StyleUtils.get_dark_compact_widget_style("QComboBox", "11px")
-            + """
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 2px solid #888888;
-                border-bottom: 2px solid #888888;
-                width: 6px;
-                height: 6px;
-                margin-right: 8px;
-                transform: rotate(-45deg);
-            }
-            QComboBox QAbstractItemView {
-                background-color: #2d2d2d;
-                border: 1px solid #3d3d3d;
-                selection-background-color: #0078d4;
-                color: #ffffff;
-            }
-        """
+            StyleUtils.get_dark_compact_combobox_style("11px")
         )
         self.file_combo.currentIndexChanged.connect(self._on_file_combo_changed)
         folder_layout.addWidget(self.file_combo)
