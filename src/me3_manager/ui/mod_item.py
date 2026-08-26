@@ -291,7 +291,6 @@ class ModItem(QWidget):
         left_layout.addWidget(name_label)
 
         # Update available badge (only for main mods)
-        # Update available badge (only for main mods)
         if not self.is_nested:
             self.update_label = QLabel()
             self.update_label.setStyleSheet(
@@ -299,7 +298,6 @@ class ModItem(QWidget):
             )
             self.update_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
             left_layout.addWidget(self.update_label)
-
             # Use setter to handle visibility/text to avoid duplication
             self.set_update_available(self.update_available_version)
 
