@@ -25,6 +25,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from me3_manager.core.conflict_scanner import (
+    ConflictScannerService,
+    ConflictScanResult,
+)
 from me3_manager.core.mod_manager import ImprovedModManager
 from me3_manager.core.nexus_metadata import NexusMetadataManager
 from me3_manager.services.community_service import CommunityService
@@ -174,6 +178,8 @@ class GamePage(QWidget):
         # Nexus integration
         self.nexus_service = NexusService(self.config_manager.get_nexus_api_key())
         self.community_service = CommunityService()
+        self.conflict_scanner = ConflictScannerService()
+        self.last_conflict_result: ConflictScanResult | None = None
         self._thumb_cache: dict[str, QPixmap] = {}
         self._init_nexus_metadata()
 
@@ -1825,7 +1831,7 @@ class GamePage(QWidget):
         except Exception:
             pass
         try:
-            self.update_multiple_regulation_warning()
+            self.update_conflict_warning()
         except Exception:
             pass
 
@@ -2091,6 +2097,7 @@ class GamePage(QWidget):
 
         if hasattr(self, "banner_container_layout"):
             priorities = {
+                "conflicts": 0,
                 "multiple_reg": 0,
                 "custom_savefile": 1,
                 "custom_settings": 2,
@@ -2249,27 +2256,53 @@ class GamePage(QWidget):
         else:
             self.hide_banner("custom_savefile")
 
-    def update_multiple_regulation_warning(self):
-        """Show banner if multiple enabled mods provide a regulation.bin file."""
+    def show_conflict_inspector_dialog(self):
+        """Show the conflict inspector dialog."""
+        from me3_manager.ui.dialogs.conflict_inspector_dialog import (
+            ConflictInspectorDialog,
+        )
+
+        dialog = ConflictInspectorDialog(
+            game_name=self.game_name,
+            config_manager=self.config_manager,
+            mod_infos=self.mod_infos,
+            parent=self,
+        )
+        dialog.exec()
+        self.update_all_warning_banners()
+
+    def update_conflict_warning(self):
+        """Scans for mod file conflicts and displays warning banner & badges."""
         try:
-            mods_data = getattr(self, "all_mods_data", {}) or {}
-            enabled_reg_mods_count = 0
+            scan_result = self.conflict_scanner.scan_game_profile(
+                self.game_name, self.config_manager, self.mod_infos
+            )
+            self.last_conflict_result = scan_result
 
-            for mod_path, info in mods_data.items():
-                is_enabled = info.get("enabled", False)
-                if is_enabled:
-                    p = Path(mod_path)
-                    if p.is_dir() and (p / "regulation.bin").exists():
-                        enabled_reg_mods_count += 1
-
-            if enabled_reg_mods_count > 1:
-                self.show_banner(
-                    "multiple_reg", "error", tr("gamepage_multiple_reg_warning")
+            if scan_result.has_conflicts:
+                has_reg = bool(
+                    scan_result.conflicts_by_category.get("regulation.bin")
+                    or scan_result.conflicts_by_category.get("regulation")
                 )
-            else:
+                level = "error" if has_reg else "warning"
+                msg = tr(
+                    "conflict_banner_msg",
+                    count=scan_result.total_conflicts,
+                )
+                self.show_banner(
+                    "conflicts",
+                    level,
+                    msg,
+                    action_text=tr("conflict_banner_inspect_btn"),
+                    action_callback=self.show_conflict_inspector_dialog,
+                )
                 self.hide_banner("multiple_reg")
-        except Exception:
-            self.hide_banner("multiple_reg")
+            else:
+                self.hide_banner("conflicts")
+                self.hide_banner("multiple_reg")
+        except Exception as e:
+            log.debug("Error in update_conflict_warning: %s", e)
+            self.hide_banner("conflicts")
 
     def _get_filter_definitions(self) -> dict[str, tuple]:
         """Provides filter button text and tooltips to the UI builder."""
