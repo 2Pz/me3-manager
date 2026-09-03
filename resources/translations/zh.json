@@ -548,8 +548,6 @@
   "conflict_cat_all": "全部 ({count})",
   "conflict_open_folder_btn": "在文件管理器中打开",
   "conflict_no_conflicts_title": "未检测到冲突",
-  "conflict_no_conflicts_desc": "所有已启用的模组文件均无重叠冲突！",
-  "conflict_rescan_btn": "重新扫描",
   "conflicting_mods": "冲突模组",
   "category": "类别",
   "file": "文件"

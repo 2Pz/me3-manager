@@ -113,11 +113,6 @@ class ConflictInspectorDialog(QDialog):
 
         header_layout.addLayout(title_col, 1)
 
-        self.rescan_btn = QPushButton(f"🔄 {tr('conflict_rescan_btn')}")
-        self.rescan_btn.setStyleSheet(StyleUtils.get_button_style())
-        self.rescan_btn.clicked.connect(self.run_scan)
-        header_layout.addWidget(self.rescan_btn)
-
         main_layout.addWidget(header_widget)
 
         # 2. Search Filter
@@ -209,15 +204,6 @@ class ConflictInspectorDialog(QDialog):
         """)
         main_layout.addWidget(self.table, 1)
 
-        # 5. Empty State Label
-        self.empty_label = QLabel()
-        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setStyleSheet(
-            "color: #888888; font-size: 14px; padding: 40px;"
-        )
-        self.empty_label.setVisible(False)
-        main_layout.addWidget(self.empty_label)
-
         # 6. Bottom Bar
         bottom_bar = QHBoxLayout()
         self.summary_label = QLabel("")
@@ -242,9 +228,10 @@ class ConflictInspectorDialog(QDialog):
 
     def update_category_buttons(self):
         """Build category filter buttons dynamically based on scan results."""
-        for btn in self.cat_buttons.values():
-            self.category_bar.removeWidget(btn)
-            btn.deleteLater()
+        while self.category_bar.count():
+            item = self.category_bar.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
         self.cat_buttons.clear()
 
         if not self.scan_result or not self.scan_result.has_conflicts:
@@ -365,14 +352,9 @@ class ConflictInspectorDialog(QDialog):
 
         if not self.scan_result or not self.scan_result.has_conflicts:
             self.table.setVisible(False)
-            self.empty_label.setText(
-                f"✅ {tr('conflict_no_conflicts_title')}\n\n{tr('conflict_no_conflicts_desc')}"
-            )
-            self.empty_label.setVisible(True)
             self.summary_label.setText(tr("conflict_no_conflicts_title"))
             return
 
-        self.empty_label.setVisible(False)
         self.table.setVisible(True)
 
         if self.current_category == "all":
