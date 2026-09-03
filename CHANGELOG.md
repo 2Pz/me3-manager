@@ -3,6 +3,39 @@
 > A comprehensive changelog for the Mod Engine 3 Manager application.
 > All notable changes to this project are documented here.
 
+## 📦 Release 1.5.2
+**Released:** September 03, 2026
+
+
+### ✨ New Features
+
+- Add file-level mod conflict scanner and inspector dialog `[core,ui]` ([a60792c](https://github.com/2Pz/me3-manager/commit/a60792cb3dbcfdd13b1559443ac107164684bb3a))
+
+
+
+### 🔧 Bug Fixes
+
+- Support Nexus premium space-separated filename format ([2a12b21](https://github.com/2Pz/me3-manager/commit/2a12b212e76d78f67e39c076549082bec1df5ba2))
+
+- Resolve 7z archive extraction crash on Linux AppImage ([f52e62a](https://github.com/2Pz/me3-manager/commit/f52e62aed4400763b0872680a92752ac25b8b70c))
+
+- Accurate mod counting in pagination and status bar persistence `[ui]` ([c31370c](https://github.com/2Pz/me3-manager/commit/c31370c3fb1980d03fec8934237cc05e0e014ab0))
+
+
+
+### 🎨 User Interface
+
+- Remove redundant rescan button and empty state handling ([0a914fc](https://github.com/2Pz/me3-manager/commit/0a914fc835291ebde9933a316fef810cd55884ce))
+
+
+
+### 🧹 Maintenance
+
+- Bump project version to 1.5.2 ([bb63ff3](https://github.com/2Pz/me3-manager/commit/bb63ff3679d1eb96c9834e41366ffc3d6029afc3))
+
+
+
+---
 ## 📦 Release 1.5.1
 **Released:** August 13, 2026
 
@@ -1026,6 +1059,7 @@
 
 
 ---
+[1.5.2]: https://github.com/2Pz/me3-manager/compare/1.5.1..1.5.2
 [1.5.1]: https://github.com/2Pz/me3-manager/compare/1.5.0..1.5.1
 [1.5.0]: https://github.com/2Pz/me3-manager/compare/1.4.9..1.5.0
 [1.4.9]: https://github.com/2Pz/me3-manager/compare/1.4.8..1.4.9
