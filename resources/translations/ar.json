@@ -548,8 +548,6 @@
   "conflict_cat_all": "الكل ({count})",
   "conflict_open_folder_btn": "إظهار في مستعرض الملفات",
   "conflict_no_conflicts_title": "لم يتم اكتشاف أي تعارضات",
-  "conflict_no_conflicts_desc": "جميع المودات المفعّلة تحتوي على ملفات فريدة بدون أي تداخل!",
-  "conflict_rescan_btn": "إعادة الفحص",
   "conflicting_mods": "المودات المتعارضة",
   "category": "الفئة",
   "file": "الملف"

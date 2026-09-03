@@ -548,8 +548,6 @@
   "conflict_cat_all": "All ({count})",
   "conflict_open_folder_btn": "Show in File Manager",
   "conflict_no_conflicts_title": "No Conflicts Detected",
-  "conflict_no_conflicts_desc": "All enabled mods provide unique files. No collisions found!",
-  "conflict_rescan_btn": "Rescan",
   "conflicting_mods": "Conflicting Mods",
   "category": "Category",
   "file": "File"
