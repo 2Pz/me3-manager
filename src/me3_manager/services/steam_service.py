@@ -109,12 +109,11 @@ class SteamService:
 
             # Non-Windows: build candidate commands
             candidates: list[list[str]] = []
-            if steam_path and steam_path.exists():
-                candidates.append([str(steam_path), "-silent"])  # explicit path
-            candidates.append(["steam", "-silent"])  # PATH
-            candidates.append(
-                ["flatpak", "run", "com.valvesoftware.Steam", "-silent"]
-            )  # Flatpak
+            candidates.append(["steam", "-silent"]) # Steam at PATH first
+            if steam_path and steam_path.is_file():
+                candidates.append([str(steam_path), "-silent"])
+            
+            
 
             for cmd in candidates:
                 try:
